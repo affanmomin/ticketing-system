@@ -1,19 +1,25 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText } from 'lucide-react';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { FileText } from "lucide-react";
 
 export function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    navigate("/dashboard");
   };
 
   return (
@@ -60,7 +66,9 @@ export function Login() {
           </form>
 
           <div className="mt-6 p-4 rounded-lg bg-muted/50 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground">Demo Accounts:</p>
+            <p className="text-xs font-semibold text-muted-foreground">
+              Demo Accounts:
+            </p>
             <div className="text-xs text-muted-foreground space-y-1">
               <p>Admin: admin@example.com / password</p>
               <p>Employee: employee@example.com / password</p>

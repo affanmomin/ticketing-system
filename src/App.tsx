@@ -1,29 +1,18 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { Layout } from './components/Layout';
-import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
-import { Tickets } from './pages/Tickets';
-import { Projects } from './pages/Projects';
-import { Settings } from './pages/Settings';
-import { Toaster } from './components/ui/sonner';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { Layout } from "./components/Layout";
+import { Login } from "./pages/Login";
+import { Dashboard } from "./pages/Dashboard";
+import { Tickets } from "./pages/Tickets";
+import { Projects } from "./pages/Projects";
+import { Settings } from "./pages/Settings";
+import { Tags } from "./pages/Tags";
+import { Clients } from "./pages/Clients";
+import { Users } from "./pages/Users";
+import { Toaster } from "./components/ui/sonner";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
   return <>{children}</>;
 }
 
@@ -58,6 +47,9 @@ function AppRoutes() {
         <Route path="tickets" element={<Tickets />} />
         <Route path="projects" element={<Projects />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="tags" element={<Tags />} />
+        <Route path="clients" element={<Clients />} />
+        <Route path="users" element={<Users />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

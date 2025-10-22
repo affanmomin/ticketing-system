@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { User } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
 
-type UserRole = 'admin' | 'employee' | 'client';
+type UserRole = "admin" | "employee" | "client";
 
 interface UserProfile {
   id: string;
@@ -17,7 +17,12 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    role: UserRole
+  ) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -28,12 +33,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // DEV: Allow hardcoding a role so UI can be previewed without auth
+  // - Default role: 'admin'
+  // - Override by setting localStorage.setItem('devRole', 'admin'|'employee'|'client')
+  const getDevRole = (): UserRole => {
+    try {
+      const v =
+        typeof window !== "undefined"
+          ? (window.localStorage.getItem("devRole") as UserRole | null)
+          : null;
+      if (v === "admin" || v === "employee" || v === "client") return v;
+    } catch {}
+    return "admin";
+  };
+
+  const setDevProfile = () => {
+    const devRole = getDevRole();
+    setProfile({
+      id: "dev-user",
+      email: "dev@example.com",
+      full_name: `${devRole.charAt(0).toUpperCase() + devRole.slice(1)} User`,
+      avatar_url: null,
+      role: devRole,
+    });
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       (async () => {
         setUser(session?.user ?? null);
         if (session?.user) {
           await fetchProfile(session.user.id);
+        } else {
+          // DEV fallback when there's no session
+          setDevProfile();
         }
         setLoading(false);
       })();
@@ -47,7 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           await fetchProfile(session.user.id);
         } else {
-          setProfile(null);
+          // DEV fallback on sign-out or when no session is present
+          setDevProfile();
         }
       })();
     });
@@ -57,13 +91,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
+      .from("users")
+      .select("*")
+      .eq("id", userId)
       .maybeSingle();
 
     if (error) {
-      console.error('Error fetching profile:', error);
+      console.error("Error fetching profile:", error);
       return;
     }
 
@@ -81,7 +115,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: UserRole) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName: string,
+    role: UserRole
+  ) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -90,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
 
     if (data.user) {
-      const { error: profileError } = await supabase.from('users').insert({
+      const { error: profileError } = await supabase.from("users").insert({
         id: data.user.id,
         email,
         full_name: fullName,
@@ -125,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
