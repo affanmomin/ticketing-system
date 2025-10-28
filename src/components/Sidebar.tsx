@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -8,8 +9,6 @@ import {
   Users,
   Settings,
   Building2,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserAvatar } from "./UserAvatar";
@@ -19,7 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
+// Button removed (hover only behavior)
 
 interface NavItem {
   title: string;
@@ -69,43 +68,51 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function Sidebar({
-  collapsed = false,
-  onToggle,
-}: {
-  collapsed?: boolean;
-  onToggle?: () => void;
-}) {
+export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const location = useLocation();
   const { profile } = useAuth();
+  const [hoverOpen, setHoverOpen] = useState(false);
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
     return profile?.role && item.roles.includes(profile.role);
   });
 
-  const asideWidth = collapsed ? "w-16" : "w-64";
+  // Render-time collapsed state: expand on hover when initially collapsed
+  const renderCollapsed = collapsed && !hoverOpen;
+  const asideWidth = renderCollapsed ? "w-16" : "w-64";
 
   return (
     <aside
       className={cn(
         asideWidth,
-        "bg-card border-r border-border flex flex-col h-screen shrink-0"
+        "relative bg-card border-r border-border flex flex-col h-screen shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out"
       )}
       aria-label="Sidebar"
+      onMouseEnter={() => {
+        if (collapsed) setHoverOpen(true);
+      }}
+      onMouseLeave={() => {
+        if (collapsed) setHoverOpen(false);
+      }}
     >
-      <div className={cn("border-b border-border", collapsed ? "p-3" : "p-4")}>
+      <div
+        className={cn(
+          "border-b border-border",
+          renderCollapsed ? "p-3" : "p-4"
+        )}
+      >
         <div
           className={cn(
             "flex items-center",
-            collapsed ? "justify-center gap-0" : "justify-between gap-2"
+            renderCollapsed ? "justify-center gap-0" : "justify-between gap-2"
           )}
         >
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <FileText className="w-5 h-5 text-primary-foreground" />
             </div>
-            {!collapsed && (
+            {!renderCollapsed && (
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
                   Ticketly
@@ -116,27 +123,13 @@ export function Sidebar({
               </div>
             )}
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={onToggle}
-            className="hidden md:inline-flex"
-          >
-            {collapsed ? (
-              <ChevronRight className="w-5 h-5" />
-            ) : (
-              <ChevronLeft className="w-5 h-5" />
-            )}
-          </Button>
         </div>
       </div>
 
       <nav
         className={cn(
           "flex-1 space-y-1 overflow-y-auto",
-          collapsed ? "p-2" : "p-3"
+          renderCollapsed ? "p-2" : "p-3"
         )}
       >
         <TooltipProvider>
@@ -152,7 +145,9 @@ export function Sidebar({
                     to={item.href}
                     className={cn(
                       "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
-                      collapsed ? "px-2 py-2 justify-center" : "px-3 py-2",
+                      renderCollapsed
+                        ? "px-2 py-2 justify-center"
+                        : "px-3 py-2",
                       isActive
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
@@ -161,13 +156,13 @@ export function Sidebar({
                     <span className="text-muted-foreground group-hover:text-foreground">
                       {item.icon}
                     </span>
-                    {!collapsed && <span>{item.title}</span>}
-                    {isActive && !collapsed && (
+                    {!renderCollapsed && <span>{item.title}</span>}
+                    {isActive && !renderCollapsed && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-primary" />
                     )}
                   </Link>
                 </TooltipTrigger>
-                {collapsed && (
+                {renderCollapsed && (
                   <TooltipContent side="right" align="center">
                     {item.title}
                   </TooltipContent>
@@ -187,7 +182,7 @@ export function Sidebar({
               role={profile.role}
               showTooltip={false}
             />
-            {!collapsed && (
+            {!renderCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
                   {profile.full_name}
@@ -200,6 +195,8 @@ export function Sidebar({
           </div>
         </div>
       )}
+
+      {/* Hover-only behavior: no explicit toggle button */}
     </aside>
   );
 }

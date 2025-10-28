@@ -1,0 +1,69 @@
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+
+export function ClientForm() {
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
+  const [active, setActive] = useState(true);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold">Client</h2>
+        <p className="text-sm text-muted-foreground">Create or edit client</p>
+      </div>
+
+      <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>
+            Client name{" "}
+            <span aria-hidden className="text-red-400">
+              *
+            </span>
+          </Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            aria-required="true"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Domain</Label>
+          <Input
+            placeholder="acme.com"
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional domain for client
+          </p>
+        </div>
+
+        <div className="md:col-span-2 flex items-center justify-between">
+          <div>
+            <Label>Active</Label>
+            <p className="text-xs text-muted-foreground">
+              Toggle client active status
+            </p>
+          </div>
+          <Switch
+            checked={active}
+            onCheckedChange={(v) => setActive(Boolean(v))}
+            aria-label="Active"
+          />
+        </div>
+      </form>
+
+      <div className="flex gap-2 justify-end">
+        <Button variant="ghost">Cancel</Button>
+        <Button>Save</Button>
+      </div>
+    </div>
+  );
+}
+
+export default ClientForm;

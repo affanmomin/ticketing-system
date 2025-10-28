@@ -1,4 +1,4 @@
-import { Menu, PanelLeft, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -6,15 +6,10 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface TopbarProps {
   title?: string;
-  onToggleSidebar?: () => void;
   onOpenMobileMenu?: () => void;
 }
 
-export function Topbar({
-  title = "Dashboard",
-  onToggleSidebar,
-  onOpenMobileMenu,
-}: TopbarProps) {
+export function Topbar({ title = "Dashboard", onOpenMobileMenu }: TopbarProps) {
   const { signOut } = useAuth();
 
   return (
@@ -29,15 +24,6 @@ export function Topbar({
             onClick={onOpenMobileMenu}
           >
             <Menu className="w-5 h-5" />
-          </Button>
-          {/* Desktop collapse toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hidden md:inline-flex"
-            onClick={onToggleSidebar}
-          >
-            <PanelLeft className="w-5 h-5" />
           </Button>
           <h2 className="text-lg font-semibold text-foreground tracking-tight">
             {title}

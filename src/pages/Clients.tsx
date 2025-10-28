@@ -2,11 +2,9 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -14,6 +12,7 @@ import {
 import { Building2, Plus, Search, Mail } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { PageHeader } from "@/components/PageHeader";
+import ClientForm from "@/components/forms/ClientForm";
 
 type Client = {
   id: string;
@@ -61,12 +60,9 @@ const initialClients: Client[] = [
 ];
 
 export function Clients() {
-  const [clients, setClients] = useState<Client[]>(initialClients);
+  const [clients] = useState<Client[]>(initialClients);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [email, setEmail] = useState("");
 
   const filtered = useMemo(() => {
     if (!query) return clients;
@@ -79,24 +75,7 @@ export function Clients() {
     );
   }, [clients, query]);
 
-  const addClient = () => {
-    if (!name.trim() || !email.trim() || !company.trim()) return;
-    setClients((prev) => [
-      {
-        id: Math.random().toString(36).slice(2),
-        name,
-        company,
-        email,
-        projects: 0,
-        openTickets: 0,
-      },
-      ...prev,
-    ]);
-    setOpen(false);
-    setName("");
-    setCompany("");
-    setEmail("");
-  };
+  // Creation handled by ClientForm (static UI)
 
   return (
     <div className="space-y-6">
@@ -115,42 +94,7 @@ export function Clients() {
               <DialogHeader>
                 <DialogTitle>Create Client</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="client-name">Client Name</Label>
-                  <Input
-                    id="client-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Acme Corp"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="client-company">Company</Label>
-                  <Input
-                    id="client-company"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    placeholder="e.g. Acme Corp"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="client-email">Email</Label>
-                  <Input
-                    id="client-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="owner@company.com"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={addClient}>Create</Button>
-              </DialogFooter>
+              <ClientForm />
             </DialogContent>
           </Dialog>
         }

@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -10,18 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Users as UsersIcon, Plus, Search } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/PageHeader";
+import { InviteUserForm } from "@/components/forms/InviteUserForm";
 
 type Role = "admin" | "employee" | "client";
 type UserRow = {
@@ -68,9 +61,6 @@ export function Users() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>("employee");
 
   const filtered = useMemo(() => {
     let data = users;
@@ -85,23 +75,7 @@ export function Users() {
     return data;
   }, [users, query, roleFilter]);
 
-  const addUser = () => {
-    if (!name.trim() || !email.trim()) return;
-    setUsers((prev) => [
-      {
-        id: Math.random().toString(36).slice(2),
-        name,
-        email,
-        role,
-        status: "active",
-      },
-      ...prev,
-    ]);
-    setOpen(false);
-    setName("");
-    setEmail("");
-    setRole("employee");
-  };
+  // Static UI: invite flow handled inside InviteUserForm (no data mutation here)
 
   const toggleStatus = (id: string) => {
     setUsers((prev) =>
@@ -133,49 +107,7 @@ export function Users() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invite User</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="user-name">Full Name</Label>
-                  <Input
-                    id="user-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Jane Doe"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="user-email">Email</Label>
-                  <Input
-                    id="user-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="jane@example.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select value={role} onValueChange={(v: Role) => setRole(v)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
-                      <SelectItem value="client">Client</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={addUser}>Invite</Button>
-              </DialogFooter>
+              <InviteUserForm />
             </DialogContent>
           </Dialog>
         }
