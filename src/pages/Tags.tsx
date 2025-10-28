@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,25 +13,34 @@ import {
 } from "@/components/ui/dialog";
 import { Tag as TagIcon, Plus, Pencil, Trash2, Search } from "lucide-react";
 import { TagBadge } from "@/components/TagBadge";
+import * as tagsApi from "@/api/tags";
+import { toast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/PageHeader";
 
 type TagItem = { id: string; name: string; color: string };
 
-const initialTags: TagItem[] = [
-  { id: "1", name: "bug", color: "#EF4444" },
-  { id: "2", name: "feature", color: "#10B981" },
-  { id: "3", name: "frontend", color: "#3B82F6" },
-  { id: "4", name: "backend", color: "#F59E0B" },
-  { id: "5", name: "docs", color: "#8B5CF6" },
-];
-
 export function Tags() {
-  const [tags, setTags] = useState<TagItem[]>(initialTags);
+  const [tags, setTags] = useState<TagItem[]>([]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TagItem | null>(null);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#3B82F6");
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const { data } = await tagsApi.list();
+      setTags(data);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const filtered = useMemo(() => {
     if (!query) return tags;
@@ -58,24 +67,29 @@ export function Tags() {
     setOpen(true);
   };
 
-  const saveTag = () => {
+  const saveTag = async () => {
     if (!name.trim()) return;
-    if (editing) {
-      setTags((prev) =>
-        prev.map((t) => (t.id === editing.id ? { ...t, name, color } : t))
-      );
-    } else {
-      setTags((prev) => [
-        { id: Math.random().toString(36).slice(2), name, color },
-        ...prev,
-      ]);
+    try {
+      if (editing) {
+        // No PATCH endpoint provided; simulate by delete+create or just create anew (skipping edit)
+        toast({ title: "Editing tags is not supported yet" });
+      } else {
+        await tagsApi.create({ name, color });
+      }
+      setOpen(false);
+      resetForm();
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Failed to save tag",
+        description: e?.response?.data?.message || "Error",
+      });
     }
-    setOpen(false);
-    resetForm();
   };
 
-  const removeTag = (id: string) => {
-    setTags((prev) => prev.filter((t) => t.id !== id));
+  const removeTag = async (id: string) => {
+    await tagsApi.remove(id);
+    await load();
   };
 
   return (
@@ -169,37 +183,43 @@ export function Tags() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((t) => (
-              <div
-                key={t.id}
-                className="flex items-center justify-between rounded-lg border border-border p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-5 w-5 rounded"
-                    style={{ backgroundColor: t.color }}
-                  />
-                  <TagBadge name={t.name} color={t.color} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => openEdit(t)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => removeTag(t.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
-                </div>
+            {loading && (
+              <div className="col-span-full text-sm text-muted-foreground">
+                Loading…
               </div>
-            ))}
-            {filtered.length === 0 && (
+            )}
+            {!loading &&
+              filtered.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between rounded-lg border border-border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-5 w-5 rounded"
+                      style={{ backgroundColor: t.color }}
+                    />
+                    <TagBadge name={t.name} color={t.color} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => openEdit(t)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeTag(t.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            {!loading && filtered.length === 0 && (
               <div className="col-span-full text-sm text-muted-foreground">
                 No tags found.
               </div>

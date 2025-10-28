@@ -7,6 +7,10 @@ import AttachmentUpload from "@/components/forms/AttachmentUpload";
 
 export default function TicketDrawer({
   role = "ADMIN" as "ADMIN" | "EMPLOYEE" | "CLIENT",
+  ticketId,
+}: {
+  role?: "ADMIN" | "EMPLOYEE" | "CLIENT";
+  ticketId?: string;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -31,11 +35,11 @@ export default function TicketDrawer({
                 <div className="text-sm">John: Looks good</div>
                 <div className="text-sm">Jane: Please add tests</div>
               </div>
-              <CommentForm />
+              <CommentForm ticketId={ticketId} />
             </div>
           </TabsContent>
           <TabsContent value="attachments">
-            <AttachmentUpload />
+            <AttachmentUpload ticketId={ticketId} />
           </TabsContent>
           <TabsContent value="activity">
             <div className="space-y-2 text-sm text-muted-foreground">

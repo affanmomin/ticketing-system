@@ -11,15 +11,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { FileText } from "lucide-react";
+import { useAuthStore } from "@/store/auth";
+import { toast } from "@/hooks/use-toast";
 
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/dashboard");
+    try {
+      setLoading(true);
+      await login(email, password);
+      navigate("/dashboard", { replace: true });
+    } catch (err: any) {
+      const message = err?.response?.data?.message || "Login failed";
+      toast({ title: "Authentication error", description: message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,8 +73,8 @@ export function Login() {
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              Sign In
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in…" : "Sign In"}
             </Button>
           </form>
 

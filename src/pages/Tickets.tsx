@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, LayoutGrid, List, Calendar, Users } from "lucide-react";
@@ -18,6 +18,9 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TicketCreateForm } from "@/components/forms/TicketCreateForm";
 import { TicketEditForm } from "@/components/forms/TicketEditForm";
 import { CommentForm } from "@/components/forms/CommentForm";
+import * as ticketsApi from "@/api/tickets";
+import { WorkFilterBar } from "@/components/forms/WorkFilterBar";
+import { useSearchParams } from "react-router-dom";
 
 type Status = "todo" | "in_progress" | "review" | "done";
 
@@ -28,72 +31,143 @@ const statusColumns: Array<{ id: Status; label: string; color: string }> = [
   { id: "done", label: "Completed", color: "bg-green-500/10" },
 ];
 
-const mockTickets = [
-  {
-    id: "1",
-    ticketNumber: 101,
-    title: "Fix navigation menu on mobile devices",
-    status: "todo" as Status,
-    priority: "high" as const,
-    assignee: { name: "John Doe", role: "employee" as const },
-    tags: [
-      { name: "bug", color: "#EF4444" },
-      { name: "frontend", color: "#3B82F6" },
-    ],
-    commentCount: 3,
-    attachmentCount: 1,
-  },
-  {
-    id: "2",
-    ticketNumber: 102,
-    title: "Implement user authentication flow",
-    status: "in_progress" as Status,
-    priority: "urgent" as const,
-    assignee: { name: "Jane Smith", role: "employee" as const },
-    tags: [{ name: "feature", color: "#10B981" }],
-    commentCount: 5,
-    attachmentCount: 2,
-  },
-  {
-    id: "3",
-    ticketNumber: 103,
-    title: "Update API documentation",
-    status: "todo" as Status,
-    priority: "low" as const,
-    tags: [{ name: "docs", color: "#8B5CF6" }],
-    commentCount: 0,
-    attachmentCount: 0,
-  },
-  {
-    id: "4",
-    ticketNumber: 104,
-    title: "Performance optimization for dashboard",
-    status: "review" as Status,
-    priority: "medium" as const,
-    assignee: { name: "Bob Johnson", role: "employee" as const },
-    tags: [{ name: "performance", color: "#F59E0B" }],
-    commentCount: 8,
-    attachmentCount: 0,
-  },
-  {
-    id: "5",
-    ticketNumber: 105,
-    title: "Add export to CSV functionality",
-    status: "done" as Status,
-    priority: "medium" as const,
-    assignee: { name: "Alice Williams", role: "employee" as const },
-    tags: [{ name: "feature", color: "#10B981" }],
-    commentCount: 12,
-    attachmentCount: 1,
-  },
-];
+type UITicket = {
+  id: string;
+  ticketNumber: number;
+  title: string;
+  status: Status;
+  priority: "low" | "medium" | "high" | "urgent";
+  assignee?: { name: string; role: "employee" | "client" | "admin" } | null;
+  tags?: Array<{ name: string; color: string }>;
+  commentCount?: number;
+  attachmentCount?: number;
+};
 
 export function Tickets() {
-  const [tickets, setTickets] = useState(mockTickets);
+  const [tickets, setTickets] = useState<UITicket[]>([]);
+  const [limit] = useState(20);
+  const [offset, setOffset] = useState(0);
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [openComment, setOpenComment] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  type FilterValues = {
+    search?: string;
+    clientId?: string;
+    projectId?: string;
+    streamId?: string;
+    status?: string[];
+    assigneeId?: string;
+    tagIds?: string[];
+    priority?: "P0" | "P1" | "P2" | "P3";
+    type?: "TASK" | "BUG" | "STORY" | "EPIC";
+  };
+
+  const parseParams = (): FilterValues & { limit: number; offset: number } => {
+    const sp = searchParams;
+    const get = (k: string) => sp.get(k) || undefined;
+    const toArray = (k: string) => {
+      const v = sp.get(k);
+      if (!v) return undefined;
+      return v.split(",").filter(Boolean);
+    };
+    const parsedLimit = Number(get("limit")) || 20;
+    const parsedOffset = Number(get("offset")) || 0;
+    return {
+      search: get("search"),
+      clientId: get("clientId"),
+      projectId: get("projectId"),
+      streamId: get("streamId"),
+      status: toArray("status"),
+      assigneeId: get("assigneeId"),
+      tagIds: toArray("tagIds"),
+      // keep priority/type in URL for future server support
+      priority: (get("priority") as any) || undefined,
+      type: (get("type") as any) || undefined,
+      limit: parsedLimit,
+      offset: parsedOffset,
+    };
+  };
+
+  const [filters, setFilters] = useState<FilterValues>(() => parseParams());
+  const currentLimit = useMemo(
+    () => Number(searchParams.get("limit")) || limit,
+    [searchParams, limit]
+  );
+  const currentOffset = useMemo(
+    () => Number(searchParams.get("offset")) || offset,
+    [searchParams, offset]
+  );
+  const page = Math.floor(offset / limit) + 1;
+  const totalPages = Math.max(1, Math.ceil(count / limit));
+
+  // keep filters in sync with URL changes (back/forward)
+  useEffect(() => {
+    const parsed = parseParams();
+    setFilters(parsed);
+    // also keep local paging in sync
+    setOffset(parsed.offset);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]);
+
+  // fetch when paging or filters change (based on URL)
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        // Build query only with API-supported keys
+        const query: any = {
+          limit: currentLimit,
+          offset: currentOffset,
+        };
+        if (filters.search) query.search = filters.search;
+        if (filters.clientId) query.clientId = filters.clientId;
+        if (filters.projectId) query.projectId = filters.projectId;
+        if (filters.streamId) query.streamId = filters.streamId;
+        if (filters.assigneeId) query.assigneeId = filters.assigneeId;
+        if (filters.status && filters.status.length)
+          query.status = filters.status;
+        if (filters.tagIds && filters.tagIds.length)
+          query.tagIds = filters.tagIds;
+        const { data } = await ticketsApi.pagedList(query);
+        setCount(data.count);
+        const mapped: UITicket[] = data.items.map((t, idx) => ({
+          id: t.id,
+          title: t.title,
+          ticketNumber: idx + 1 + offset,
+          priority: "medium",
+          status:
+            t.status === "TODO"
+              ? "todo"
+              : t.status === "IN_PROGRESS"
+                ? "in_progress"
+                : t.status === "REVIEW"
+                  ? "review"
+                  : t.status === "DONE" || t.status === "CANCELLED"
+                    ? "done"
+                    : // BACKLOG and anything else fall back to TODO column
+                      "todo",
+        }));
+        setTickets(mapped);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [
+    currentLimit,
+    currentOffset,
+    filters.search,
+    filters.clientId,
+    filters.projectId,
+    filters.streamId,
+    filters.assigneeId,
+    JSON.stringify(filters.status),
+    JSON.stringify(filters.tagIds),
+  ]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -225,6 +299,35 @@ export function Tickets() {
         </div>
       </div>
 
+      <WorkFilterBar
+        value={filters}
+        onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+        onApply={() => {
+          const sp = new URLSearchParams();
+          if (filters.search) sp.set("search", filters.search);
+          if (filters.clientId) sp.set("clientId", filters.clientId);
+          if (filters.projectId) sp.set("projectId", filters.projectId);
+          if (filters.streamId) sp.set("streamId", filters.streamId);
+          if (filters.assigneeId) sp.set("assigneeId", filters.assigneeId);
+          if (filters.status && filters.status.length)
+            sp.set("status", filters.status.join(","));
+          if (filters.tagIds && filters.tagIds.length)
+            sp.set("tagIds", filters.tagIds.join(","));
+          if (filters.priority) sp.set("priority", filters.priority);
+          if (filters.type) sp.set("type", filters.type);
+          sp.set("limit", String(limit));
+          sp.set("offset", "0");
+          setSearchParams(sp, { replace: false });
+        }}
+        onReset={() => {
+          setFilters({});
+          const sp = new URLSearchParams();
+          sp.set("limit", String(limit));
+          sp.set("offset", "0");
+          setSearchParams(sp, { replace: false });
+        }}
+      />
+
       <Tabs defaultValue="kanban" className="space-y-4">
         <div className="overflow-x-auto">
           <TabsList className="min-w-max">
@@ -333,7 +436,7 @@ export function Tickets() {
                     className="border-b border-border hover:bg-accent/50 cursor-pointer"
                   >
                     <td className="p-3 text-sm text-muted-foreground font-mono">
-                      #{ticket.ticketNumber}
+                      {ticket.ticketNumber ? `#${ticket.ticketNumber}` : "—"}
                     </td>
                     <td className="p-3 text-sm text-foreground font-medium">
                       {ticket.title}
@@ -351,6 +454,42 @@ export function Tickets() {
                 ))}
               </tbody>
             </table>
+            <div className="flex items-center justify-between p-3">
+              <div className="text-sm text-muted-foreground">
+                {count} total • Page {page}/{totalPages}{" "}
+                {loading ? "• Loading…" : ""}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  disabled={loading || offset === 0}
+                  onClick={() => {
+                    const newOffset = Math.max(0, offset - limit);
+                    setOffset(newOffset);
+                    const sp = new URLSearchParams(searchParams);
+                    sp.set("limit", String(limit));
+                    sp.set("offset", String(newOffset));
+                    setSearchParams(sp, { replace: false });
+                  }}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={loading || page >= totalPages}
+                  onClick={() => {
+                    const newOffset = offset + limit;
+                    setOffset(newOffset);
+                    const sp = new URLSearchParams(searchParams);
+                    sp.set("limit", String(limit));
+                    sp.set("offset", String(newOffset));
+                    setSearchParams(sp, { replace: false });
+                  }}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </div>
         </TabsContent>
 

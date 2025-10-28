@@ -6,60 +6,145 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// Label and Separator intentionally unused in this static bar
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import * as clientsApi from "@/api/clients";
+import * as projectsApi from "@/api/projects";
+import * as streamsApi from "@/api/streams";
+import * as usersApi from "@/api/users";
+import { useEffect, useMemo, useState } from "react";
 
-const _STATUS = [
-  "BACKLOG",
-  "TODO",
-  "IN_PROGRESS",
-  "REVIEW",
-  "DONE",
-  "CANCELLED",
-];
-const _CLIENTS = [
-  { id: "c1", name: "Acme Co" },
-  { id: "c2", name: "Globex" },
-];
-const _PROJECTS = [
-  { id: "p1", name: "Website", code: "ACM" },
-  { id: "p2", name: "Mobile", code: "MOB" },
-];
-const _STREAMS = [
-  { id: "s1", name: "Frontend" },
-  { id: "s2", name: "Backend" },
-];
-const _USERS = [
-  { id: "u1", name: "Dev One" },
-  { id: "u2", name: "Dev Two" },
-];
-const _TAGS = [
-  { id: "t1", name: "urgent", color: "#ef4444" },
-  { id: "t2", name: "ux", color: "#8b5cf6" },
-];
+type FilterValues = {
+  search?: string;
+  clientId?: string;
+  projectId?: string;
+  streamId?: string;
+  status?: string[];
+  assigneeId?: string;
+  tagIds?: string[];
+  priority?: "P0" | "P1" | "P2" | "P3";
+  type?: "TASK" | "BUG" | "STORY" | "EPIC";
+};
 
-// reference to avoid unused var eslint/ts warnings
-void _TAGS;
+interface WorkFilterBarProps {
+  value: FilterValues;
+  onChange: (patch: Partial<FilterValues>) => void;
+  onApply?: () => void;
+  onReset?: () => void;
+}
 
-export function WorkFilterBar() {
-  const [q, setQ] = useState("");
+export function WorkFilterBar({
+  value,
+  onChange,
+  onApply,
+  onReset,
+}: WorkFilterBarProps) {
+  const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
+    []
+  );
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
+    []
+  );
+  const [streams, setStreams] = useState<Array<{ id: string; name: string }>>(
+    []
+  );
+  const [assignees, setAssignees] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+
+  // Load clients once
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await clientsApi.list({ limit: 100, offset: 0 });
+        setClients(data.items.map((c) => ({ id: c.id, name: c.name })));
+      } catch {
+        // ignore for now
+      }
+    })();
+  }, []);
+
+  // Load projects when client changes
+  useEffect(() => {
+    (async () => {
+      if (!value.clientId) {
+        setProjects([]);
+        return;
+      }
+      try {
+        const { data } = await projectsApi.list({ clientId: value.clientId });
+        setProjects(data.map((p) => ({ id: p.id, name: p.name })));
+      } catch {
+        setProjects([]);
+      }
+    })();
+  }, [value.clientId]);
+
+  // Load streams when project changes
+  useEffect(() => {
+    (async () => {
+      if (!value.projectId) {
+        setStreams([]);
+        return;
+      }
+      try {
+        const { data } = await streamsApi.list(value.projectId);
+        setStreams(data.map((s) => ({ id: s.id, name: s.name })));
+      } catch {
+        setStreams([]);
+      }
+    })();
+  }, [value.projectId]);
+
+  // Load assignable users when client changes
+  useEffect(() => {
+    (async () => {
+      if (!value.clientId) {
+        setAssignees([]);
+        return;
+      }
+      try {
+        const { data } = await usersApi.assignableUsers(value.clientId);
+        setAssignees(data.map((u) => ({ id: u.id, name: u.name })));
+      } catch {
+        setAssignees([]);
+      }
+    })();
+  }, [value.clientId]);
+
+  // Tags support can be added later (multi-select UI)
+
+  const statusDisplay = useMemo(
+    () => (value.status && value.status[0]) || "",
+    [value.status]
+  );
+
   return (
     <div className="flex gap-3 items-center overflow-x-auto py-2 px-1">
       <div className="min-w-[220px]">
         <Input
           placeholder="Search or press Cmd+K"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          value={value.search || ""}
+          onChange={(e) => onChange({ search: e.target.value })}
         />
       </div>
       <div className="min-w-[160px]">
-        <Select>
+        <Select
+          value={value.clientId}
+          onValueChange={(v) =>
+            onChange({
+              clientId: v || undefined,
+              projectId: undefined,
+              streamId: undefined,
+              assigneeId: undefined,
+              tagIds: undefined,
+            })
+          }
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Client" />
           </SelectTrigger>
           <SelectContent>
-            {_CLIENTS.map((c: { id: string; name: string }) => (
+            {clients.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
               </SelectItem>
@@ -68,12 +153,17 @@ export function WorkFilterBar() {
         </Select>
       </div>
       <div className="min-w-[160px]">
-        <Select>
+        <Select
+          value={value.projectId}
+          onValueChange={(v) =>
+            onChange({ projectId: v || undefined, streamId: undefined })
+          }
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Project" />
           </SelectTrigger>
           <SelectContent>
-            {_PROJECTS.map((p: { id: string; name: string }) => (
+            {projects.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
               </SelectItem>
@@ -82,12 +172,15 @@ export function WorkFilterBar() {
         </Select>
       </div>
       <div className="min-w-[140px]">
-        <Select>
+        <Select
+          value={value.streamId}
+          onValueChange={(v) => onChange({ streamId: v || undefined })}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Stream" />
           </SelectTrigger>
           <SelectContent>
-            {_STREAMS.map((s: { id: string; name: string }) => (
+            {streams.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.name}
               </SelectItem>
@@ -95,16 +188,40 @@ export function WorkFilterBar() {
           </SelectContent>
         </Select>
       </div>
-      <div className="min-w-[160px]">
-        <input className="input w-full" placeholder="Status (multi)" />
+      <div className="min-w-[140px]">
+        <Select
+          value={statusDisplay}
+          onValueChange={(v) => onChange({ status: v ? [v] : undefined })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            {[
+              "BACKLOG",
+              "TODO",
+              "IN_PROGRESS",
+              "REVIEW",
+              "DONE",
+              "CANCELLED",
+            ].map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="min-w-[160px]">
-        <Select>
+        <Select
+          value={value.assigneeId}
+          onValueChange={(v) => onChange({ assigneeId: v || undefined })}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
           <SelectContent>
-            {_USERS.map((u: { id: string; name: string }) => (
+            {assignees.map((u) => (
               <SelectItem key={u.id} value={u.id}>
                 {u.name}
               </SelectItem>
@@ -112,41 +229,49 @@ export function WorkFilterBar() {
           </SelectContent>
         </Select>
       </div>
-      <div className="min-w-[160px]">
-        <input className="input w-full" placeholder="Tags (multi)" />
-      </div>
+      {/* Tags multi-select can be added later; keeping placeholder minimal */}
       <div className="min-w-[120px]">
-        <Select>
+        <Select
+          value={value.priority}
+          onValueChange={(v) => onChange({ priority: (v as any) || undefined })}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="P0">P0</SelectItem>
-            <SelectItem value="P1">P1</SelectItem>
-            <SelectItem value="P2">P2</SelectItem>
+            {["P0", "P1", "P2", "P3"].map((p) => (
+              <SelectItem key={p} value={p}>
+                {p}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
       <div className="min-w-[120px]">
-        <Select>
+        <Select
+          value={value.type}
+          onValueChange={(v) => onChange({ type: (v as any) || undefined })}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="TASK">TASK</SelectItem>
-            <SelectItem value="BUG">BUG</SelectItem>
+            {["TASK", "BUG", "STORY", "EPIC"].map((t) => (
+              <SelectItem key={t} value={t}>
+                {t}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
       <div className="flex items-center gap-2 ml-auto">
-        <Button variant="ghost">Reset</Button>
-        <Button>Apply</Button>
+        <Button variant="ghost" onClick={onReset}>
+          Reset
+        </Button>
+        <Button onClick={onApply}>Apply</Button>
       </div>
     </div>
   );
 }
 
 export default WorkFilterBar;
-
-// keep _STATUS available as a static placeholder
-void _STATUS;

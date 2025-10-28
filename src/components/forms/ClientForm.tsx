@@ -4,10 +4,24 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
-export function ClientForm() {
+export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [active, setActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const { create } = await import("@/api/clients");
+      await create({ name, domain: domain || undefined, active });
+      onSuccess?.();
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -16,7 +30,10 @@ export function ClientForm() {
         <p className="text-sm text-muted-foreground">Create or edit client</p>
       </div>
 
-      <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        onSubmit={handleSave}
+      >
         <div className="space-y-2">
           <Label>
             Client name{" "}
@@ -59,8 +76,12 @@ export function ClientForm() {
       </form>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="ghost">Cancel</Button>
-        <Button>Save</Button>
+        <Button type="button" variant="ghost" disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!name.trim() || saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { Menu, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthStore } from "@/store/auth";
 
 interface TopbarProps {
   title?: string;
@@ -10,7 +10,7 @@ interface TopbarProps {
 }
 
 export function Topbar({ title = "Dashboard", onOpenMobileMenu }: TopbarProps) {
-  const { signOut } = useAuth();
+  const { logout } = useAuthStore();
 
   return (
     <header className="h-14 border-b border-border bg-card sticky top-0 z-10">
@@ -44,7 +44,7 @@ export function Topbar({ title = "Dashboard", onOpenMobileMenu }: TopbarProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={signOut}
+            onClick={logout}
             className="text-muted-foreground hover:text-foreground"
           >
             Sign Out

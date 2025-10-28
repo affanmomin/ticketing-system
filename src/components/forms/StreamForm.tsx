@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -9,15 +9,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import * as projectsApi from "@/api/projects";
+import * as streamsApi from "@/api/streams";
+import { toast } from "@/hooks/use-toast";
 
-const PROJECTS = [
-  { id: "p1", name: "Website", code: "ACM" },
-  { id: "p2", name: "Mobile", code: "MOB" },
-];
-
-export function StreamForm() {
+export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
   const [name, setName] = useState("");
-  const [project, setProject] = useState(PROJECTS[0].id);
+  const [project, setProject] = useState<string>("");
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
+    []
+  );
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await projectsApi.list();
+      const items = data.map((p) => ({ id: p.id, name: p.name }));
+      setProjects(items);
+      if (items.length) setProject(items[0].id);
+    })();
+  }, []);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !project) return;
+    setSaving(true);
+    try {
+      await streamsApi.create({ projectId: project, name });
+      onSuccess?.();
+    } catch (e: any) {
+      toast({
+        title: "Failed to save stream",
+        description: e?.response?.data?.message || "Error",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -26,7 +54,10 @@ export function StreamForm() {
         <p className="text-sm text-muted-foreground">Create or edit a stream</p>
       </div>
 
-      <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        onSubmit={handleSave}
+      >
         <div className="space-y-2">
           <Label>
             Stream name{" "}
@@ -48,7 +79,7 @@ export function StreamForm() {
               <SelectValue placeholder="Select project" />
             </SelectTrigger>
             <SelectContent>
-              {PROJECTS.map((p) => (
+              {projects.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                 </SelectItem>
@@ -59,8 +90,16 @@ export function StreamForm() {
       </form>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="ghost">Cancel</Button>
-        <Button>Save</Button>
+        <Button type="button" variant="ghost" disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={!name.trim() || !project || saving}
+          formNoValidate
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
       </div>
     </div>
   );

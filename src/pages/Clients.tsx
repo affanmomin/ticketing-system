@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,56 +13,39 @@ import { Building2, Plus, Search, Mail } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { PageHeader } from "@/components/PageHeader";
 import ClientForm from "@/components/forms/ClientForm";
+import * as clientsApi from "@/api/clients";
 
 type Client = {
   id: string;
   name: string;
-  company: string;
-  email: string;
-  projects: number;
-  openTickets: number;
-  avatar_url?: string | null;
+  domain?: string | null;
+  active: boolean;
 };
 
-const initialClients: Client[] = [
-  {
-    id: "1",
-    name: "Acme Corp",
-    company: "Acme Corp",
-    email: "owner@acme.com",
-    projects: 4,
-    openTickets: 12,
-  },
-  {
-    id: "2",
-    name: "Globex Inc",
-    company: "Globex Inc",
-    email: "it@globex.com",
-    projects: 2,
-    openTickets: 5,
-  },
-  {
-    id: "3",
-    name: "Initech",
-    company: "Initech",
-    email: "cto@initech.com",
-    projects: 3,
-    openTickets: 9,
-  },
-  {
-    id: "4",
-    name: "Umbrella Co",
-    company: "Umbrella Co",
-    email: "ops@umbrella.com",
-    projects: 1,
-    openTickets: 1,
-  },
-];
-
 export function Clients() {
-  const [clients] = useState<Client[]>(initialClients);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [count, setCount] = useState(0);
+  const limit = 12;
+  const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const { data } = await clientsApi.list({ limit, offset });
+      setClients(data.items);
+      setCount(data.count);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offset]);
 
   const filtered = useMemo(() => {
     if (!query) return clients;
@@ -70,12 +53,12 @@ export function Clients() {
     return clients.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        c.company.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q)
+        (c.domain ?? "").toLowerCase().includes(q)
     );
   }, [clients, query]);
 
-  // Creation handled by ClientForm (static UI)
+  const totalPages = Math.ceil(count / limit) || 1;
+  const page = Math.floor(offset / limit) + 1;
 
   return (
     <div className="space-y-6">
@@ -94,7 +77,12 @@ export function Clients() {
               <DialogHeader>
                 <DialogTitle>Create Client</DialogTitle>
               </DialogHeader>
-              <ClientForm />
+              <ClientForm
+                onSuccess={() => {
+                  setOpen(false);
+                  load();
+                }}
+              />
             </DialogContent>
           </Dialog>
         }
@@ -120,54 +108,74 @@ export function Clients() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((c) => (
-              <div
-                key={c.id}
-                className="rounded-xl border border-border p-4 hover:bg-accent/40 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <UserAvatar name={c.name} role="client" showTooltip={false} />
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {c.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {c.company}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-2 text-sm">
-                  <p className="text-muted-foreground flex items-center gap-2">
-                    <Mail className="w-4 h-4" /> {c.email}
-                  </p>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Projects</span>
-                    <span className="text-foreground font-medium">
-                      {c.projects}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Open Tickets</span>
-                    <span className="text-foreground font-medium">
-                      {c.openTickets}
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center gap-2">
-                  <Button variant="outline" className="flex-1">
-                    View
-                  </Button>
-                  <Button variant="outline" className="flex-1">
-                    Contact
-                  </Button>
-                </div>
+            {loading && (
+              <div className="col-span-full text-sm text-muted-foreground">
+                Loading…
               </div>
-            ))}
-            {filtered.length === 0 && (
+            )}
+            {!loading &&
+              filtered.map((c) => (
+                <div
+                  key={c.id}
+                  className="rounded-xl border border-border p-4 hover:bg-accent/40 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <UserAvatar
+                      name={c.name}
+                      role="client"
+                      showTooltip={false}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">
+                        {c.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {c.domain || "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2 text-sm">
+                    <p className="text-muted-foreground flex items-center gap-2">
+                      <Mail className="w-4 h-4" />{" "}
+                      {c.active ? "Active" : "Inactive"}
+                    </p>
+                  </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button variant="outline" className="flex-1">
+                      View
+                    </Button>
+                    <Button variant="outline" className="flex-1">
+                      Contact
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            {!loading && filtered.length === 0 && (
               <div className="col-span-full text-sm text-muted-foreground">
                 No clients found.
               </div>
             )}
+          </div>
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">
+              {count} total • Page {page} / {totalPages}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - limit))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                disabled={page >= totalPages}
+                onClick={() => setOffset(offset + limit)}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

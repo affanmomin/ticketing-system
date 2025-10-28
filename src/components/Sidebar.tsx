@@ -10,7 +10,7 @@ import {
   Settings,
   Building2,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthStore } from "@/store/auth";
 import { UserAvatar } from "./UserAvatar";
 import {
   Tooltip,
@@ -24,7 +24,7 @@ interface NavItem {
   title: string;
   href: string;
   icon: React.ReactNode;
-  roles?: Array<"admin" | "employee" | "client">;
+  roles?: Array<"ADMIN" | "EMPLOYEE" | "CLIENT">;
 }
 
 const navItems: NavItem[] = [
@@ -47,19 +47,19 @@ const navItems: NavItem[] = [
     title: "Tags",
     href: "/tags",
     icon: <Tag className="w-5 h-5" />,
-    roles: ["admin", "employee"],
+    roles: ["ADMIN", "EMPLOYEE"],
   },
   {
     title: "Clients",
     href: "/clients",
     icon: <Building2 className="w-5 h-5" />,
-    roles: ["admin"],
+    roles: ["ADMIN"],
   },
   {
     title: "Users",
     href: "/users",
     icon: <Users className="w-5 h-5" />,
-    roles: ["admin"],
+    roles: ["ADMIN"],
   },
   {
     title: "Settings",
@@ -70,12 +70,12 @@ const navItems: NavItem[] = [
 
 export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const location = useLocation();
-  const { profile } = useAuth();
+  const { user } = useAuthStore();
   const [hoverOpen, setHoverOpen] = useState(false);
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
-    return profile?.role && item.roles.includes(profile.role);
+    return user?.role && item.roles.includes(user.role);
   });
 
   // Render-time collapsed state: expand on hover when initially collapsed
@@ -173,22 +173,21 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
         </TooltipProvider>
       </nav>
 
-      {profile && (
+      {user && (
         <div className="p-3 border-t border-border">
           <div className="flex items-center gap-3 px-3 py-2">
             <UserAvatar
-              name={profile.full_name}
-              avatarUrl={profile.avatar_url}
-              role={profile.role}
+              name={user.id}
+              role={user.role.toLowerCase() as any}
               showTooltip={false}
             />
             {!renderCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {profile.full_name}
+                  {user.id}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  {profile.role}
+                  {user.role.toLowerCase()}
                 </p>
               </div>
             )}

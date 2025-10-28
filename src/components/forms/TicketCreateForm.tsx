@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,44 +12,24 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import * as clientsApi from "@/api/clients";
+import * as projectsApi from "@/api/projects";
+import * as streamsApi from "@/api/streams";
+import * as usersApi from "@/api/users";
+import * as tagsApi from "@/api/tags";
+import * as ticketsApi from "@/api/tickets";
+import * as attachmentsApi from "@/api/attachments";
+import type { TicketPriority, TicketType } from "@/types/api";
+import { toast } from "@/hooks/use-toast";
 
-// Static options
-const STATUS = [
-  "BACKLOG",
-  "TODO",
-  "IN_PROGRESS",
-  "REVIEW",
-  "DONE",
-  "CANCELLED",
-] as const;
-const PRIORITY = ["P0", "P1", "P2", "P3"] as const;
-const TYPE = ["TASK", "BUG", "STORY", "EPIC"] as const;
-const CLIENTS = [
-  { id: "c1", name: "Acme Co" },
-  { id: "c2", name: "Globex" },
-];
-const PROJECTS = [
-  { id: "p1", name: "Website", code: "ACM" },
-  { id: "p2", name: "Mobile", code: "MOB" },
-];
-const STREAMS = [
-  { id: "s1", name: "Frontend" },
-  { id: "s2", name: "Backend" },
-];
-const USERS = [
-  { id: "u1", name: "Dev One" },
-  { id: "u2", name: "Dev Two" },
-];
-const TAGS = [
-  { id: "t1", name: "urgent", color: "#ef4444" },
-  { id: "t2", name: "ux", color: "#8b5cf6" },
-];
+const PRIORITY: TicketPriority[] = ["P0", "P1", "P2", "P3"];
+const TYPE: TicketType[] = ["TASK", "BUG", "STORY", "EPIC"];
 
 export function TicketCreateForm() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [client, setClient] = useState(CLIENTS[0].id);
-  const [project, setProject] = useState(PROJECTS[0].id);
+  const [client, setClient] = useState<string>("");
+  const [project, setProject] = useState<string>("");
   const [stream, setStream] = useState("");
   const [priority, setPriority] = useState(PRIORITY[2]);
   const [type, setType] = useState(TYPE[0]);
@@ -58,6 +38,59 @@ export function TicketCreateForm() {
   const [points, setPoints] = useState<number | "">("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
+    []
+  );
+  const [projects, setProjects] = useState<
+    Array<{ id: string; name: string; code: string }>
+  >([]);
+  const [streams, setStreams] = useState<Array<{ id: string; name: string }>>(
+    []
+  );
+  const [users, setUsers] = useState<Array<{ id: string; name: string }>>([]);
+  const [tags, setTags] = useState<
+    Array<{ id: string; name: string; color: string }>
+  >([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await clientsApi.list({ limit: 200, offset: 0 });
+      const items = data.items.map((c) => ({ id: c.id, name: c.name }));
+      setClients(items);
+      if (items.length) setClient(items[0].id);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!client) return;
+    (async () => {
+      const { data: projectsData } = await projectsApi.list({
+        clientId: client,
+      });
+      const mapped = projectsData.map((p) => ({
+        id: p.id,
+        name: p.name,
+        code: p.code,
+      }));
+      setProjects(mapped);
+      setProject(mapped[0]?.id || "");
+      const { data: usersData } = await usersApi.assignableUsers(client);
+      setUsers(usersData.map((u) => ({ id: u.id, name: u.name })));
+      const { data: tagsData } = await tagsApi.list({ clientId: client });
+      setTags(
+        tagsData.map((t) => ({ id: t.id, name: t.name, color: t.color }))
+      );
+    })();
+  }, [client]);
+
+  useEffect(() => {
+    if (!project) return;
+    (async () => {
+      const { data } = await streamsApi.list(project);
+      setStreams(data.map((s) => ({ id: s.id, name: s.name })));
+    })();
+  }, [project]);
 
   function toggleTag(id: string) {
     setSelectedTags((s) =>
@@ -69,6 +102,56 @@ export function TicketCreateForm() {
     const list = e.target.files;
     if (!list) return;
     setFiles((f) => [...f, ...Array.from(list)]);
+  }
+
+  const canSave = useMemo(
+    () => title.trim() && description.trim() && client && project,
+    [title, description, client, project]
+  );
+
+  async function handleSave() {
+    if (!canSave || saving) return;
+    setSaving(true);
+    try {
+      const payload: any = {
+        clientId: client,
+        projectId: project,
+        title,
+        descriptionMd: description,
+      };
+      if (stream) payload.streamId = stream;
+      if (priority) payload.priority = priority;
+      if (type) payload.type = type;
+      if (assignee) payload.assigneeId = assignee;
+      if (dueDate)
+        payload.dueDate = new Date(`${dueDate}T00:00:00Z`).toISOString();
+      if (points !== "") payload.points = Number(points);
+      if (selectedTags.length) payload.tagIds = selectedTags;
+      const { data: created } = await ticketsApi.create(payload);
+      for (const file of files) {
+        await attachmentsApi.upload({ file, ticketId: created.id });
+      }
+      toast({
+        title: "Ticket created",
+        description: "Your ticket was created successfully.",
+      });
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setStream("");
+      setPriority("P2");
+      setType("TASK");
+      setAssignee("");
+      setDueDate("");
+      setPoints("");
+      setSelectedTags([]);
+      setFiles([]);
+    } catch (e: any) {
+      const m = e?.response?.data?.message || "Failed to create ticket";
+      toast({ title: "Error", description: m });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -108,7 +191,7 @@ export function TicketCreateForm() {
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
             <SelectContent>
-              {CLIENTS.map((c) => (
+              {clients.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                 </SelectItem>
@@ -147,7 +230,7 @@ export function TicketCreateForm() {
               <SelectValue placeholder="Select project" />
             </SelectTrigger>
             <SelectContent>
-              {PROJECTS.map((p) => (
+              {projects.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name} ({p.code})
                 </SelectItem>
@@ -164,7 +247,7 @@ export function TicketCreateForm() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">(none)</SelectItem>
-              {STREAMS.map((s) => (
+              {streams.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
                 </SelectItem>
@@ -213,7 +296,7 @@ export function TicketCreateForm() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Unassigned</SelectItem>
-              {USERS.map((u) => (
+              {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name}
                 </SelectItem>
@@ -245,7 +328,7 @@ export function TicketCreateForm() {
         <div className="md:col-span-2 space-y-2">
           <Label>Tags</Label>
           <div className="flex flex-wrap gap-2">
-            {TAGS.map((t) => (
+            {tags.map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -276,8 +359,16 @@ export function TicketCreateForm() {
       <Separator />
 
       <div className="flex gap-2 justify-end">
-        <Button variant="ghost">Cancel</Button>
-        <Button>Save</Button>
+        <Button variant="ghost" type="button" disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={!canSave || saving}
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
       </div>
     </div>
   );
@@ -285,5 +376,4 @@ export function TicketCreateForm() {
 
 export default TicketCreateForm;
 
-// keep STATUS exported/stubbed for other forms usage
-void STATUS;
+// no-op

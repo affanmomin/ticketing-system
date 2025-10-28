@@ -1,19 +1,27 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/store/auth";
 
 export function Settings() {
-  const { profile } = useAuth();
+  const { user } = useAuthStore();
 
-  if (!profile) return null;
+  if (!user) return null;
 
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account settings and preferences</p>
+        <p className="text-muted-foreground mt-1">
+          Manage your account settings and preferences
+        </p>
       </div>
 
       <Card>
@@ -24,17 +32,27 @@ export function Settings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" defaultValue={profile.full_name} />
+            <Input id="name" defaultValue={user.id} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" defaultValue={profile.email} disabled />
+            <Input
+              id="email"
+              type="email"
+              defaultValue={`${user.id}@example.com`}
+              disabled
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
-            <Input id="role" defaultValue={profile.role} disabled className="capitalize" />
+            <Input
+              id="role"
+              defaultValue={user.role.toLowerCase()}
+              disabled
+              className="capitalize"
+            />
           </div>
 
           <Button>Save Changes</Button>

@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
@@ -11,13 +10,22 @@ import { Tags } from "./pages/Tags";
 import { Clients } from "./pages/Clients";
 import { Users } from "./pages/Users";
 import { Toaster } from "./components/ui/sonner";
+import { useEffect } from "react";
+import { useAuthStore } from "@/store/auth";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, token, isAuthenticated, loading, bootstrap } = useAuthStore();
+  useEffect(() => {
+    if (token && !user) {
+      bootstrap().catch(() => {
+        // handled globally by axios interceptor
+      });
+    }
+  }, [token, user, bootstrap]);
 
   if (loading) {
     return (
@@ -31,7 +39,9 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/login"
-        element={user ? <Navigate to="/dashboard" replace /> : <Login />}
+        element={
+          isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+        }
       />
 
       <Route
@@ -61,10 +71,8 @@ function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <AuthProvider>
-          <AppRoutes />
-          <Toaster />
-        </AuthProvider>
+        <AppRoutes />
+        <Toaster />
       </ThemeProvider>
     </BrowserRouter>
   );

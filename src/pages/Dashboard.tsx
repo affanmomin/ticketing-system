@@ -1,4 +1,4 @@
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthStore } from "@/store/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, FolderKanban, Users, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,17 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 
 export function Dashboard() {
-  const { profile } = useAuth();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
 
   // Bypass auth-dependent rendering: provide sensible fallbacks when no profile
-  const role = profile?.role ?? "admin";
-  const firstName = (profile?.full_name ?? "Guest User").split(" ")[0];
+  const role =
+    (user?.role?.toLowerCase?.() as
+      | "admin"
+      | "employee"
+      | "client"
+      | undefined) ?? "admin";
+  const firstName = "User";
 
   const stats = [
     {
