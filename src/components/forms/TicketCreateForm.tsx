@@ -98,7 +98,10 @@ export function TicketCreateForm() {
 
         <div className="space-y-2">
           <Label>
-            Client <span aria-hidden className="text-red-400">*</span>
+            Client{" "}
+            <span aria-hidden className="text-red-400">
+              *
+            </span>
           </Label>
           <Select value={client} onValueChange={(v) => setClient(String(v))}>
             <SelectTrigger className="w-full">
@@ -134,7 +137,10 @@ export function TicketCreateForm() {
 
         <div className="space-y-2">
           <Label>
-            Project <span aria-hidden className="text-red-400">*</span>
+            Project{" "}
+            <span aria-hidden className="text-red-400">
+              *
+            </span>
           </Label>
           <Select value={project} onValueChange={(v) => setProject(String(v))}>
             <SelectTrigger className="w-full">

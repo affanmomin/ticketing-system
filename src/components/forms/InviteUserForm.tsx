@@ -61,7 +61,10 @@ export function InviteUserForm() {
 
         <div className="space-y-2">
           <Label>
-            Role <span aria-hidden className="text-red-400">*</span>
+            Role{" "}
+            <span aria-hidden className="text-red-400">
+              *
+            </span>
           </Label>
           <Select value={role} onValueChange={(v) => setRole(v as any)}>
             <SelectTrigger className="w-full">

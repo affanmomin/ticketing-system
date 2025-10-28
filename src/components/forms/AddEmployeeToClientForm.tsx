@@ -28,7 +28,10 @@ export function AddEmployeeToClientForm() {
       <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>
-            Employee <span aria-hidden className="text-red-400">*</span>
+            Employee{" "}
+            <span aria-hidden className="text-red-400">
+              *
+            </span>
           </Label>
           <Select value={employee} onValueChange={(v) => setEmployee(v)}>
             <SelectTrigger className="w-full">
@@ -47,7 +50,10 @@ export function AddEmployeeToClientForm() {
 
         <div className="space-y-2">
           <Label>
-            Client <span aria-hidden className="text-red-400">*</span>
+            Client{" "}
+            <span aria-hidden className="text-red-400">
+              *
+            </span>
           </Label>
           <Select value={client} onValueChange={(v) => setClient(String(v))}>
             <SelectTrigger className="w-full">
