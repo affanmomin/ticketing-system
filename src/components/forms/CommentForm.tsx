@@ -40,38 +40,62 @@ export function CommentForm({
   }
 
   return (
-    <div className="flex items-start gap-3">
-      <div className="flex-1">
-        <Label>
-          Comment{" "}
-          <span aria-hidden className="text-red-400">
-            *
-          </span>
+    <div className="space-y-4">
+      {/* Comment Text Area */}
+      <div className="space-y-2">
+        <Label htmlFor="comment-text" className="text-sm font-medium">
+          Add Comment
+          <span className="text-destructive ml-1">*</span>
         </Label>
         <Textarea
+          id="comment-text"
+          placeholder="Write your comment here..."
           value={formState.text}
           onChange={(e) =>
             setFormState((prev) => ({ ...prev, text: e.target.value }))
           }
           aria-required="true"
+          className="min-h-[100px] resize-y"
         />
       </div>
-      <div className="flex flex-col items-end gap-2">
-        <Input
-          type="file"
-          onChange={(e) =>
-            setFormState((prev) => ({
-              ...prev,
-              file: e.target.files?.[0] || null,
-            }))
-          }
-        />
+
+      {/* File Attachment & Submit Row */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1">
+          <Label htmlFor="comment-file" className="text-sm font-medium sr-only">
+            Attach File
+          </Label>
+          <Input
+            id="comment-file"
+            type="file"
+            onChange={(e) =>
+              setFormState((prev) => ({
+                ...prev,
+                file: e.target.files?.[0] || null,
+              }))
+            }
+            className="h-10"
+          />
+          {formState.file && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {formState.file.name}
+            </p>
+          )}
+        </div>
         <Button
           type="button"
           onClick={handleSubmit}
           disabled={!ticketId || !formState.text.trim() || formState.saving}
+          className="min-w-[120px]"
         >
-          {formState.saving ? "Posting…" : "Add comment"}
+          {formState.saving ? (
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Posting
+            </span>
+          ) : (
+            "Add Comment"
+          )}
         </Button>
       </div>
     </div>

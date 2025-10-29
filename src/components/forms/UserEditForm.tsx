@@ -97,89 +97,110 @@ export function UserEditForm({
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Edit User</h2>
-        <p className="text-sm text-muted-foreground">Update user information</p>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold tracking-tight">Edit User</h2>
+        <p className="text-sm text-muted-foreground">
+          Update user information and permissions
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>
-            Name{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            value={formState.name}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, name: e.target.value }))
-            }
-            aria-required="true"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>
-            Email{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            type="email"
-            value={formState.email}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, email: e.target.value }))
-            }
-            aria-required="true"
-          />
+      {/* Divider */}
+      <div className="h-px bg-border" />
+
+      {/* Form Fields */}
+      <div className="space-y-6">
+        {/* Name & Email Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="user-name" className="text-sm font-medium">
+              Name
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="user-name"
+              placeholder="Enter full name"
+              value={formState.name}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, name: e.target.value }))
+              }
+              aria-required="true"
+              className="h-10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="user-email" className="text-sm font-medium">
+              Email
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="user-email"
+              type="email"
+              placeholder="user@example.com"
+              value={formState.email}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, email: e.target.value }))
+              }
+              aria-required="true"
+              className="h-10"
+            />
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Password</Label>
-          <Input
-            type="password"
-            value={formState.password}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, password: e.target.value }))
-            }
-            placeholder="Leave blank to keep current password"
-          />
-          <p className="text-xs text-muted-foreground">
-            Leave blank to keep current password
-          </p>
+        {/* Password & User Type Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="user-password" className="text-sm font-medium">
+              Password
+            </Label>
+            <Input
+              id="user-password"
+              type="password"
+              placeholder="Leave blank to keep current"
+              value={formState.password}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, password: e.target.value }))
+              }
+              className="h-10"
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave blank to keep current password
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="user-type" className="text-sm font-medium">
+              User Type
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Select
+              value={formState.userType}
+              onValueChange={(v) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  userType: v as UserType,
+                }))
+              }
+            >
+              <SelectTrigger id="user-type" className="w-full h-10">
+                <SelectValue placeholder="Select user type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                <SelectItem value="CLIENT">Client</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
+        {/* Client Company */}
         <div className="space-y-2">
-          <Label>
-            User Type{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
+          <Label htmlFor="user-client" className="text-sm font-medium">
+            Client Company
           </Label>
-          <Select
-            value={formState.userType}
-            onValueChange={(v) =>
-              setFormState((prev) => ({
-                ...prev,
-                userType: v as UserType,
-              }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select user type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-              <SelectItem value="EMPLOYEE">Employee</SelectItem>
-              <SelectItem value="CLIENT">Client</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Client Company</Label>
           <Select
             value={formState.clientCompanyId || "none"}
             onValueChange={(v) =>
@@ -189,7 +210,7 @@ export function UserEditForm({
               }))
             }
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="user-client" className="w-full h-10">
               <SelectValue placeholder="Select client (optional)" />
             </SelectTrigger>
             <SelectContent>
@@ -201,16 +222,23 @@ export function UserEditForm({
               ))}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            Optional - assign user to a client organization
+          </p>
         </div>
 
-        <div className="md:col-span-2 flex items-center justify-between">
-          <div>
-            <Label>Active Status</Label>
+        {/* Active Status */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="space-y-0.5">
+            <Label htmlFor="user-active" className="text-sm font-medium">
+              Active Status
+            </Label>
             <p className="text-xs text-muted-foreground">
-              Toggle user active status
+              Enable or disable this user account
             </p>
           </div>
           <Switch
+            id="user-active"
             checked={formState.active}
             onCheckedChange={(v) =>
               setFormState((prev) => ({ ...prev, active: Boolean(v) }))
@@ -220,8 +248,14 @@ export function UserEditForm({
         </div>
       </div>
 
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" disabled={formState.saving}>
+      {/* Footer Actions */}
+      <div className="flex gap-3 justify-end pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={formState.saving}
+          className="min-w-[80px]"
+        >
           Cancel
         </Button>
         <Button
@@ -232,8 +266,16 @@ export function UserEditForm({
             !formState.email.trim() ||
             formState.saving
           }
+          className="min-w-[100px]"
         >
-          {formState.saving ? "Updating…" : "Update User"}
+          {formState.saving ? (
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Updating
+            </span>
+          ) : (
+            "Update User"
+          )}
         </Button>
       </div>
     </div>

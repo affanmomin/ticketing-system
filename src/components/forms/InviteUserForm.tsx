@@ -88,100 +88,116 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Invite User</h2>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold tracking-tight">Invite User</h2>
         <p className="text-sm text-muted-foreground">
-          Invite a new user to the workspace
+          Invite a new user to join your workspace
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>
-            Name{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            value={formState.name}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, name: e.target.value }))
-            }
-            aria-required="true"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>
-            Email{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            type="email"
-            value={formState.email}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, email: e.target.value }))
-            }
-            aria-required="true"
-          />
+      {/* Divider */}
+      <div className="h-px bg-border" />
+
+      {/* Form Fields */}
+      <div className="space-y-6">
+        {/* Name & Email Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="invite-name" className="text-sm font-medium">
+              Name
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="invite-name"
+              placeholder="Enter full name"
+              value={formState.name}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, name: e.target.value }))
+              }
+              aria-required="true"
+              className="h-10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="invite-email" className="text-sm font-medium">
+              Email
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="invite-email"
+              type="email"
+              placeholder="user@example.com"
+              value={formState.email}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, email: e.target.value }))
+              }
+              aria-required="true"
+              className="h-10"
+            />
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>
-            Password{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            type="password"
-            value={formState.password}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, password: e.target.value }))
-            }
-            aria-required="true"
-          />
-          <p className="text-xs text-muted-foreground">
-            Must be at least 8 characters
-          </p>
+        {/* Password & User Type Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="invite-password" className="text-sm font-medium">
+              Password
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="invite-password"
+              type="password"
+              placeholder="Minimum 8 characters"
+              value={formState.password}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, password: e.target.value }))
+              }
+              aria-required="true"
+              className="h-10"
+            />
+            <p className="text-xs text-muted-foreground">
+              Must be at least 8 characters
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="invite-user-type" className="text-sm font-medium">
+              User Type
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Select
+              value={formState.userType}
+              onValueChange={(v) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  userType: v as "ADMIN" | "EMPLOYEE" | "CLIENT",
+                }))
+              }
+            >
+              <SelectTrigger id="invite-user-type" className="w-full h-10">
+                <SelectValue placeholder="Select user type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                <SelectItem value="CLIENT">Client</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Determines user permissions and access
+            </p>
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>
-            User Type{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Select
-            value={formState.userType}
-            onValueChange={(v) =>
-              setFormState((prev) => ({
-                ...prev,
-                userType: v as "ADMIN" | "EMPLOYEE" | "CLIENT",
-              }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select user type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-              <SelectItem value="EMPLOYEE">Employee</SelectItem>
-              <SelectItem value="CLIENT">Client</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            User type determines permissions
-          </p>
-        </div>
-
+        {/* Client Company (conditional) */}
         {formState.userType === "CLIENT" && (
           <div className="space-y-2">
-            <Label>Client Company</Label>
+            <Label htmlFor="invite-client" className="text-sm font-medium">
+              Client Company
+            </Label>
             <Select
               value={formState.clientCompanyId}
               onValueChange={(v) =>
@@ -191,23 +207,38 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
                 }))
               }
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select client" />
+              <SelectTrigger id="invite-client" className="w-full h-10">
+                <SelectValue placeholder="Select a client" />
               </SelectTrigger>
               <SelectContent>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
+                {clients.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    No clients available
+                  </div>
+                ) : (
+                  clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Required for client user type
+            </p>
           </div>
         )}
       </div>
 
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" disabled={formState.saving}>
+      {/* Footer Actions */}
+      <div className="flex gap-3 justify-end pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={formState.saving}
+          className="min-w-[80px]"
+        >
           Cancel
         </Button>
         <Button
@@ -218,8 +249,16 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
             !formState.email.trim() ||
             formState.saving
           }
+          className="min-w-[100px]"
         >
-          {formState.saving ? "Inviting…" : "Invite"}
+          {formState.saving ? (
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Inviting
+            </span>
+          ) : (
+            "Send Invite"
+          )}
         </Button>
       </div>
     </div>

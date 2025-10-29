@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
@@ -184,250 +183,304 @@ export function TicketCreateForm() {
   }
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold">Create Ticket</h2>
-        <p className="text-sm text-muted-foreground">Create a new work item</p>
-      </header>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold tracking-tight">Create Ticket</h2>
+        <p className="text-sm text-muted-foreground">
+          Create a new work item for tracking and collaboration
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>
-            Title{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            value={formState.title}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, title: e.target.value }))
-            }
-            aria-required="true"
-          />
-          <p className="text-xs text-muted-foreground">
-            Short descriptive title
-          </p>
+      {/* Divider */}
+      <div className="h-px bg-border" />
+
+      {/* Form Fields */}
+      <div className="space-y-6">
+        {/* Title & Client Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="ticket-title" className="text-sm font-medium">
+              Title
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="ticket-title"
+              placeholder="Brief description of the issue or task"
+              value={formState.title}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, title: e.target.value }))
+              }
+              aria-required="true"
+              className="h-10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ticket-client" className="text-sm font-medium">
+              Client
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Select
+              value={formState.client}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, client: String(v) }))
+              }
+            >
+              <SelectTrigger id="ticket-client" className="w-full h-10">
+                <SelectValue placeholder="Select client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
+        {/* Description */}
         <div className="space-y-2">
-          <Label>
-            Client{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Select
-            value={formState.client}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, client: String(v) }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select client" />
-            </SelectTrigger>
-            <SelectContent>
-              {clients.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Select the owning client
-          </p>
-        </div>
-
-        <div className="md:col-span-2 space-y-2">
-          <Label>
-            Description{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
+          <Label htmlFor="ticket-description" className="text-sm font-medium">
+            Description
+            <span className="text-destructive ml-1">*</span>
           </Label>
           <Textarea
+            id="ticket-description"
+            placeholder="Provide detailed information about this ticket (supports markdown)"
             value={formState.description}
             onChange={(e) =>
               setFormState((prev) => ({ ...prev, description: e.target.value }))
             }
             aria-required="true"
+            className="min-h-[120px] resize-y"
           />
-          <p className="text-xs text-muted-foreground">Supports markdown</p>
+          <p className="text-xs text-muted-foreground">Markdown supported</p>
         </div>
 
-        <div className="space-y-2">
-          <Label>
-            Project{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Select
-            value={formState.project}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, project: String(v) }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select project" />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name} ({p.code})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Project & Stream Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="ticket-project" className="text-sm font-medium">
+              Project
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Select
+              value={formState.project}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, project: String(v) }))
+              }
+            >
+              <SelectTrigger id="ticket-project" className="w-full h-10">
+                <SelectValue placeholder="Select project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} ({p.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-2">
-          <Label>Stream</Label>
-          <Select
-            value={formState.stream || "none"}
-            onValueChange={(v) =>
-              setFormState((prev) => ({
-                ...prev,
-                stream: v === "none" ? "" : String(v),
-              }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="(none)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">(none)</SelectItem>
-              {streams.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Priority</Label>
-          <Select
-            value={formState.priority}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, priority: v as any }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              {PRIORITY.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Type</Label>
-          <Select
-            value={formState.type}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, type: v as any }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              {TYPE.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Assignee</Label>
-          <Select
-            value={formState.assignee || "none"}
-            onValueChange={(v) =>
-              setFormState((prev) => ({
-                ...prev,
-                assignee: v === "none" ? "" : v,
-              }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Unassigned" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Due date</Label>
-          <Input
-            type="date"
-            value={formState.dueDate}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, dueDate: e.target.value }))
-            }
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Points</Label>
-          <Input
-            type="number"
-            value={formState.points as any}
-            onChange={(e) =>
-              setFormState((prev) => ({
-                ...prev,
-                points: e.target.value ? Number(e.target.value) : "",
-              }))
-            }
-          />
-        </div>
-
-        <div className="md:col-span-2 space-y-2">
-          <Label>Tags</Label>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => toggleTag(t.id)}
-                className={`inline-flex items-center px-2 py-1 rounded ${formState.selectedTags.includes(t.id) ? "bg-white/5" : "bg-transparent"}`}
-                aria-pressed={formState.selectedTags.includes(t.id)}
-              >
-                <Badge style={{ background: t.color }} className="mr-2" />
-                <span className="text-sm">{t.name}</span>
-              </button>
-            ))}
+          <div className="space-y-2">
+            <Label htmlFor="ticket-stream" className="text-sm font-medium">
+              Stream
+            </Label>
+            <Select
+              value={formState.stream || "none"}
+              onValueChange={(v) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  stream: v === "none" ? "" : String(v),
+                }))
+              }
+            >
+              <SelectTrigger id="ticket-stream" className="w-full h-10">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {streams.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
+
+        {/* Priority & Type Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="ticket-priority" className="text-sm font-medium">
+              Priority
+            </Label>
+            <Select
+              value={formState.priority}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, priority: v as any }))
+              }
+            >
+              <SelectTrigger id="ticket-priority" className="w-full h-10">
+                <SelectValue placeholder="Select priority" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITY.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ticket-type" className="text-sm font-medium">
+              Type
+            </Label>
+            <Select
+              value={formState.type}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, type: v as any }))
+              }
+            >
+              <SelectTrigger id="ticket-type" className="w-full h-10">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {TYPE.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Assignee & Due Date Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="ticket-assignee" className="text-sm font-medium">
+              Assignee
+            </Label>
+            <Select
+              value={formState.assignee || "none"}
+              onValueChange={(v) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  assignee: v === "none" ? "" : v,
+                }))
+              }
+            >
+              <SelectTrigger id="ticket-assignee" className="w-full h-10">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Unassigned</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ticket-due-date" className="text-sm font-medium">
+              Due Date
+            </Label>
+            <Input
+              id="ticket-due-date"
+              type="date"
+              value={formState.dueDate}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, dueDate: e.target.value }))
+              }
+              className="h-10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ticket-points" className="text-sm font-medium">
+              Story Points
+            </Label>
+            <Input
+              id="ticket-points"
+              type="number"
+              placeholder="0"
+              min="0"
+              value={formState.points as any}
+              onChange={(e) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  points: e.target.value ? Number(e.target.value) : "",
+                }))
+              }
+              className="h-10"
+            />
+          </div>
+        </div>
+
+        {/* Tags */}
+        {tags.length > 0 && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Tags</Label>
+            <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-card min-h-[48px]">
+              {tags.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => toggleTag(t.id)}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                    formState.selectedTags.includes(t.id)
+                      ? "bg-primary/10 ring-1 ring-primary"
+                      : "bg-secondary hover:bg-secondary/80"
+                  }`}
+                  aria-pressed={formState.selectedTags.includes(t.id)}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: t.color }}
+                  />
+                  <span>{t.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex gap-2 justify-end">
-        <Button variant="ghost" type="button" disabled={formState.saving}>
+      {/* Footer Actions */}
+      <div className="flex gap-3 justify-end pt-4">
+        <Button
+          variant="outline"
+          type="button"
+          disabled={formState.saving}
+          className="min-w-[80px]"
+        >
           Cancel
         </Button>
         <Button
           type="button"
           onClick={handleSave}
           disabled={!canSave || formState.saving}
+          className="min-w-[120px]"
         >
-          {formState.saving ? "Saving…" : "Save"}
+          {formState.saving ? (
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Creating
+            </span>
+          ) : (
+            "Create Ticket"
+          )}
         </Button>
       </div>
     </div>

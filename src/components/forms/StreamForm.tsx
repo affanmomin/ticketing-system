@@ -53,53 +53,78 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Stream</h2>
-        <p className="text-sm text-muted-foreground">Create or edit a stream</p>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold tracking-tight">Create Stream</h2>
+        <p className="text-sm text-muted-foreground">
+          Add a new stream to organize work within a project
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>
-            Stream name{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            value={formState.name}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, name: e.target.value }))
-            }
-            aria-required="true"
-          />
-        </div>
+      {/* Divider */}
+      <div className="h-px bg-border" />
 
-        <div className="space-y-2">
-          <Label>Project</Label>
-          <Select
-            value={formState.project}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, project: String(v) }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select project" />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Form Fields */}
+      <div className="space-y-6">
+        {/* Stream Name & Project Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="stream-name" className="text-sm font-medium">
+              Stream Name
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="stream-name"
+              placeholder="e.g., Development, QA, Production"
+              value={formState.name}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, name: e.target.value }))
+              }
+              aria-required="true"
+              className="h-10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="stream-project" className="text-sm font-medium">
+              Project
+            </Label>
+            <Select
+              value={formState.project}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, project: String(v) }))
+              }
+            >
+              <SelectTrigger id="stream-project" className="w-full h-10">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    No projects available
+                  </div>
+                ) : (
+                  projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" disabled={formState.saving}>
+      {/* Footer Actions */}
+      <div className="flex gap-3 justify-end pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={formState.saving}
+          className="min-w-[80px]"
+        >
           Cancel
         </Button>
         <Button
@@ -108,8 +133,16 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
           disabled={
             !formState.name.trim() || !formState.project || formState.saving
           }
+          className="min-w-[80px]"
         >
-          {formState.saving ? "Saving…" : "Save"}
+          {formState.saving ? (
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Saving
+            </span>
+          ) : (
+            "Create Stream"
+          )}
         </Button>
       </div>
     </div>

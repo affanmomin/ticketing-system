@@ -38,66 +38,101 @@ export function TagForm() {
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Tag</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>
-            Name{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            value={formState.name}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, name: e.target.value }))
-            }
-            aria-required="true"
-          />
-        </div>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold tracking-tight">Create Tag</h2>
+        <p className="text-sm text-muted-foreground">
+          Add a new tag for organizing and categorizing tickets
+        </p>
+      </div>
 
-        <div className="space-y-2">
-          <Label>
-            Color{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Input
-            type="color"
-            value={formState.color}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, color: e.target.value }))
-            }
-            aria-required="true"
-          />
-        </div>
+      {/* Divider */}
+      <div className="h-px bg-border" />
 
-        <div className="space-y-2">
-          <Label>Scope</Label>
-          <div className="flex items-center gap-4">
-            <Checkbox
-              checked={formState.global}
-              onCheckedChange={(v) =>
-                setFormState((prev) => ({ ...prev, global: Boolean(v) }))
+      {/* Form Fields */}
+      <div className="space-y-6">
+        {/* Name & Color Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="tag-name" className="text-sm font-medium">
+              Tag Name
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="tag-name"
+              placeholder="e.g., Bug, Feature, Enhancement"
+              value={formState.name}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, name: e.target.value }))
               }
+              aria-required="true"
+              className="h-10"
             />
-            <span>Global</span>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tag-color" className="text-sm font-medium">
+              Color
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <div className="flex gap-3 items-center">
+              <Input
+                id="tag-color"
+                type="color"
+                value={formState.color}
+                onChange={(e) =>
+                  setFormState((prev) => ({ ...prev, color: e.target.value }))
+                }
+                aria-required="true"
+                className="h-10 w-20 cursor-pointer"
+              />
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-10 h-10 rounded-md border shadow-sm"
+                  style={{ background: formState.color }}
+                />
+                <span className="text-sm text-muted-foreground font-mono">
+                  {formState.color}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
+        {/* Scope Selection */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="space-y-0.5">
+            <Label htmlFor="tag-global" className="text-sm font-medium">
+              Global Tag
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Make this tag available across all clients
+            </p>
+          </div>
+          <Checkbox
+            id="tag-global"
+            checked={formState.global}
+            onCheckedChange={(v) =>
+              setFormState((prev) => ({ ...prev, global: Boolean(v) }))
+            }
+          />
+        </div>
+
+        {/* Client Selection (conditional) */}
         {!formState.global && (
           <div className="space-y-2">
-            <Label>Client</Label>
+            <Label htmlFor="tag-client" className="text-sm font-medium">
+              Client
+            </Label>
             <Select
               value={formState.client}
               onValueChange={(v) =>
                 setFormState((prev) => ({ ...prev, client: String(v) }))
               }
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select client" />
+              <SelectTrigger id="tag-client" className="w-full h-10">
+                <SelectValue placeholder="Select a client" />
               </SelectTrigger>
               <SelectContent>
                 {CLIENTS.map((c) => (
@@ -107,28 +142,37 @@ export function TagForm() {
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              This tag will only be available for the selected client
+            </p>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <div
-          className="w-8 h-6 rounded"
-          style={{ background: formState.color }}
-        />
-        <div className="text-sm text-muted-foreground">Preview</div>
-      </div>
-
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" disabled={formState.saving}>
+      {/* Footer Actions */}
+      <div className="flex gap-3 justify-end pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={formState.saving}
+          className="min-w-[80px]"
+        >
           Cancel
         </Button>
         <Button
           type="button"
           onClick={handleSave}
           disabled={!formState.name.trim() || formState.saving}
+          className="min-w-[80px]"
         >
-          {formState.saving ? "Saving…" : "Save"}
+          {formState.saving ? (
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Saving
+            </span>
+          ) : (
+            "Create Tag"
+          )}
         </Button>
       </div>
     </div>

@@ -70,45 +70,100 @@ export function ClientEditForm({ client, onSuccess }: ClientEditFormProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="name">Client Name</Label>
-        <Input
-          id="name"
-          value={formState.name}
-          onChange={(e) =>
-            setFormState((prev) => ({ ...prev, name: e.target.value }))
-          }
-          placeholder="Enter client name"
-        />
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold tracking-tight">Edit Client</h2>
+        <p className="text-sm text-muted-foreground">
+          Update client information and settings
+        </p>
       </div>
 
-      <div>
-        <Label htmlFor="domain">Domain</Label>
-        <Input
-          id="domain"
-          value={formState.domain}
-          onChange={(e) =>
-            setFormState((prev) => ({ ...prev, domain: e.target.value }))
-          }
-          placeholder="example.com"
-        />
+      {/* Divider */}
+      <div className="h-px bg-border" />
+
+      {/* Form Fields */}
+      <div className="space-y-6">
+        {/* Client Name & Domain Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="client-name" className="text-sm font-medium">
+              Client Name
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="client-name"
+              placeholder="Enter client name"
+              value={formState.name}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, name: e.target.value }))
+              }
+              className="h-10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="client-domain" className="text-sm font-medium">
+              Domain
+            </Label>
+            <Input
+              id="client-domain"
+              placeholder="example.com"
+              value={formState.domain}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, domain: e.target.value }))
+              }
+              className="h-10"
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional domain for client identification
+            </p>
+          </div>
+        </div>
+
+        {/* Active Status */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="space-y-0.5">
+            <Label htmlFor="client-active" className="text-sm font-medium">
+              Active Status
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Enable or disable this client
+            </p>
+          </div>
+          <Switch
+            id="client-active"
+            checked={formState.active}
+            onCheckedChange={(checked) =>
+              setFormState((prev) => ({ ...prev, active: checked }))
+            }
+          />
+        </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <Label htmlFor="active">Active Status</Label>
-        <Switch
-          id="active"
-          checked={formState.active}
-          onCheckedChange={(checked) =>
-            setFormState((prev) => ({ ...prev, active: checked }))
-          }
-        />
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button onClick={handleUpdate} disabled={formState.saving}>
-          {formState.saving ? "Saving..." : "Save Changes"}
+      {/* Footer Actions */}
+      <div className="flex gap-3 justify-end pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={formState.saving}
+          className="min-w-[80px]"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleUpdate}
+          disabled={formState.saving}
+          className="min-w-[100px]"
+        >
+          {formState.saving ? (
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Saving
+            </span>
+          ) : (
+            "Save Changes"
+          )}
         </Button>
       </div>
     </div>

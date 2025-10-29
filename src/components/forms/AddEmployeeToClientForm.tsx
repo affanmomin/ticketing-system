@@ -37,72 +37,97 @@ export function AddEmployeeToClientForm() {
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Add Employee to Client</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>
-            Employee{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Select
-            value={formState.employee}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, employee: v }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select employee" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Select employee</SelectItem>
-              {USERS.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold tracking-tight">
+          Assign Employee to Client
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Grant an employee access to a specific client
+        </p>
+      </div>
 
-        <div className="space-y-2">
-          <Label>
-            Client{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
-          <Select
-            value={formState.client}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, client: String(v) }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select client" />
-            </SelectTrigger>
-            <SelectContent>
-              {CLIENTS.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Divider */}
+      <div className="h-px bg-border" />
+
+      {/* Form Fields */}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="employee-select" className="text-sm font-medium">
+              Employee
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Select
+              value={formState.employee}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, employee: v }))
+              }
+            >
+              <SelectTrigger id="employee-select" className="w-full h-10">
+                <SelectValue placeholder="Select an employee" />
+              </SelectTrigger>
+              <SelectContent>
+                {USERS.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="client-select" className="text-sm font-medium">
+              Client
+              <span className="text-destructive ml-1">*</span>
+            </Label>
+            <Select
+              value={formState.client}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, client: String(v) }))
+              }
+            >
+              <SelectTrigger id="client-select" className="w-full h-10">
+                <SelectValue placeholder="Select a client" />
+              </SelectTrigger>
+              <SelectContent>
+                {CLIENTS.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" disabled={formState.saving}>
+
+      {/* Footer Actions */}
+      <div className="flex gap-3 justify-end pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={formState.saving}
+          className="min-w-[80px]"
+        >
           Cancel
         </Button>
         <Button
           type="button"
           onClick={handleSave}
           disabled={!formState.employee || formState.saving}
+          className="min-w-[100px]"
         >
-          {formState.saving ? "Adding…" : "Add"}
+          {formState.saving ? (
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Adding
+            </span>
+          ) : (
+            "Assign Employee"
+          )}
         </Button>
       </div>
     </div>
