@@ -15,10 +15,12 @@ import * as projectsApi from "@/api/projects";
 import { toast } from "@/hooks/use-toast";
 
 export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [client, setClient] = useState<string>("");
-  const [active, setActive] = useState(true);
+  const [projectForm, setProjectForm] = useState({
+    name: "",
+    code: "",
+    client: "",
+    active: true,
+  });
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
     []
   );
@@ -29,16 +31,22 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       const { data } = await clientsApi.list({ limit: 200, offset: 0 });
       const items = data.items.map((c) => ({ id: c.id, name: c.name }));
       setClients(items);
-      if (items.length) setClient(items[0].id);
+      if (items.length)
+        setProjectForm((form) => ({ ...form, client: items[0].id }));
     })();
   }, []);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !code.trim() || !client) return;
+  async function handleSave() {
+    if (!projectForm.name.trim() || !projectForm.code.trim() || !projectForm.client)
+      return;
     setSaving(true);
     try {
-      await projectsApi.create({ clientId: client, name, code, active });
+      await projectsApi.create({
+        clientId: projectForm.client,
+        name: projectForm.name,
+        code: projectForm.code,
+        active: projectForm.active,
+      });
       onSuccess?.();
     } catch (e: any) {
       toast({
@@ -57,10 +65,7 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         <p className="text-sm text-muted-foreground">Create or edit project</p>
       </div>
 
-      <form
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-        onSubmit={handleSave}
-      >
+      <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>
             Project name{" "}
@@ -69,8 +74,10 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
             </span>
           </Label>
           <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={projectForm.name}
+            onChange={(e) =>
+              setProjectForm((form) => ({ ...form, name: e.target.value }))
+            }
             aria-required="true"
           />
         </div>
@@ -83,8 +90,13 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           </Label>
           <Input
             maxLength={12}
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            value={projectForm.code}
+            onChange={(e) =>
+              setProjectForm((form) => ({
+                ...form,
+                code: e.target.value.toUpperCase(),
+              }))
+            }
             aria-required="true"
           />
           <p className="text-xs text-muted-foreground">Short key like ACM</p>
@@ -92,7 +104,12 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div className="space-y-2">
           <Label>Client</Label>
-          <Select value={client} onValueChange={(v) => setClient(String(v))}>
+          <Select
+            value={projectForm.client}
+            onValueChange={(v) =>
+              setProjectForm((form) => ({ ...form, client: String(v) }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
@@ -111,8 +128,10 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
             <Label>Active</Label>
           </div>
           <Switch
-            checked={active}
-            onCheckedChange={(v) => setActive(Boolean(v))}
+            checked={projectForm.active}
+            onCheckedChange={(v) =>
+              setProjectForm((form) => ({ ...form, active: Boolean(v) }))
+            }
             aria-label="Active"
           />
         </div>
@@ -123,8 +142,14 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           Cancel
         </Button>
         <Button
-          type="submit"
-          disabled={!name.trim() || !code.trim() || !client || saving}
+          type="button"
+          onClick={handleSave}
+          disabled={
+            !projectForm.name.trim() ||
+            !projectForm.code.trim() ||
+            !projectForm.client ||
+            saving
+          }
         >
           {saving ? "Saving…" : "Save"}
         </Button>
