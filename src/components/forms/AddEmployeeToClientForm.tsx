@@ -19,13 +19,27 @@ const CLIENTS = [
 ];
 
 export function AddEmployeeToClientForm() {
-  const [employee, setEmployee] = useState("");
-  const [client, setClient] = useState(CLIENTS[0].id);
+  const [formState, setFormState] = useState({
+    employee: "",
+    client: CLIENTS[0].id,
+    saving: false,
+  });
+
+  async function handleSave() {
+    if (!formState.employee) return;
+    setFormState((prev) => ({ ...prev, saving: true }));
+    try {
+      // Add API call here when available
+      console.log("Adding employee to client:", formState);
+    } finally {
+      setFormState((prev) => ({ ...prev, saving: false }));
+    }
+  }
 
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Add Employee to Client</h2>
-      <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>
             Employee{" "}
@@ -33,7 +47,12 @@ export function AddEmployeeToClientForm() {
               *
             </span>
           </Label>
-          <Select value={employee} onValueChange={(v) => setEmployee(v)}>
+          <Select
+            value={formState.employee}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, employee: v }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select employee" />
             </SelectTrigger>
@@ -55,7 +74,12 @@ export function AddEmployeeToClientForm() {
               *
             </span>
           </Label>
-          <Select value={client} onValueChange={(v) => setClient(String(v))}>
+          <Select
+            value={formState.client}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, client: String(v) }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
@@ -68,10 +92,18 @@ export function AddEmployeeToClientForm() {
             </SelectContent>
           </Select>
         </div>
-      </form>
+      </div>
       <div className="flex gap-2 justify-end">
-        <Button variant="ghost">Cancel</Button>
-        <Button>Add</Button>
+        <Button type="button" variant="ghost" disabled={formState.saving}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={!formState.employee || formState.saving}
+        >
+          {formState.saving ? "Adding…" : "Add"}
+        </Button>
       </div>
     </div>
   );

@@ -9,18 +9,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import * as usersApi from "@/api/users";
 import * as clientsApi from "@/api/clients";
+import type { User, UserType } from "@/api/users";
 
-export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
+export function UserEditForm({
+  user,
+  onSuccess,
+}: {
+  user: User;
+  onSuccess?: () => void;
+}) {
   const [formState, setFormState] = useState({
-    name: "",
-    email: "",
+    name: user.name,
+    email: user.email,
     password: "",
-    userType: "EMPLOYEE" as "ADMIN" | "EMPLOYEE" | "CLIENT",
-    clientCompanyId: "",
-    active: true,
+    userType: user.userType,
+    clientCompanyId: user.clientCompanyId || "",
+    active: user.active,
     saving: false,
   });
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
@@ -38,21 +46,17 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
     })();
   }, []);
 
-  async function handleInvite() {
-    if (
-      !formState.name.trim() ||
-      !formState.email.trim() ||
-      !formState.password.trim()
-    ) {
+  async function handleUpdate() {
+    if (!formState.name.trim() || !formState.email.trim()) {
       toast({
         title: "Validation Error",
-        description: "Name, email, and password are required",
+        description: "Name and email are required",
         variant: "destructive",
       });
       return;
     }
 
-    if (formState.password.length < 8) {
+    if (formState.password && formState.password.length < 8) {
       toast({
         title: "Validation Error",
         description: "Password must be at least 8 characters",
@@ -63,22 +67,27 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setFormState((prev) => ({ ...prev, saving: true }));
     try {
-      await usersApi.create({
+      const updateData: any = {
         name: formState.name,
         email: formState.email,
-        password: formState.password,
         userType: formState.userType,
         clientCompanyId: formState.clientCompanyId || undefined,
         active: formState.active,
-      });
+      };
+
+      if (formState.password) {
+        updateData.password = formState.password;
+      }
+
+      await usersApi.update(user.id, updateData);
       toast({
-        title: "User invited",
-        description: `${formState.name} has been successfully invited`,
+        title: "User updated",
+        description: `${formState.name} has been successfully updated`,
       });
       onSuccess?.();
     } catch (e: any) {
       toast({
-        title: "Failed to invite user",
+        title: "Failed to update user",
         description: e?.response?.data?.message || "An error occurred",
         variant: "destructive",
       });
@@ -90,10 +99,8 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Invite User</h2>
-        <p className="text-sm text-muted-foreground">
-          Invite a new user to the workspace
-        </p>
+        <h2 className="text-lg font-semibold">Edit User</h2>
+        <p className="text-sm text-muted-foreground">Update user information</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -130,22 +137,17 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         <div className="space-y-2">
-          <Label>
-            Password{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
+          <Label>Password</Label>
           <Input
             type="password"
             value={formState.password}
             onChange={(e) =>
               setFormState((prev) => ({ ...prev, password: e.target.value }))
             }
-            aria-required="true"
+            placeholder="Leave blank to keep current password"
           />
           <p className="text-xs text-muted-foreground">
-            Must be at least 8 characters
+            Leave blank to keep current password
           </p>
         </div>
 
@@ -161,7 +163,7 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
             onValueChange={(v) =>
               setFormState((prev) => ({
                 ...prev,
-                userType: v as "ADMIN" | "EMPLOYEE" | "CLIENT",
+                userType: v as UserType,
               }))
             }
           >
@@ -174,36 +176,48 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
               <SelectItem value="CLIENT">Client</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
-            User type determines permissions
-          </p>
         </div>
 
-        {formState.userType === "CLIENT" && (
-          <div className="space-y-2">
-            <Label>Client Company</Label>
-            <Select
-              value={formState.clientCompanyId}
-              onValueChange={(v) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  clientCompanyId: String(v),
-                }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="space-y-2">
+          <Label>Client Company</Label>
+          <Select
+            value={formState.clientCompanyId || "none"}
+            onValueChange={(v) =>
+              setFormState((prev) => ({
+                ...prev,
+                clientCompanyId: v === "none" ? "" : v,
+              }))
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select client (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="md:col-span-2 flex items-center justify-between">
+          <div>
+            <Label>Active Status</Label>
+            <p className="text-xs text-muted-foreground">
+              Toggle user active status
+            </p>
           </div>
-        )}
+          <Switch
+            checked={formState.active}
+            onCheckedChange={(v) =>
+              setFormState((prev) => ({ ...prev, active: Boolean(v) }))
+            }
+            aria-label="Active"
+          />
+        </div>
       </div>
 
       <div className="flex gap-2 justify-end">
@@ -212,18 +226,18 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
         </Button>
         <Button
           type="button"
-          onClick={handleInvite}
+          onClick={handleUpdate}
           disabled={
             !formState.name.trim() ||
             !formState.email.trim() ||
             formState.saving
           }
         >
-          {formState.saving ? "Inviting…" : "Invite"}
+          {formState.saving ? "Updating…" : "Update User"}
         </Button>
       </div>
     </div>
   );
 }
 
-export default InviteUserForm;
+export default UserEditForm;

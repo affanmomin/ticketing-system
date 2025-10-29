@@ -14,28 +14,33 @@ import * as streamsApi from "@/api/streams";
 import { toast } from "@/hooks/use-toast";
 
 export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [name, setName] = useState("");
-  const [project, setProject] = useState<string>("");
+  const [formState, setFormState] = useState({
+    name: "",
+    project: "",
+    saving: false,
+  });
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
     []
   );
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
       const { data } = await projectsApi.list();
       const items = data.map((p) => ({ id: p.id, name: p.name }));
       setProjects(items);
-      if (items.length) setProject(items[0].id);
+      if (items.length)
+        setFormState((prev) => ({ ...prev, project: items[0].id }));
     })();
   }, []);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !project) return;
-    setSaving(true);
+  async function handleSave() {
+    if (!formState.name.trim() || !formState.project) return;
+    setFormState((prev) => ({ ...prev, saving: true }));
     try {
-      await streamsApi.create({ projectId: project, name });
+      await streamsApi.create({
+        projectId: formState.project,
+        name: formState.name,
+      });
       onSuccess?.();
     } catch (e: any) {
       toast({
@@ -43,7 +48,7 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
         description: e?.response?.data?.message || "Error",
       });
     } finally {
-      setSaving(false);
+      setFormState((prev) => ({ ...prev, saving: false }));
     }
   }
 
@@ -54,10 +59,7 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
         <p className="text-sm text-muted-foreground">Create or edit a stream</p>
       </div>
 
-      <form
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-        onSubmit={handleSave}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>
             Stream name{" "}
@@ -66,15 +68,22 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
             </span>
           </Label>
           <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={formState.name}
+            onChange={(e) =>
+              setFormState((prev) => ({ ...prev, name: e.target.value }))
+            }
             aria-required="true"
           />
         </div>
 
         <div className="space-y-2">
           <Label>Project</Label>
-          <Select value={project} onValueChange={(v) => setProject(String(v))}>
+          <Select
+            value={formState.project}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, project: String(v) }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select project" />
             </SelectTrigger>
@@ -87,18 +96,20 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
             </SelectContent>
           </Select>
         </div>
-      </form>
+      </div>
 
       <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" disabled={saving}>
+        <Button type="button" variant="ghost" disabled={formState.saving}>
           Cancel
         </Button>
         <Button
-          type="submit"
-          disabled={!name.trim() || !project || saving}
-          formNoValidate
+          type="button"
+          onClick={handleSave}
+          disabled={
+            !formState.name.trim() || !formState.project || formState.saving
+          }
         >
-          {saving ? "Saving…" : "Save"}
+          {formState.saving ? "Saving…" : "Save"}
         </Button>
       </div>
     </div>

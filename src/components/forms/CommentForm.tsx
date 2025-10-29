@@ -14,35 +14,33 @@ export function CommentForm({
   ticketId?: string;
   onPosted?: () => void;
 }) {
-  const [text, setText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
-  // file preview not used in static UI
+  const [formState, setFormState] = useState({
+    text: "",
+    file: null as File | null,
+    saving: false,
+  });
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!ticketId || !text.trim()) return;
-    setSaving(true);
+  async function handleSubmit() {
+    if (!ticketId || !formState.text.trim()) return;
+    setFormState((prev) => ({ ...prev, saving: true }));
     try {
-      await commentsApi.create({ ticketId, bodyMd: text });
-      if (file) {
-        await attachmentsApi.upload({ file, ticketId });
+      await commentsApi.create({ ticketId, bodyMd: formState.text });
+      if (formState.file) {
+        await attachmentsApi.upload({ file: formState.file, ticketId });
       }
-      setText("");
-      setFile(null);
+      setFormState({ text: "", file: null, saving: false });
       onPosted?.();
     } catch (e: any) {
       toast({
         title: "Failed to add comment",
         description: e?.response?.data?.message || "Error",
       });
-    } finally {
-      setSaving(false);
+      setFormState((prev) => ({ ...prev, saving: false }));
     }
   }
 
   return (
-    <form className="flex items-start gap-3" onSubmit={handleSubmit}>
+    <div className="flex items-start gap-3">
       <div className="flex-1">
         <Label>
           Comment{" "}
@@ -51,21 +49,32 @@ export function CommentForm({
           </span>
         </Label>
         <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          value={formState.text}
+          onChange={(e) =>
+            setFormState((prev) => ({ ...prev, text: e.target.value }))
+          }
           aria-required="true"
         />
       </div>
       <div className="flex flex-col items-end gap-2">
         <Input
           type="file"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          onChange={(e) =>
+            setFormState((prev) => ({
+              ...prev,
+              file: e.target.files?.[0] || null,
+            }))
+          }
         />
-        <Button type="submit" disabled={!ticketId || !text.trim() || saving}>
-          {saving ? "Posting…" : "Add comment"}
+        <Button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!ticketId || !formState.text.trim() || formState.saving}
+        >
+          {formState.saving ? "Posting…" : "Add comment"}
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
 

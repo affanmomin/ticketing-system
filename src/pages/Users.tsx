@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,87 +10,128 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Users as UsersIcon, Plus, Search } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Users as UsersIcon, Plus, Search, Edit } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/PageHeader";
 import { InviteUserForm } from "@/components/forms/InviteUserForm";
-
-type Role = "admin" | "employee" | "client";
-type UserRow = {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  status: "active" | "suspended";
-};
-
-const initialUsers: UserRow[] = [
-  {
-    id: "1",
-    name: "Alice Johnson",
-    email: "alice@example.com",
-    role: "admin",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Bob Smith",
-    email: "bob@example.com",
-    role: "employee",
-    status: "active",
-  },
-  {
-    id: "3",
-    name: "Carol Davis",
-    email: "carol@example.com",
-    role: "employee",
-    status: "suspended",
-  },
-  {
-    id: "4",
-    name: "David Wilson",
-    email: "david@example.com",
-    role: "client",
-    status: "active",
-  },
-];
+import { UserEditForm } from "@/components/forms/UserEditForm";
+import { toast } from "@/hooks/use-toast";
+import * as usersApi from "@/api/users";
+import type { User, UserType } from "@/api/users";
 
 export function Users() {
-  const [users, setUsers] = useState<UserRow[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
+  const [roleFilter, setRoleFilter] = useState<UserType | "all">("all");
   const [open, setOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    let data = users;
-    if (roleFilter !== "all") data = data.filter((u) => u.role === roleFilter);
-    if (query) {
-      const q = query.toLowerCase();
-      data = data.filter(
-        (u) =>
-          u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-      );
+  async function loadUsers() {
+    setLoading(true);
+    try {
+      const params: any = { limit: 100, offset: 0 };
+      if (roleFilter !== "all") params.userType = roleFilter;
+      if (query) params.search = query;
+
+      const { data } = await usersApi.list(params);
+      setUsers(data.data);
+    } catch (e: any) {
+      toast({
+        title: "Failed to load users",
+        description: e?.response?.data?.message || "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-    return data;
-  }, [users, query, roleFilter]);
+  }
 
-  // Static UI: invite flow handled inside InviteUserForm (no data mutation here)
+  useEffect(() => {
+    loadUsers();
+  }, [roleFilter, query]);
 
-  const toggleStatus = (id: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === "active" ? "suspended" : "active" }
-          : u
-      )
-    );
+  const handleInviteSuccess = () => {
+    setOpen(false);
+    loadUsers();
   };
 
-  const changeRole = (id: string, newRole: Role) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, role: newRole } : u))
-    );
+  const handleEditSuccess = () => {
+    setUserToEdit(null);
+    loadUsers();
+  };
+
+  const toggleStatus = async (id: string, currentStatus: boolean) => {
+    setUpdatingUserId(id);
+    try {
+      await usersApi.update(id, { active: !currentStatus });
+      toast({
+        title: currentStatus ? "User deactivated" : "User activated",
+        description: "User status updated successfully",
+      });
+      loadUsers();
+    } catch (e: any) {
+      toast({
+        title: "Failed to update user",
+        description: e?.response?.data?.message || "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
+  const changeUserType = async (id: string, newUserType: UserType) => {
+    setUpdatingUserId(id);
+    try {
+      await usersApi.update(id, { userType: newUserType });
+      toast({
+        title: "User type updated",
+        description: "User type changed successfully",
+      });
+      loadUsers();
+    } catch (e: any) {
+      toast({
+        title: "Failed to update user type",
+        description: e?.response?.data?.message || "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await usersApi.remove(userToDelete, false);
+      toast({
+        title: "User deleted",
+        description: "User has been deactivated",
+      });
+      setUserToDelete(null);
+      loadUsers();
+    } catch (e: any) {
+      toast({
+        title: "Failed to delete user",
+        description: e?.response?.data?.message || "An error occurred",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -107,7 +148,7 @@ export function Users() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <InviteUserForm />
+              <InviteUserForm onSuccess={handleInviteSuccess} />
             </DialogContent>
           </Dialog>
         }
@@ -123,16 +164,16 @@ export function Users() {
             <div className="flex items-center gap-3">
               <Select
                 value={roleFilter}
-                onValueChange={(v: Role | "all") => setRoleFilter(v)}
+                onValueChange={(v: UserType | "all") => setRoleFilter(v)}
               >
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Filter role" />
+                  <SelectValue placeholder="Filter user type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All roles</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="client">Client</SelectItem>
+                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                  <SelectItem value="CLIENT">Client</SelectItem>
                 </SelectContent>
               </Select>
               <div className="relative">
@@ -148,69 +189,135 @@ export function Users() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
-            {filtered.map((u) => (
-              <div
-                key={u.id}
-                className="grid grid-cols-1 sm:grid-cols-12 items-center gap-4 p-4"
-              >
-                <div className="sm:col-span-4 flex items-center gap-3">
-                  <UserAvatar name={u.name} role={u.role} showTooltip={false} />
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {u.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {u.email}
-                    </p>
+          {loading ? (
+            <div className="p-6 text-sm text-muted-foreground text-center">
+              Loading users...
+            </div>
+          ) : (
+            <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+              {users.map((u) => (
+                <div
+                  key={u.id}
+                  className="grid grid-cols-1 sm:grid-cols-12 items-center gap-4 p-4"
+                >
+                  <div className="sm:col-span-4 flex items-center gap-3">
+                    <UserAvatar
+                      name={u.name}
+                      role={
+                        u.userType.toLowerCase() as
+                          | "admin"
+                          | "employee"
+                          | "client"
+                      }
+                      showTooltip={false}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">
+                        {u.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {u.email}
+                      </p>
+                      {u.clientCompanyName && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {u.clientCompanyName}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Badge variant="secondary" className="capitalize">
+                      {u.userType.toLowerCase()}
+                    </Badge>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Badge
+                      className={
+                        u.active
+                          ? "bg-green-500/20 text-green-300"
+                          : "bg-red-500/20 text-red-300"
+                      }
+                    >
+                      {u.active ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Select
+                      value={u.userType}
+                      onValueChange={(v: UserType) => changeUserType(u.id, v)}
+                      disabled={updatingUserId === u.id}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ADMIN">Admin</SelectItem>
+                        <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                        <SelectItem value="CLIENT">Client</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-2 flex justify-start sm:justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUserToEdit(u)}
+                      disabled={updatingUserId === u.id}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleStatus(u.id, u.active)}
+                      disabled={updatingUserId === u.id}
+                    >
+                      {u.active ? "Deactivate" : "Activate"}
+                    </Button>
                   </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <Badge variant="secondary" className="capitalize">
-                    {u.role}
-                  </Badge>
+              ))}
+              {users.length === 0 && (
+                <div className="p-6 text-sm text-muted-foreground">
+                  No users found.
                 </div>
-                <div className="sm:col-span-2">
-                  <Badge
-                    className={
-                      u.status === "active"
-                        ? "bg-green-500/20 text-green-300"
-                        : "bg-red-500/20 text-red-300"
-                    }
-                  >
-                    {u.status}
-                  </Badge>
-                </div>
-                <div className="sm:col-span-2">
-                  <Select
-                    value={u.role}
-                    onValueChange={(v: Role) => changeRole(u.id, v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
-                      <SelectItem value="client">Client</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="sm:col-span-2 flex justify-start sm:justify-end">
-                  <Button variant="outline" onClick={() => toggleStatus(u.id)}>
-                    {u.status === "active" ? "Suspend" : "Activate"}
-                  </Button>
-                </div>
-              </div>
-            ))}
-            {filtered.length === 0 && (
-              <div className="p-6 text-sm text-muted-foreground">
-                No users found.
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={!!userToDelete}
+        onOpenChange={(open) => !open && setUserToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deactivate this user? This action will
+              set their status to inactive.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={!!userToEdit}
+        onOpenChange={(open) => !open && setUserToEdit(null)}
+      >
+        <DialogContent className="max-w-2xl">
+          {userToEdit && (
+            <UserEditForm user={userToEdit} onSuccess={handleEditSuccess} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

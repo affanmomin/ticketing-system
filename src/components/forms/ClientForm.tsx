@@ -5,21 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
 export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [name, setName] = useState("");
-  const [domain, setDomain] = useState("");
-  const [active, setActive] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [formState, setFormState] = useState({
+    name: "",
+    domain: "",
+    active: true,
+    saving: false,
+  });
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setSaving(true);
+  async function handleSave() {
+    if (!formState.name.trim()) return;
+    setFormState((prev) => ({ ...prev, saving: true }));
     try {
       const { create } = await import("@/api/clients");
-      await create({ name, domain: domain || undefined, active });
+      await create({
+        name: formState.name,
+        domain: formState.domain || undefined,
+        active: formState.active,
+      });
       onSuccess?.();
     } finally {
-      setSaving(false);
+      setFormState((prev) => ({ ...prev, saving: false }));
     }
   }
 
@@ -30,10 +35,7 @@ export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
         <p className="text-sm text-muted-foreground">Create or edit client</p>
       </div>
 
-      <form
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-        onSubmit={handleSave}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>
             Client name{" "}
@@ -42,8 +44,10 @@ export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
             </span>
           </Label>
           <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={formState.name}
+            onChange={(e) =>
+              setFormState((prev) => ({ ...prev, name: e.target.value }))
+            }
             aria-required="true"
           />
         </div>
@@ -52,8 +56,10 @@ export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
           <Label>Domain</Label>
           <Input
             placeholder="acme.com"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
+            value={formState.domain}
+            onChange={(e) =>
+              setFormState((prev) => ({ ...prev, domain: e.target.value }))
+            }
           />
           <p className="text-xs text-muted-foreground">
             Optional domain for client
@@ -68,19 +74,25 @@ export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
             </p>
           </div>
           <Switch
-            checked={active}
-            onCheckedChange={(v) => setActive(Boolean(v))}
+            checked={formState.active}
+            onCheckedChange={(v) =>
+              setFormState((prev) => ({ ...prev, active: Boolean(v) }))
+            }
             aria-label="Active"
           />
         </div>
-      </form>
+      </div>
 
       <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" disabled={saving}>
+        <Button type="button" variant="ghost" disabled={formState.saving}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!name.trim() || saving}>
-          {saving ? "Saving…" : "Save"}
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={!formState.name.trim() || formState.saving}
+        >
+          {formState.saving ? "Saving…" : "Save"}
         </Button>
       </div>
     </div>

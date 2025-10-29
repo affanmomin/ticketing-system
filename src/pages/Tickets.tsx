@@ -412,7 +412,7 @@ export function Tickets() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-3 sm:gap-4 overflow-x-auto md:overflow-visible pb-4 snap-x snap-mandatory md:snap-none">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {statusColumns.map((column) => {
                 const columnTickets = tickets.filter(
                   (t) => t.status === column.id
@@ -420,7 +420,7 @@ export function Tickets() {
 
                 return (
                   <DroppableColumn key={column.id} id={column.id}>
-                    <div className="snap-start shrink-0 md:shrink w-[16rem] sm:w-[18rem] md:w-auto md:flex-1 md:basis-1/4 md:min-w-0 bg-card rounded-xl border border-border">
+                    <div className="bg-card rounded-xl border border-border h-full flex flex-col">
                       <div
                         className={cn(
                           "p-3 border-b border-border",
@@ -428,7 +428,7 @@ export function Tickets() {
                         )}
                       >
                         <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-foreground">
+                          <h3 className="font-semibold text-foreground text-sm lg:text-base">
                             {column.label}
                           </h3>
                           <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
@@ -437,7 +437,7 @@ export function Tickets() {
                         </div>
                       </div>
 
-                      <div className="p-3 space-y-3 min-h-[320px] sm:min-h-[380px] md:min-h-[400px]">
+                      <div className="p-3 space-y-3 min-h-[300px] sm:min-h-[400px] lg:min-h-[500px] flex-1 overflow-y-auto">
                         {columnTickets.map((ticket) => (
                           <DraggableTicket key={ticket.id} id={ticket.id}>
                             <TicketCard

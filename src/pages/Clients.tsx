@@ -9,20 +9,44 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Building2, Plus, Search, Mail } from "lucide-react";
-import { UserAvatar } from "@/components/UserAvatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Building2, Plus, Search, Edit, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import ClientForm from "@/components/forms/ClientForm";
+import { ClientEditForm } from "@/components/forms/ClientEditForm";
 import * as clientsApi from "@/api/clients";
+import { useToast } from "@/hooks/use-toast";
 
 type Client = {
   id: string;
+  tenantId: string;
   name: string;
   domain?: string | null;
   active: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export function Clients() {
+  const { toast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [count, setCount] = useState(0);
   const limit = 12;
@@ -30,6 +54,9 @@ export function Clients() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -41,6 +68,33 @@ export function Clients() {
       setLoading(false);
     }
   }
+
+  const handleDeleteClient = async () => {
+    if (!clientToDelete) return;
+    setDeleting(true);
+    try {
+      await clientsApi.remove(clientToDelete.id);
+      toast({
+        title: "Success",
+        description: "Client deleted successfully",
+      });
+      setClientToDelete(null);
+      load();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete client",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleEditSuccess = () => {
+    setClientToEdit(null);
+    load();
+  };
 
   useEffect(() => {
     load();
@@ -107,55 +161,77 @@ export function Clients() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {loading && (
-              <div className="col-span-full text-sm text-muted-foreground">
-                Loading…
-              </div>
-            )}
-            {!loading &&
-              filtered.map((c) => (
-                <div
-                  key={c.id}
-                  className="rounded-xl border border-border p-4 hover:bg-accent/40 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <UserAvatar
-                      name={c.name}
-                      role="client"
-                      showTooltip={false}
-                    />
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">
-                        {c.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {c.domain || "—"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 space-y-2 text-sm">
-                    <p className="text-muted-foreground flex items-center gap-2">
-                      <Mail className="w-4 h-4" />{" "}
-                      {c.active ? "Active" : "Inactive"}
-                    </p>
-                  </div>
-                  <div className="mt-4 flex items-center gap-2">
-                    <Button variant="outline" className="flex-1">
-                      View
-                    </Button>
-                    <Button variant="outline" className="flex-1">
-                      Contact
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            {!loading && filtered.length === 0 && (
-              <div className="col-span-full text-sm text-muted-foreground">
-                No clients found.
-              </div>
-            )}
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Domain</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading && (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-muted-foreground"
+                  >
+                    Loading…
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loading && filtered.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-muted-foreground"
+                  >
+                    No clients found.
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loading &&
+                filtered.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {c.domain || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={c.active ? "default" : "secondary"}>
+                        {c.active ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(c.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setClientToEdit(c)}
+                        >
+                          <Edit className="w-4 h-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setClientToDelete(c)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
               {count} total • Page {page} / {totalPages}
@@ -179,6 +255,44 @@ export function Clients() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={!!clientToEdit}
+        onOpenChange={(open) => !open && setClientToEdit(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+          </DialogHeader>
+          {clientToEdit && (
+            <ClientEditForm
+              client={clientToEdit}
+              onSuccess={handleEditSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={!!clientToDelete}
+        onOpenChange={(open) => !open && setClientToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{clientToDelete?.name}"? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteClient} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

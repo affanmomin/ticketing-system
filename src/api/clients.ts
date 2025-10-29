@@ -17,5 +17,7 @@ export const update = (
   patch: { name?: string; domain?: string; active?: boolean }
 ) => api.patch(`/clients/${id}`, patch);
 
+export const remove = (id: string) => api.delete(`/clients/${id}`);
+
 export const mapEmployee = (id: string, userId: string) =>
   api.post(`/clients/${id}/map-employee`, { userId });

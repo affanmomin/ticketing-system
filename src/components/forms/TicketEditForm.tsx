@@ -49,21 +49,20 @@ export function TicketEditForm({
 }: TicketEditFormProps) {
   const [loading, setLoading] = useState(false);
   const headerTicketId = useMemo(() => ticketId ?? "TKT-101", [ticketId]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [client, setClient] = useState<string>("");
-  const [project, setProject] = useState<string>("");
-  const [stream, setStream] = useState(NONE);
-  const [priority, setPriority] = useState(PRIORITY[2]);
-  const [type, setType] = useState(TYPE[0]);
-  const [assignee, setAssignee] = useState(NONE);
-  const [initialAssigneeId, setInitialAssigneeId] = useState<string | null>(
-    null
-  );
-  const [dueDate, setDueDate] = useState("");
-  const [points, setPoints] = useState<number | "">("");
-  const [status, setStatus] = useState<string>(String(STATUS[1]));
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [formState, setFormState] = useState({
+    title: "",
+    description: "",
+    client: "",
+    project: "",
+    stream: NONE,
+    priority: PRIORITY[2],
+    type: TYPE[0],
+    assignee: NONE,
+    dueDate: "",
+    points: "" as number | "",
+    status: String(STATUS[1]),
+    selectedTags: [] as string[],
+  });
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
     []
   );
@@ -89,19 +88,23 @@ export function TicketEditForm({
         const { data: t } = await ticketsApi.get(ticketId);
         if (!mounted) return;
         // Set fields from ticket
-        setTitle(t.title);
-        setDescription(t.descriptionMd ?? "");
-        setStatus(t.status);
-        setPriority((t.priority as any) ?? PRIORITY[2]);
-        setType((t.type as any) ?? TYPE[0]);
-        setAssignee((t.assigneeId as any) ?? NONE);
-        setInitialAssigneeId(t.assigneeId ?? null);
-        setStream((t.streamId as any) ?? NONE);
+        setFormState({
+          title: t.title,
+          description: t.descriptionMd ?? "",
+          client: t.clientId,
+          project: t.projectId,
+          stream: (t.streamId as any) ?? NONE,
+          priority: (t.priority as any) ?? PRIORITY[2],
+          type: (t.type as any) ?? TYPE[0],
+          assignee: (t.assigneeId as any) ?? NONE,
+          dueDate: t.dueDate
+            ? new Date(t.dueDate).toISOString().slice(0, 10)
+            : "",
+          points: (t.points as any) ?? "",
+          status: t.status,
+          selectedTags: [],
+        });
         setInitialStreamId(t.streamId ?? null);
-        setPoints((t.points as any) ?? "");
-        setDueDate(
-          t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : ""
-        );
 
         // Pre-seed option lists so selects show a value before lists load
         if (t.clientId) setClients([{ id: t.clientId, name: "Loading..." }]);
@@ -126,7 +129,6 @@ export function TicketEditForm({
             ? clientItems
             : [...clientItems, { id: t.clientId, name: "Current client" }]
         );
-        setClient(t.clientId);
 
         // Load dependent lists based on client
         const [projectsRes, usersRes, tagsRes] = await Promise.all([
@@ -173,7 +175,6 @@ export function TicketEditForm({
             color: tg.color,
           }))
         );
-        setProject(t.projectId);
 
         // Load streams for project
         if (t.projectId) {
@@ -208,12 +209,12 @@ export function TicketEditForm({
 
   // When client changes, reload projects/users/tags
   useEffect(() => {
-    if (!client) return;
+    if (!formState.client) return;
     (async () => {
       const [projectsRes, usersRes, tagsRes] = await Promise.all([
-        projectsApi.list({ clientId: client }),
-        usersApi.assignableUsers(client),
-        tagsApi.list({ clientId: client }),
+        projectsApi.list({ clientId: formState.client }),
+        usersApi.assignableUsers(formState.client),
+        tagsApi.list({ clientId: formState.client }),
       ]);
       const mappedProjects = projectsRes.data.map((p) => ({
         id: p.id,
@@ -227,8 +228,14 @@ export function TicketEditForm({
           name: u.name,
         }));
         // Ensure current assignee remains selectable if not in list
-        if (assignee !== NONE && !mappedUsers.find((u) => u.id === assignee)) {
-          mappedUsers.push({ id: assignee, name: "Current assignee" });
+        if (
+          formState.assignee !== NONE &&
+          !mappedUsers.find((u) => u.id === formState.assignee)
+        ) {
+          mappedUsers.push({
+            id: formState.assignee,
+            name: "Current assignee",
+          });
         }
         setUsers(mappedUsers);
       }
@@ -240,37 +247,42 @@ export function TicketEditForm({
         }))
       );
       // Maintain current project if present, else choose first
-      setProject((prev) =>
-        mappedProjects.find((p) => p.id === prev)
-          ? prev
-          : mappedProjects[0]?.id || ""
-      );
+      setFormState((prev) => ({
+        ...prev,
+        project: mappedProjects.find((p) => p.id === prev.project)
+          ? prev.project
+          : mappedProjects[0]?.id || "",
+      }));
     })();
-  }, [client]);
+  }, [formState.client]);
 
   // When project changes, reload streams
   useEffect(() => {
-    if (!project) return;
+    if (!formState.project) return;
     (async () => {
-      const { data } = await streamsApi.list(project);
+      const { data } = await streamsApi.list(formState.project);
       let mapped = data.map((s) => ({ id: s.id, name: s.name }));
       if (initialStreamId && !mapped.find((s) => s.id === initialStreamId)) {
         mapped = [...mapped, { id: initialStreamId, name: "Current stream" }];
       }
       setStreams(mapped);
-      setStream((prev) => {
-        if (prev !== NONE && mapped.find((s) => s.id === prev)) return prev;
+      setFormState((prev) => {
+        if (prev.stream !== NONE && mapped.find((s) => s.id === prev.stream))
+          return prev;
         if (initialStreamId && mapped.find((s) => s.id === initialStreamId))
-          return initialStreamId;
-        return NONE;
+          return { ...prev, stream: initialStreamId };
+        return { ...prev, stream: NONE };
       });
     })();
-  }, [project]);
+  }, [formState.project, initialStreamId]);
 
   function toggleTag(id: string) {
-    setSelectedTags((s) =>
-      s.includes(id) ? s.filter((x) => x !== id) : [...s, id]
-    );
+    setFormState((prev) => ({
+      ...prev,
+      selectedTags: prev.selectedTags.includes(id)
+        ? prev.selectedTags.filter((x) => x !== id)
+        : [...prev.selectedTags, id],
+    }));
   }
 
   return (
@@ -289,10 +301,7 @@ export function TicketEditForm({
         )}
       </header>
 
-      <form
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-        onSubmit={(e) => e.preventDefault()}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2 md:col-span-2">
           <Label>
             Title{" "}
@@ -301,8 +310,10 @@ export function TicketEditForm({
             </span>
           </Label>
           <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={formState.title}
+            onChange={(e) =>
+              setFormState((prev) => ({ ...prev, title: e.target.value }))
+            }
             aria-required="true"
           />
         </div>
@@ -315,8 +326,10 @@ export function TicketEditForm({
             </span>
           </Label>
           <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={formState.description}
+            onChange={(e) =>
+              setFormState((prev) => ({ ...prev, description: e.target.value }))
+            }
             aria-required="true"
           />
         </div>
@@ -325,7 +338,12 @@ export function TicketEditForm({
 
         <div className="space-y-2">
           <Label>Client</Label>
-          <Select value={client} onValueChange={(v) => setClient(String(v))}>
+          <Select
+            value={formState.client}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, client: String(v) }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select client" />
             </SelectTrigger>
@@ -341,7 +359,12 @@ export function TicketEditForm({
 
         <div className="space-y-2">
           <Label>Project</Label>
-          <Select value={project} onValueChange={(v) => setProject(String(v))}>
+          <Select
+            value={formState.project}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, project: String(v) }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select project" />
             </SelectTrigger>
@@ -357,7 +380,12 @@ export function TicketEditForm({
 
         <div className="space-y-2">
           <Label>Priority</Label>
-          <Select value={priority} onValueChange={(v) => setPriority(v as any)}>
+          <Select
+            value={formState.priority}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, priority: v as any }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
@@ -373,7 +401,12 @@ export function TicketEditForm({
 
         <div className="space-y-2">
           <Label>Type</Label>
-          <Select value={type} onValueChange={(v) => setType(v as any)}>
+          <Select
+            value={formState.type}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, type: v as any }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
@@ -391,9 +424,12 @@ export function TicketEditForm({
           <Label>Points</Label>
           <Input
             type="number"
-            value={points as any}
+            value={formState.points as any}
             onChange={(e) =>
-              setPoints(e.target.value ? Number(e.target.value) : "")
+              setFormState((prev) => ({
+                ...prev,
+                points: e.target.value ? Number(e.target.value) : "",
+              }))
             }
           />
         </div>
@@ -402,8 +438,10 @@ export function TicketEditForm({
           <Label>Due date</Label>
           <Input
             type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            value={formState.dueDate}
+            onChange={(e) =>
+              setFormState((prev) => ({ ...prev, dueDate: e.target.value }))
+            }
           />
         </div>
 
@@ -412,8 +450,10 @@ export function TicketEditForm({
         <div className="space-y-2">
           <Label>Assignee</Label>
           <Select
-            value={assignee}
-            onValueChange={(v) => setAssignee(String(v))}
+            value={formState.assignee}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, assignee: String(v) }))
+            }
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Unassigned" />
@@ -431,7 +471,12 @@ export function TicketEditForm({
 
         <div className="space-y-2">
           <Label>Stream</Label>
-          <Select value={stream} onValueChange={(v) => setStream(String(v))}>
+          <Select
+            value={formState.stream}
+            onValueChange={(v) =>
+              setFormState((prev) => ({ ...prev, stream: String(v) }))
+            }
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="(none)" />
             </SelectTrigger>
@@ -454,8 +499,8 @@ export function TicketEditForm({
                 key={t.id}
                 type="button"
                 onClick={() => toggleTag(t.id)}
-                className={`inline-flex items-center px-2 py-1 rounded ${selectedTags.includes(t.id) ? "bg-white/5" : "bg-transparent"}`}
-                aria-pressed={selectedTags.includes(t.id)}
+                className={`inline-flex items-center px-2 py-1 rounded ${formState.selectedTags.includes(t.id) ? "bg-white/5" : "bg-transparent"}`}
+                aria-pressed={formState.selectedTags.includes(t.id)}
               >
                 <span
                   className="w-2 h-2 rounded-full mr-2"
@@ -470,7 +515,12 @@ export function TicketEditForm({
         {role !== "CLIENT" && (
           <div className="md:col-span-2 space-y-2">
             <Label>Status</Label>
-            <Select value={status} onValueChange={(v) => setStatus(String(v))}>
+            <Select
+              value={formState.status}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, status: String(v) }))
+              }
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
@@ -484,7 +534,7 @@ export function TicketEditForm({
             </Select>
           </div>
         )}
-      </form>
+      </div>
 
       <Separator />
 
@@ -498,23 +548,25 @@ export function TicketEditForm({
         </Button>
         <Button
           type="button"
-          disabled={loading || !title || !description}
+          disabled={loading || !formState.title || !formState.description}
           onClick={async () => {
             if (!ticketId) return; // require id to save
             setLoading(true);
             try {
               const patch: any = {
-                title,
-                descriptionMd: description,
-                status,
-                priority,
-                type,
-                assigneeId: assignee === NONE ? undefined : assignee,
-                streamId: stream === NONE ? undefined : stream,
-                dueDate: dueDate
-                  ? new Date(`${dueDate}T00:00:00Z`).toISOString()
+                title: formState.title,
+                descriptionMd: formState.description,
+                status: formState.status,
+                priority: formState.priority,
+                type: formState.type,
+                assigneeId:
+                  formState.assignee === NONE ? undefined : formState.assignee,
+                streamId:
+                  formState.stream === NONE ? undefined : formState.stream,
+                dueDate: formState.dueDate
+                  ? new Date(`${formState.dueDate}T00:00:00Z`).toISOString()
                   : undefined,
-                points: points === "" ? undefined : points,
+                points: formState.points === "" ? undefined : formState.points,
                 // tagIds: selectedTags.length ? selectedTags : undefined, // left out unless supported
               };
               const { data } = await ticketsApi.update(ticketId, patch);
