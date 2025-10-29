@@ -44,32 +44,42 @@ body {
     --radius: 1rem;
   }
   .dark {
-    /* Armor Wash (background) */
-    --background: 0 0% 1.6%; /* #040404 in HSL */
-    --foreground: 210 40% 98%; /* nearly white for text */
-    /* Card, popover, border, accent use Armor Wash */
-    --card: 0 0% 1.6%;
-    --card-foreground: 210 40% 98%;
-    --popover: 0 0% 1.6%;
-    --popover-foreground: 210 40% 98%;
-    /* Primary accent: Linear's Magic Blue */
-    --primary: 221 83% 53%; /* #839BFC */
-    --primary-foreground: 210 40% 98%;
-    /* Secondary areas remain dark */
-    --secondary: 0 0% 1.6%;
-    --secondary-foreground: 210 40% 98%;
-    /* Muted uses Armor Wash with Dover Grey for text */
-    --muted: 0 0% 1.6%;
-    --muted-foreground: 0 0% 52%; /* Dover Grey #848484 */
-    --accent: 0 0% 1.6%;
-    --accent-foreground: 210 40% 98%;
-    /* Destructive (red) */
-    --destructive: 0 63% 31%; /* #992626 or similar red */
-    --destructive-foreground: 210 40% 98%;
-    /* Border/input use slightly lighter Armor Wash */
-    --border: 0 0% 12%;
-    --input: 0 0% 12%;
-    --ring: 221 83% 53%; /* accent blue */
+    /* Modern Dark Theme - Neutral & Balanced */
+
+    /* Main background - Neutral dark gray */
+    --background: 240 10% 10%; /* #18181b - Zinc 900 */
+    --foreground: 0 0% 98%; /* #fafafa - Clean white text */
+
+    /* Cards & Popovers - Elevated surfaces */
+    --card: 240 6% 15%; /* #27272a - Zinc 800 */
+    --card-foreground: 0 0% 98%;
+    --popover: 240 6% 15%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Primary - Vibrant purple/violet accent */
+    --primary: 262 83% 58%; /* #8b5cf6 - Violet 500 */
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Subtle elevated surfaces */
+    --secondary: 240 5% 26%; /* #3f3f46 - Zinc 700 */
+    --secondary-foreground: 0 0% 98%;
+
+    /* Muted - Subtle backgrounds with readable text */
+    --muted: 240 5% 26%; /* #3f3f46 */
+    --muted-foreground: 240 5% 65%; /* #a1a1aa - Zinc 400 */
+
+    /* Accent - Emerald green for highlights */
+    --accent: 142 76% 36%; /* #10b981 - Emerald 500 */
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive - Clean red for errors */
+    --destructive: 0 84% 60%; /* #ef4444 - Red 500 */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & Inputs - Subtle separation */
+    --border: 240 4% 24%; /* #3a3a3d */
+    --input: 240 4% 24%;
+    --ring: 262 83% 58%; /* Matches primary */
   }
 }
 

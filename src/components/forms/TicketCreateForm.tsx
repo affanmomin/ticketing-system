@@ -416,21 +416,7 @@ export function TicketCreateForm() {
             ))}
           </div>
         </div>
-
-        <div className="md:col-span-2 space-y-2">
-          <Label>Attachments</Label>
-          <input type="file" multiple onChange={onFiles} />
-          <div className="space-y-1 mt-2">
-            {formState.files.map((f, i) => (
-              <div key={i} className="text-sm text-muted-foreground">
-                {f.name} — {Math.round(f.size / 1024)} KB
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
-
-      <Separator />
 
       <div className="flex gap-2 justify-end">
         <Button variant="ghost" type="button" disabled={formState.saving}>

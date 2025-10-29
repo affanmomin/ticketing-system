@@ -8,4 +8,4 @@ export const create = (dto: { projectId: string; name: string }) =>
   api.post("/streams", dto);
 
 export const update = (id: string, patch: { name?: string }) =>
-  api.patch(`/streams/${id}`, patch);
+  api.post(`/streams-update/${id}`, patch);
