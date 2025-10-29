@@ -44,42 +44,42 @@ body {
     --radius: 1rem;
   }
   .dark {
-    /* Modern Dark Theme - Neutral & Balanced */
+    /* Premium Modern Dark Theme - Inspired by Vercel/Linear */
 
-    /* Main background - Neutral dark gray */
-    --background: 240 10% 10%; /* #18181b - Zinc 900 */
-    --foreground: 0 0% 98%; /* #fafafa - Clean white text */
+    /* Main background - True black with subtle warmth */
+    --background: 0 0% 6%; /* #0f0f0f - Rich black */
+    --foreground: 0 0% 98%; /* #fafafa - Crisp white text */
 
-    /* Cards & Popovers - Elevated surfaces */
-    --card: 240 6% 15%; /* #27272a - Zinc 800 */
+    /* Cards & Popovers - Elevated glass-like surfaces */
+    --card: 0 0% 10%; /* #1a1a1a - Elevated black */
     --card-foreground: 0 0% 98%;
-    --popover: 240 6% 15%;
+    --popover: 0 0% 8%; /* #141414 - Slightly elevated */
     --popover-foreground: 0 0% 98%;
 
-    /* Primary - Vibrant purple/violet accent */
-    --primary: 262 83% 58%; /* #8b5cf6 - Violet 500 */
-    --primary-foreground: 0 0% 100%;
+    /* Primary - Electric blue gradient feel */
+    --primary: 213 94% 68%; /* #60a5fa - Sky blue 400 */
+    --primary-foreground: 0 0% 0%;
 
-    /* Secondary - Subtle elevated surfaces */
-    --secondary: 240 5% 26%; /* #3f3f46 - Zinc 700 */
+    /* Secondary - Subtle mid-tone surfaces */
+    --secondary: 0 0% 14%; /* #242424 - Light elevated */
     --secondary-foreground: 0 0% 98%;
 
-    /* Muted - Subtle backgrounds with readable text */
-    --muted: 240 5% 26%; /* #3f3f46 */
-    --muted-foreground: 240 5% 65%; /* #a1a1aa - Zinc 400 */
+    /* Muted - Subdued backgrounds */
+    --muted: 0 0% 14%; /* #242424 */
+    --muted-foreground: 0 0% 63%; /* #a0a0a0 - Soft gray text */
 
-    /* Accent - Emerald green for highlights */
-    --accent: 142 76% 36%; /* #10b981 - Emerald 500 */
-    --accent-foreground: 0 0% 100%;
+    /* Accent - Amber/Orange for warmth */
+    --accent: 31 100% 60%; /* #ff9d33 - Warm amber */
+    --accent-foreground: 0 0% 0%;
 
-    /* Destructive - Clean red for errors */
-    --destructive: 0 84% 60%; /* #ef4444 - Red 500 */
+    /* Destructive - Vibrant pink-red */
+    --destructive: 350 89% 60%; /* #f43f5e - Rose 500 */
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders & Inputs - Subtle separation */
-    --border: 240 4% 24%; /* #3a3a3d */
-    --input: 240 4% 24%;
-    --ring: 262 83% 58%; /* Matches primary */
+    /* Borders & Inputs - Ultra subtle */
+    --border: 0 0% 18%; /* #2e2e2e - Barely visible */
+    --input: 0 0% 18%;
+    --ring: 213 94% 68%; /* Matches primary */
   }
 }
 
