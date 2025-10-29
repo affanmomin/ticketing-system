@@ -75,7 +75,11 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
-    return user?.role && item.roles.includes(user.role);
+    const roleUpper = (user?.role ?? "").toString().toUpperCase() as
+      | "ADMIN"
+      | "EMPLOYEE"
+      | "CLIENT";
+    return !!roleUpper && item.roles.includes(roleUpper);
   });
 
   // Render-time collapsed state: expand on hover when initially collapsed
@@ -178,7 +182,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
           <div className="flex items-center gap-3 px-3 py-2">
             <UserAvatar
               name={user.id}
-              role={user.role.toLowerCase() as any}
+              role={(user.role ?? "").toString().toLowerCase() as any}
               showTooltip={false}
             />
             {!renderCollapsed && (
@@ -187,7 +191,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                   {user.id}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  {user.role.toLowerCase()}
+                  {(user.role ?? "").toString().toLowerCase()}
                 </p>
               </div>
             )}

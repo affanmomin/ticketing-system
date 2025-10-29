@@ -53,6 +53,7 @@ export function Tickets() {
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [openComment, setOpenComment] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   type FilterValues = {
@@ -187,12 +188,33 @@ export function Tickets() {
     if (over && active.id !== over.id) {
       const ticketId = active.id as string;
       const newStatus = over.id as Status;
+      // optimistic update
+      setTickets((prev) => {
+        return prev.map((t) =>
+          t.id === ticketId ? { ...t, status: newStatus } : t
+        );
+      });
 
-      setTickets((tickets) =>
-        tickets.map((ticket) =>
-          ticket.id === ticketId ? { ...ticket, status: newStatus } : ticket
-        )
-      );
+      // persist to API, rollback on failure
+      const prevTickets = [...tickets];
+      const toApiStatus = (s: Status): string => {
+        switch (s) {
+          case "todo":
+            return "TODO";
+          case "in_progress":
+            return "IN_PROGRESS";
+          case "review":
+            return "REVIEW";
+          case "done":
+            return "DONE";
+        }
+      };
+      ticketsApi
+        .update(ticketId, { status: toApiStatus(newStatus) })
+        .catch(() => {
+          // rollback UI state if the API call fails
+          setTickets(prevTickets);
+        });
     }
 
     setActiveId(null);
@@ -272,14 +294,48 @@ export function Tickets() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={openEdit} onOpenChange={setOpenEdit}>
+          <Dialog
+            open={openEdit}
+            onOpenChange={(v) => {
+              setOpenEdit(v);
+              if (!v) setSelectedTicketId(null);
+            }}
+          >
             <DialogTrigger asChild>
               <Button variant="outline" className="hidden md:inline-flex">
                 Quick Edit
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl">
-              <TicketEditForm />
+              <TicketEditForm
+                ticketId={selectedTicketId ?? undefined}
+                onSaved={(updated) => {
+                  // update local list with returned fields (status/title)
+                  setTickets((prev) =>
+                    prev.map((t) =>
+                      t.id === updated.id
+                        ? {
+                            ...t,
+                            title: updated.title ?? t.title,
+                            status:
+                              updated.status === "TODO"
+                                ? "todo"
+                                : updated.status === "IN_PROGRESS"
+                                  ? "in_progress"
+                                  : updated.status === "REVIEW"
+                                    ? "review"
+                                    : updated.status === "DONE" ||
+                                        updated.status === "CANCELLED"
+                                      ? "done"
+                                      : t.status,
+                          }
+                        : t
+                    )
+                  );
+                  setOpenEdit(false);
+                  setSelectedTicketId(null);
+                }}
+              />
             </DialogContent>
           </Dialog>
 
@@ -387,6 +443,10 @@ export function Tickets() {
                             <TicketCard
                               {...ticket}
                               className="cursor-grab active:cursor-grabbing select-none"
+                              onClick={() => {
+                                setSelectedTicketId(ticket.id);
+                                setOpenEdit(true);
+                              }}
                             />
                           </DraggableTicket>
                         ))}
@@ -434,6 +494,10 @@ export function Tickets() {
                   <tr
                     key={ticket.id}
                     className="border-b border-border hover:bg-accent/50 cursor-pointer"
+                    onClick={() => {
+                      setSelectedTicketId(ticket.id);
+                      setOpenEdit(true);
+                    }}
                   >
                     <td className="p-3 text-sm text-muted-foreground font-mono">
                       {ticket.ticketNumber ? `#${ticket.ticketNumber}` : "—"}

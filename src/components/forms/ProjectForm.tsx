@@ -34,6 +34,7 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   }, []);
 
   async function handleSave(e: React.FormEvent) {
+    console.log("handleSave called");
     e.preventDefault();
     if (!name.trim() || !code.trim() || !client) return;
     setSaving(true);
@@ -116,19 +117,19 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
             aria-label="Active"
           />
         </div>
-      </form>
 
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" disabled={saving}>
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          disabled={!name.trim() || !code.trim() || !client || saving}
-        >
-          {saving ? "Saving…" : "Save"}
-        </Button>
-      </div>
+        <div className="md:col-span-2 flex gap-2 justify-end">
+          <Button type="button" variant="ghost" disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={!name.trim() || !code.trim() || !client || saving}
+          >
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

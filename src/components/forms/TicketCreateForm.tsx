@@ -241,12 +241,15 @@ export function TicketCreateForm() {
 
         <div className="space-y-2">
           <Label>Stream</Label>
-          <Select value={stream} onValueChange={(v) => setStream(String(v))}>
+          <Select
+            value={stream || "none"}
+            onValueChange={(v) => setStream(v === "none" ? "" : String(v))}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="(none)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">(none)</SelectItem>
+              <SelectItem value="none">(none)</SelectItem>
               {streams.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
@@ -290,12 +293,15 @@ export function TicketCreateForm() {
 
         <div className="space-y-2">
           <Label>Assignee</Label>
-          <Select value={assignee} onValueChange={(v) => setAssignee(v)}>
+          <Select
+            value={assignee || "none"}
+            onValueChange={(v) => setAssignee(v === "none" ? "" : v)}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Unassigned" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Unassigned</SelectItem>
+              <SelectItem value="none">Unassigned</SelectItem>
               {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name}

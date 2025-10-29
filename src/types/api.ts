@@ -121,3 +121,17 @@ export type TicketsListQuery = {
   limit?: number;
   offset?: number;
 };
+
+// Shape for updating a ticket via POST /tickets/:id
+export type UpdateTicketPatch = Partial<{
+  title: string;
+  descriptionMd: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  type: TicketType;
+  assigneeId: string;
+  streamId: string;
+  dueDate: string; // ISO
+  points: number;
+  tagIds: string[];
+}>;

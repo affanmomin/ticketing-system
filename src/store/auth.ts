@@ -1,6 +1,6 @@
 import { create, type StateCreator } from "zustand";
 import { api } from "@/lib/axios";
-import type { AuthUser, LoginRequest } from "@/types/api";
+import type { AuthUser, LoginRequest, UserRole } from "@/types/api";
 
 type State = {
   token?: string;
@@ -51,8 +51,19 @@ const initializer: StateCreator<State & Actions> = (set, get) => ({
     set({ loading: true });
     const { data: me } = await api.get("/auth/me");
     const { data: t } = await api.get("/tenants/me");
+    // Normalize role from backend (case-insensitive safety)
+    const rawRole = (me.user?.role ?? "").toString().toUpperCase();
+    const normalizedRole: UserRole = ["ADMIN", "EMPLOYEE", "CLIENT"].includes(
+      rawRole as UserRole
+    )
+      ? (rawRole as UserRole)
+      : "CLIENT";
+    const normalizedUser: AuthUser = {
+      ...(me.user as AuthUser),
+      role: normalizedRole,
+    };
     set({
-      user: me.user as AuthUser,
+      user: normalizedUser,
       tenantId: t.id,
       isAuthenticated: true,
       loading: false,

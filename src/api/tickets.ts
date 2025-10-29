@@ -1,5 +1,10 @@
 import { api } from "@/lib/axios";
-import type { Ticket, Paged, TicketsListQuery } from "@/types/api";
+import type {
+  Ticket,
+  Paged,
+  TicketsListQuery,
+  UpdateTicketPatch,
+} from "@/types/api";
 
 export const pagedList = (query: TicketsListQuery) =>
   api.get<Paged<Ticket>>("/tickets", { params: query });
@@ -20,18 +25,5 @@ export const create = (dto: {
 
 export const get = (id: string) => api.get<Ticket>(`/tickets/${id}`);
 
-export const update = (
-  id: string,
-  patch: Partial<{
-    title: string;
-    descriptionMd: string;
-    status: string;
-    priority: string;
-    type: string;
-    assigneeId: string;
-    streamId: string;
-    dueDate: string;
-    points: number;
-    tagIds: string[];
-  }>
-) => api.patch<Ticket>(`/tickets/${id}`, patch);
+export const update = (id: string, patch: UpdateTicketPatch) =>
+  api.post<Ticket>(`/tickets-update/${id}`, patch);

@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth";
+import { useNavigate } from "react-router-dom";
 
 interface TopbarProps {
   title?: string;
@@ -11,6 +12,7 @@ interface TopbarProps {
 
 export function Topbar({ title = "Dashboard", onOpenMobileMenu }: TopbarProps) {
   const { logout } = useAuthStore();
+  const navigate = useNavigate();
 
   return (
     <header className="h-14 border-b border-border bg-card sticky top-0 z-10">
@@ -44,7 +46,10 @@ export function Topbar({ title = "Dashboard", onOpenMobileMenu }: TopbarProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={logout}
+            onClick={() => {
+              logout();
+              navigate("/login", { replace: true });
+            }}
             className="text-muted-foreground hover:text-foreground"
           >
             Sign Out
