@@ -68,9 +68,9 @@ body {
     --muted: 0 0% 14%; /* #242424 */
     --muted-foreground: 0 0% 63%; /* #a0a0a0 - Soft gray text */
 
-    /* Accent - Amber/Orange for warmth */
-    --accent: 31 100% 60%; /* #ff9d33 - Warm amber */
-    --accent-foreground: 0 0% 0%;
+    /* Accent - Subtle elevated surface for minimal look */
+    --accent: 0 0% 14%; /* #242424 - Matches secondary */
+    --accent-foreground: 0 0% 98%;
 
     /* Destructive - Vibrant pink-red */
     --destructive: 350 89% 60%; /* #f43f5e - Rose 500 */
