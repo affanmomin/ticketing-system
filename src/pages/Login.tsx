@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,17 +19,64 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuthStore();
+
+  // Auto-fill credentials from URL parameter
+  useEffect(() => {
+    const credsParam = searchParams.get('creds');
+    if (credsParam) {
+      try {
+        // Decode the base64 encoded JSON
+        const decodedCreds = atob(credsParam);
+        console.log('Decoded credentials string:', decodedCreds);
+        const credentials = JSON.parse(decodedCreds);
+        console.log('Parsed credentials:', { email: credentials.email, password: '***' });
+        
+        if (credentials.email && credentials.password) {
+          setEmail(credentials.email);
+          setPassword(credentials.password);
+          toast({ 
+            title: "Credentials loaded", 
+            description: `Auto-filled: ${credentials.email}. Click Sign In to continue.` 
+          });
+        } else {
+          console.error('Missing email or password in credentials:', credentials);
+          toast({ 
+            title: "Invalid credentials", 
+            description: "The credentials are missing email or password.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error('Failed to decode credentials:', error);
+        toast({ 
+          title: "Invalid credentials link", 
+          description: "The credentials in the link are malformed.",
+          variant: "destructive"
+        });
+      }
+    }
+  }, [searchParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Debug: Log the credentials being used
+    console.log('Login attempt with:', { email, password: '***' });
+    
     try {
       setLoading(true);
       await login(email, password);
       navigate("/dashboard", { replace: true });
     } catch (err: any) {
+      console.error('Login error:', err);
       const message = err?.response?.data?.message || "Login failed";
-      toast({ title: "Authentication error", description: message });
+      toast({ 
+        title: "Authentication error", 
+        description: `${message} (Email: ${email})`,
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
