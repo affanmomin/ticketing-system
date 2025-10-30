@@ -36,7 +36,7 @@ export function Dashboard() {
       | "employee"
       | "client"
       | undefined) ?? "admin";
-  const firstName = "User";
+  const firstName = user?.name || "User";
 
   const stats = dashboardData
     ? [

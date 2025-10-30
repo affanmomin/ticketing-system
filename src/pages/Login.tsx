@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [tenantId, setTenantId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -24,36 +25,46 @@ export function Login() {
 
   // Auto-fill credentials from URL parameter
   useEffect(() => {
-    const credsParam = searchParams.get('creds');
+    const credsParam = searchParams.get("creds");
     if (credsParam) {
       try {
         // Decode the base64 encoded JSON
         const decodedCreds = atob(credsParam);
-        console.log('Decoded credentials string:', decodedCreds);
+        console.log("Decoded credentials string:", decodedCreds);
         const credentials = JSON.parse(decodedCreds);
-        console.log('Parsed credentials:', { email: credentials.email, password: '***' });
-        
+        console.log("Parsed credentials:", {
+          email: credentials.email,
+          password: "***",
+          tenantId: credentials.tenantId,
+        });
+
         if (credentials.email && credentials.password) {
           setEmail(credentials.email);
           setPassword(credentials.password);
-          toast({ 
-            title: "Credentials loaded", 
-            description: `Auto-filled: ${credentials.email}. Click Sign In to continue.` 
+          if (credentials.tenantId) {
+            setTenantId(credentials.tenantId);
+          }
+          toast({
+            title: "Credentials loaded",
+            description: `Auto-filled: ${credentials.email}${credentials.tenantId ? " with tenant ID" : ""}. Click Sign In to continue.`,
           });
         } else {
-          console.error('Missing email or password in credentials:', credentials);
-          toast({ 
-            title: "Invalid credentials", 
+          console.error(
+            "Missing email or password in credentials:",
+            credentials
+          );
+          toast({
+            title: "Invalid credentials",
             description: "The credentials are missing email or password.",
-            variant: "destructive"
+            variant: "destructive",
           });
         }
       } catch (error) {
-        console.error('Failed to decode credentials:', error);
-        toast({ 
-          title: "Invalid credentials link", 
+        console.error("Failed to decode credentials:", error);
+        toast({
+          title: "Invalid credentials link",
           description: "The credentials in the link are malformed.",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     }
@@ -61,21 +72,25 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Debug: Log the credentials being used
-    console.log('Login attempt with:', { email, password: '***' });
-    
+    console.log("Login attempt with:", {
+      email,
+      password: "***",
+      tenantId: tenantId || "none",
+    });
+
     try {
       setLoading(true);
-      await login(email, password);
+      await login(email, password, tenantId);
       navigate("/dashboard", { replace: true });
     } catch (err: any) {
-      console.error('Login error:', err);
+      console.error("Login error:", err);
       const message = err?.response?.data?.message || "Login failed";
-      toast({ 
-        title: "Authentication error", 
+      toast({
+        title: "Authentication error",
         description: `${message} (Email: ${email})`,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);

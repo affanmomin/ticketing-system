@@ -7,6 +7,8 @@ export interface AuthUser {
   tenantId: string;
   role: UserRole;
   clientId?: string | null;
+  name?: string;
+  email?: string;
 }
 
 export interface LoginRequest {

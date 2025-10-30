@@ -181,14 +181,14 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
         <div className="p-3 border-t border-border">
           <div className="flex items-center gap-3 px-3 py-2">
             <UserAvatar
-              name={user.id}
+              name={user.name || user.email || user.id}
               role={(user.role ?? "").toString().toLowerCase() as any}
               showTooltip={false}
             />
             {!renderCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {user.id}
+                  {user.name || user.email || user.id}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
                   {(user.role ?? "").toString().toLowerCase()}
