@@ -13,10 +13,15 @@ import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
 import { toast } from "@/hooks/use-toast";
 
-export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
+type StreamFormProps = {
+  projectId?: string;
+  onSuccess?: () => void;
+};
+
+export function StreamForm({ projectId, onSuccess }: StreamFormProps = {}) {
   const [formState, setFormState] = useState({
     name: "",
-    project: "",
+    project: projectId || "",
     saving: false,
   });
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
@@ -28,10 +33,11 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
       const { data } = await projectsApi.list();
       const items = data.map((p) => ({ id: p.id, name: p.name }));
       setProjects(items);
-      if (items.length)
+      // Only set default project if not provided via props
+      if (items.length && !projectId)
         setFormState((prev) => ({ ...prev, project: items[0].id }));
     })();
-  }, []);
+  }, [projectId]);
 
   async function handleSave() {
     if (!formState.name.trim() || !formState.project) return;
@@ -100,6 +106,7 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
               onValueChange={(v) =>
                 setFormState((prev) => ({ ...prev, project: String(v) }))
               }
+              disabled={!!projectId}
             >
               <SelectTrigger id="stream-project" className="w-full h-10">
                 <SelectValue placeholder="Select a project" />

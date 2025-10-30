@@ -300,7 +300,14 @@ export function Projects() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                  <TicketCreateForm />
+                  <TicketCreateForm
+                    clientId={selectedProject.clientId}
+                    projectId={selectedProject.id}
+                    onSuccess={() => {
+                      setOpenTicket(false);
+                      refreshProject();
+                    }}
+                  />
                 </DialogContent>
               </Dialog>
             </div>
@@ -359,7 +366,14 @@ export function Projects() {
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                      <TicketCreateForm />
+                      <TicketCreateForm
+                        clientId={selectedProject.clientId}
+                        projectId={selectedProject.id}
+                        onSuccess={() => {
+                          setOpenTicket(false);
+                          refreshProject();
+                        }}
+                      />
                     </DialogContent>
                   </Dialog>
                 </CardContent>
@@ -382,6 +396,7 @@ export function Projects() {
                 </DialogTrigger>
                 <DialogContent>
                   <StreamForm
+                    projectId={selectedProject.id}
                     onSuccess={() => {
                       setOpenStream(false);
                       refreshProject();
@@ -439,6 +454,7 @@ export function Projects() {
                     </DialogTrigger>
                     <DialogContent>
                       <StreamForm
+                        projectId={selectedProject.id}
                         onSuccess={() => {
                           setOpenStream(false);
                           refreshProject();

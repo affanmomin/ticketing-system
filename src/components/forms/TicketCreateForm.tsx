@@ -24,12 +24,22 @@ import { toast } from "@/hooks/use-toast";
 const PRIORITY: TicketPriority[] = ["P0", "P1", "P2", "P3"];
 const TYPE: TicketType[] = ["TASK", "BUG", "STORY", "EPIC"];
 
-export function TicketCreateForm() {
+type TicketCreateFormProps = {
+  clientId?: string;
+  projectId?: string;
+  onSuccess?: () => void;
+};
+
+export function TicketCreateForm({
+  clientId,
+  projectId,
+  onSuccess,
+}: TicketCreateFormProps = {}) {
   const [formState, setFormState] = useState({
     title: "",
     description: "",
-    client: "",
-    project: "",
+    client: clientId || "",
+    project: projectId || "",
     stream: "",
     priority: PRIORITY[2],
     type: TYPE[0],
@@ -59,10 +69,11 @@ export function TicketCreateForm() {
       const { data } = await clientsApi.list({ limit: 100, offset: 0 });
       const items = data.items.map((c) => ({ id: c.id, name: c.name }));
       setClients(items);
-      if (items.length)
+      // Only set default client if not provided via props
+      if (items.length && !clientId)
         setFormState((prev) => ({ ...prev, client: items[0].id }));
     })();
-  }, []);
+  }, [clientId]);
 
   useEffect(() => {
     if (!formState.client) return;
@@ -77,7 +88,10 @@ export function TicketCreateForm() {
           code: p.code,
         }));
         setProjects(mapped);
-        setFormState((prev) => ({ ...prev, project: mapped[0]?.id || "" }));
+        // Only set default project if not provided via props
+        if (!projectId) {
+          setFormState((prev) => ({ ...prev, project: mapped[0]?.id || "" }));
+        }
       } catch (e) {
         console.error("Failed to load projects:", e);
       }
@@ -103,7 +117,7 @@ export function TicketCreateForm() {
         console.error("Failed to load tags:", e);
       }
     })();
-  }, [formState.client]);
+  }, [formState.client, projectId]);
 
   useEffect(() => {
     if (!formState.project) return;
@@ -174,6 +188,8 @@ export function TicketCreateForm() {
         title: "Ticket created",
         description: "Your ticket was created successfully.",
       });
+      // Call onSuccess callback if provided
+      onSuccess?.();
       // Reset form
       setFormState({
         title: "",
@@ -241,6 +257,7 @@ export function TicketCreateForm() {
               onValueChange={(v) =>
                 setFormState((prev) => ({ ...prev, client: String(v) }))
               }
+              disabled={!!clientId}
             >
               <SelectTrigger id="ticket-client" className="w-full h-10">
                 <SelectValue placeholder="Select client" />
@@ -287,6 +304,7 @@ export function TicketCreateForm() {
               onValueChange={(v) =>
                 setFormState((prev) => ({ ...prev, project: String(v) }))
               }
+              disabled={!!projectId}
             >
               <SelectTrigger id="ticket-project" className="w-full h-10">
                 <SelectValue placeholder="Select project" />
