@@ -63,21 +63,13 @@ export function Tickets() {
     clientId?: string;
     projectId?: string;
     streamId?: string;
-    status?: string[];
     assigneeId?: string;
-    tagIds?: string[];
     priority?: "P0" | "P1" | "P2" | "P3";
-    type?: "TASK" | "BUG" | "STORY" | "EPIC";
   };
 
   const parseParams = (): FilterValues & { limit: number; offset: number } => {
     const sp = searchParams;
     const get = (k: string) => sp.get(k) || undefined;
-    const toArray = (k: string) => {
-      const v = sp.get(k);
-      if (!v) return undefined;
-      return v.split(",").filter(Boolean);
-    };
     const parsedLimit = Number(get("limit")) || 20;
     const parsedOffset = Number(get("offset")) || 0;
     return {
@@ -85,12 +77,8 @@ export function Tickets() {
       clientId: get("clientId"),
       projectId: get("projectId"),
       streamId: get("streamId"),
-      status: toArray("status"),
       assigneeId: get("assigneeId"),
-      tagIds: toArray("tagIds"),
-      // keep priority/type in URL for future server support
       priority: (get("priority") as any) || undefined,
-      type: (get("type") as any) || undefined,
       limit: parsedLimit,
       offset: parsedOffset,
     };
@@ -132,10 +120,7 @@ export function Tickets() {
         if (filters.projectId) query.projectId = filters.projectId;
         if (filters.streamId) query.streamId = filters.streamId;
         if (filters.assigneeId) query.assigneeId = filters.assigneeId;
-        if (filters.status && filters.status.length)
-          query.status = filters.status;
-        if (filters.tagIds && filters.tagIds.length)
-          query.tagIds = filters.tagIds;
+        if (filters.priority) query.priority = filters.priority;
         const { data } = await ticketsApi.pagedList(query);
         setCount(data.count);
         const mapped: UITicket[] = data.items.map((t, idx) => ({
@@ -168,8 +153,7 @@ export function Tickets() {
     filters.projectId,
     filters.streamId,
     filters.assigneeId,
-    JSON.stringify(filters.status),
-    JSON.stringify(filters.tagIds),
+    filters.priority,
   ]);
 
   const sensors = useSensors(
@@ -302,8 +286,11 @@ export function Tickets() {
                 New Ticket
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <TicketCreateForm />
+            <DialogContent className="max-w-4xl">
+              <TicketCreateForm
+                onCancel={() => setOpenCreate(false)}
+                onSuccess={() => setOpenCreate(false)}
+              />
             </DialogContent>
           </Dialog>
 
@@ -319,9 +306,13 @@ export function Tickets() {
                 Quick Edit
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-4xl">
               <TicketEditForm
                 ticketId={selectedTicketId ?? undefined}
+                onCancel={() => {
+                  setOpenEdit(false);
+                  setSelectedTicketId(null);
+                }}
                 onSaved={(updated) => {
                   // update local list with returned fields (status/title)
                   setTickets((prev) =>
@@ -370,7 +361,9 @@ export function Tickets() {
 
       <WorkFilterBar
         value={filters}
-        onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+        onChange={(patch) => {
+          setFilters((f) => ({ ...f, ...patch }));
+        }}
         onApply={() => {
           const sp = new URLSearchParams();
           if (filters.search) sp.set("search", filters.search);
@@ -378,12 +371,7 @@ export function Tickets() {
           if (filters.projectId) sp.set("projectId", filters.projectId);
           if (filters.streamId) sp.set("streamId", filters.streamId);
           if (filters.assigneeId) sp.set("assigneeId", filters.assigneeId);
-          if (filters.status && filters.status.length)
-            sp.set("status", filters.status.join(","));
-          if (filters.tagIds && filters.tagIds.length)
-            sp.set("tagIds", filters.tagIds.join(","));
           if (filters.priority) sp.set("priority", filters.priority);
-          if (filters.type) sp.set("type", filters.type);
           sp.set("limit", String(limit));
           sp.set("offset", "0");
           setSearchParams(sp, { replace: false });

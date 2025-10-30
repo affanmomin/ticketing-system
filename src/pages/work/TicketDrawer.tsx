@@ -26,7 +26,12 @@ export default function TicketDrawer({
           </TabsList>
 
           <TabsContent value="details">
-            <TicketEditForm role={role} />
+            <TicketEditForm
+              role={role}
+              ticketId={ticketId}
+              onCancel={() => setOpen(false)}
+              onSaved={() => setOpen(false)}
+            />
           </TabsContent>
           <TabsContent value="comments">
             <div className="space-y-4">

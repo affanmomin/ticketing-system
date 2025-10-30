@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { CommentForm } from "@/components/forms/CommentForm";
+import { CommentsList } from "@/components/CommentsList";
+import { MessageSquare } from "lucide-react";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
@@ -28,13 +31,17 @@ type TicketCreateFormProps = {
   clientId?: string;
   projectId?: string;
   onSuccess?: () => void;
+  onCancel?: () => void;
 };
 
 export function TicketCreateForm({
   clientId,
   projectId,
   onSuccess,
+  onCancel,
 }: TicketCreateFormProps = {}) {
+  const [createdTicketId, setCreatedTicketId] = useState<string | null>(null);
+  const [commentsRefresh, setCommentsRefresh] = useState(0);
   const [formState, setFormState] = useState({
     title: "",
     description: "",
@@ -136,15 +143,6 @@ export function TicketCreateForm({
     }));
   }
 
-  function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const list = e.target.files;
-    if (!list) return;
-    setFormState((prev) => ({
-      ...prev,
-      files: [...prev.files, ...Array.from(list)],
-    }));
-  }
-
   const canSave = useMemo(
     () =>
       formState.title.trim() &&
@@ -184,13 +182,20 @@ export function TicketCreateForm({
       for (const file of formState.files) {
         await attachmentsApi.upload({ file, ticketId: created.id });
       }
+
+      // Save the created ticket ID to show comments section
+      setCreatedTicketId(created.id);
+
       toast({
         title: "Ticket created",
-        description: "Your ticket was created successfully.",
+        description:
+          "Your ticket was created successfully. You can now add comments below.",
       });
+
       // Call onSuccess callback if provided
       onSuccess?.();
-      // Reset form
+
+      // Reset form but keep client/project context
       setFormState({
         title: "",
         description: "",
@@ -501,6 +506,7 @@ export function TicketCreateForm({
           variant="outline"
           type="button"
           disabled={formState.saving}
+          onClick={onCancel}
           className="min-w-[80px]"
         >
           Cancel
@@ -521,10 +527,36 @@ export function TicketCreateForm({
           )}
         </Button>
       </div>
+
+      {/* Comments Section - Only shown after ticket is created */}
+      {createdTicketId && (
+        <>
+          <Separator className="my-8" />
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-muted-foreground" />
+              <h3 className="text-lg font-semibold">Conversation</h3>
+            </div>
+
+            {/* Comments List */}
+            <CommentsList
+              ticketId={createdTicketId}
+              refreshTrigger={commentsRefresh}
+            />
+
+            {/* Add Comment Form */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Add a comment</Label>
+              <CommentForm
+                ticketId={createdTicketId}
+                onPosted={() => setCommentsRefresh((prev) => prev + 1)}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 export default TicketCreateForm;
-
-// no-op

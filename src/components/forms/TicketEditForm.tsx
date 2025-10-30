@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Alert } from "@/components/ui/alert";
+import { CommentForm } from "@/components/forms/CommentForm";
+import { CommentsList } from "@/components/CommentsList";
+import { MessageSquare } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
@@ -49,7 +52,7 @@ export function TicketEditForm({
   onCancel,
 }: TicketEditFormProps) {
   const [loading, setLoading] = useState(false);
-  const headerTicketId = useMemo(() => ticketId ?? "TKT-101", [ticketId]);
+  const [commentsRefresh, setCommentsRefresh] = useState(0);
   const [formState, setFormState] = useState({
     title: "",
     description: "",
@@ -587,6 +590,34 @@ export function TicketEditForm({
           {loading ? "Saving..." : "Save"}
         </Button>
       </div>
+
+      {/* Comments Section */}
+      {ticketId && (
+        <>
+          <Separator className="my-8" />
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-muted-foreground" />
+              <h3 className="text-lg font-semibold">Conversation</h3>
+            </div>
+
+            {/* Comments List */}
+            <CommentsList
+              ticketId={ticketId}
+              refreshTrigger={commentsRefresh}
+            />
+
+            {/* Add Comment Form */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Add a comment</Label>
+              <CommentForm
+                ticketId={ticketId}
+                onPosted={() => setCommentsRefresh((prev) => prev + 1)}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
