@@ -12,6 +12,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Alert } from "@/components/ui/alert";
+import { toast } from "@/hooks/use-toast";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
@@ -570,7 +571,17 @@ export function TicketEditForm({
                 // tagIds: selectedTags.length ? selectedTags : undefined, // left out unless supported
               };
               const { data } = await ticketsApi.update(ticketId, patch);
+              toast({
+                title: "Success",
+                description: "Ticket updated successfully",
+              });
               onSaved?.(data as Ticket);
+            } catch (e: any) {
+              toast({
+                title: "Failed to update ticket",
+                description: e?.response?.data?.message || "Error",
+                variant: "destructive",
+              });
             } finally {
               setLoading(false);
             }

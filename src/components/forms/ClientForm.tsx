@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "@/hooks/use-toast";
 
 export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
   const [formState, setFormState] = useState({
@@ -22,7 +23,17 @@ export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
         domain: formState.domain || undefined,
         active: formState.active,
       });
+      toast({
+        title: "Success",
+        description: "Client created successfully",
+      });
       onSuccess?.();
+    } catch (e: any) {
+      toast({
+        title: "Failed to create client",
+        description: e?.response?.data?.message || "Error",
+        variant: "destructive",
+      });
     } finally {
       setFormState((prev) => ({ ...prev, saving: false }));
     }

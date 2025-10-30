@@ -47,11 +47,16 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         code: formState.code,
         active: formState.active,
       });
+      toast({
+        title: "Success",
+        description: "Project created successfully",
+      });
       onSuccess?.();
     } catch (e: any) {
       toast({
         title: "Failed to save project",
         description: e?.response?.data?.message || "Error",
+        variant: "destructive",
       });
     } finally {
       setFormState((prev) => ({ ...prev, saving: false }));

@@ -72,9 +72,17 @@ export function Tags() {
     try {
       if (editing) {
         // No PATCH endpoint provided; simulate by delete+create or just create anew (skipping edit)
-        toast({ title: "Editing tags is not supported yet" });
+        toast({
+          title: "Not supported",
+          description: "Editing tags is not supported yet",
+          variant: "destructive",
+        });
       } else {
         await tagsApi.create({ name, color });
+        toast({
+          title: "Success",
+          description: "Tag created successfully",
+        });
       }
       setOpen(false);
       resetForm();
@@ -83,13 +91,26 @@ export function Tags() {
       toast({
         title: "Failed to save tag",
         description: e?.response?.data?.message || "Error",
+        variant: "destructive",
       });
     }
   };
 
   const removeTag = async (id: string) => {
-    await tagsApi.remove(id);
-    await load();
+    try {
+      await tagsApi.remove(id);
+      toast({
+        title: "Success",
+        description: "Tag deleted successfully",
+      });
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Failed to delete tag",
+        description: e?.response?.data?.message || "Error",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

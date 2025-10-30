@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
 
 const USERS = [
   { id: "u1", name: "Dev One" },
@@ -31,6 +32,16 @@ export function AddEmployeeToClientForm() {
     try {
       // Add API call here when available
       console.log("Adding employee to client:", formState);
+      toast({
+        title: "Success",
+        description: "Employee assigned to client successfully",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Failed to assign employee",
+        description: e?.response?.data?.message || "Error",
+        variant: "destructive",
+      });
     } finally {
       setFormState((prev) => ({ ...prev, saving: false }));
     }

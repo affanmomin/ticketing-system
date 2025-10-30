@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TableRowSkeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -172,29 +173,31 @@ export function Clients() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading && (
+              {loading ? (
+                <>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <TableRow key={i}>
+                      <TableCell colSpan={5} className="p-0">
+                        <TableRowSkeleton columns={5} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </>
+              ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={5}
-                    className="text-center text-muted-foreground"
-                  >
-                    Loading…
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loading && filtered.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center text-muted-foreground"
+                    className="text-center text-muted-foreground py-8"
                   >
                     No clients found.
                   </TableCell>
                 </TableRow>
-              )}
-              {!loading &&
+              ) : (
                 filtered.map((c) => (
-                  <TableRow key={c.id}>
+                  <TableRow
+                    key={c.id}
+                    className="hover:bg-muted/50 transition-colors"
+                  >
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {c.domain || "—"}
@@ -228,7 +231,8 @@ export function Clients() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ))
+              )}
             </TableBody>
           </Table>
 

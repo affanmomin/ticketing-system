@@ -10,6 +10,7 @@ import { Tags } from "./pages/Tags";
 import { Clients } from "./pages/Clients";
 import { Users } from "./pages/Users";
 import { Toaster } from "./components/ui/sonner";
+import { Toaster as ShadcnToaster } from "./components/ui/toaster";
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 
@@ -73,6 +74,7 @@ function App() {
       <ThemeProvider>
         <AppRoutes />
         <Toaster />
+        <ShadcnToaster />
       </ThemeProvider>
     </BrowserRouter>
   );

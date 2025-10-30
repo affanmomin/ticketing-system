@@ -41,11 +41,16 @@ export function StreamForm({ onSuccess }: { onSuccess?: () => void }) {
         projectId: formState.project,
         name: formState.name,
       });
+      toast({
+        title: "Success",
+        description: "Stream created successfully",
+      });
       onSuccess?.();
     } catch (e: any) {
       toast({
         title: "Failed to save stream",
         description: e?.response?.data?.message || "Error",
+        variant: "destructive",
       });
     } finally {
       setFormState((prev) => ({ ...prev, saving: false }));

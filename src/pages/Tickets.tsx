@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, LayoutGrid, List, Calendar, Users } from "lucide-react";
 import { TicketCard } from "@/components/TicketCard";
+import { TicketCardSkeleton, TableRowSkeleton } from "@/components/ui/skeleton";
+import { toast } from "@/hooks/use-toast";
 import {
   DndContext,
   DragEndEvent,
@@ -210,10 +212,21 @@ export function Tickets() {
         }
       };
       ticketsApi
-        .update(ticketId, { status: toApiStatus(newStatus) })
+        .update(ticketId, { status: toApiStatus(newStatus) as any })
+        .then(() => {
+          toast({
+            title: "Status updated",
+            description: "Ticket status changed successfully",
+          });
+        })
         .catch(() => {
           // rollback UI state if the API call fails
           setTickets(prevTickets);
+          toast({
+            title: "Failed to update status",
+            description: "Could not update ticket status",
+            variant: "destructive",
+          });
         });
     }
 
@@ -438,18 +451,26 @@ export function Tickets() {
                       </div>
 
                       <div className="p-3 space-y-3 min-h-[300px] sm:min-h-[400px] lg:min-h-[500px] flex-1 overflow-y-auto">
-                        {columnTickets.map((ticket) => (
-                          <DraggableTicket key={ticket.id} id={ticket.id}>
-                            <TicketCard
-                              {...ticket}
-                              className="cursor-grab active:cursor-grabbing select-none"
-                              onClick={() => {
-                                setSelectedTicketId(ticket.id);
-                                setOpenEdit(true);
-                              }}
-                            />
-                          </DraggableTicket>
-                        ))}
+                        {loading ? (
+                          <>
+                            {[1, 2, 3].map((i) => (
+                              <TicketCardSkeleton key={i} />
+                            ))}
+                          </>
+                        ) : (
+                          columnTickets.map((ticket) => (
+                            <DraggableTicket key={ticket.id} id={ticket.id}>
+                              <TicketCard
+                                {...ticket}
+                                className="cursor-grab active:cursor-grabbing select-none"
+                                onClick={() => {
+                                  setSelectedTicketId(ticket.id);
+                                  setOpenEdit(true);
+                                }}
+                              />
+                            </DraggableTicket>
+                          ))
+                        )}
                       </div>
                     </div>
                   </DroppableColumn>
@@ -490,32 +511,44 @@ export function Tickets() {
                 </tr>
               </thead>
               <tbody>
-                {tickets.map((ticket) => (
-                  <tr
-                    key={ticket.id}
-                    className="border-b border-border hover:bg-accent/50 cursor-pointer"
-                    onClick={() => {
-                      setSelectedTicketId(ticket.id);
-                      setOpenEdit(true);
-                    }}
-                  >
-                    <td className="p-3 text-sm text-muted-foreground font-mono">
-                      {ticket.ticketNumber ? `#${ticket.ticketNumber}` : "—"}
-                    </td>
-                    <td className="p-3 text-sm text-foreground font-medium">
-                      {ticket.title}
-                    </td>
-                    <td className="p-3">
-                      {/* StatusBadge component would go here */}
-                    </td>
-                    <td className="p-3">
-                      {/* PriorityBadge component would go here */}
-                    </td>
-                    <td className="p-3 text-sm text-muted-foreground">
-                      {ticket.assignee?.name || "Unassigned"}
-                    </td>
-                  </tr>
-                ))}
+                {loading ? (
+                  <>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <tr key={i}>
+                        <td colSpan={5} className="p-0">
+                          <TableRowSkeleton columns={5} />
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                ) : (
+                  tickets.map((ticket) => (
+                    <tr
+                      key={ticket.id}
+                      className="border-b border-border hover:bg-accent/50 cursor-pointer"
+                      onClick={() => {
+                        setSelectedTicketId(ticket.id);
+                        setOpenEdit(true);
+                      }}
+                    >
+                      <td className="p-3 text-sm text-muted-foreground font-mono">
+                        {ticket.ticketNumber ? `#${ticket.ticketNumber}` : "—"}
+                      </td>
+                      <td className="p-3 text-sm text-foreground font-medium">
+                        {ticket.title}
+                      </td>
+                      <td className="p-3">
+                        {/* StatusBadge component would go here */}
+                      </td>
+                      <td className="p-3">
+                        {/* PriorityBadge component would go here */}
+                      </td>
+                      <td className="p-3 text-sm text-muted-foreground">
+                        {ticket.assignee?.name || "Unassigned"}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
             <div className="flex items-center justify-between p-3">

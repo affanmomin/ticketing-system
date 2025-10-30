@@ -58,6 +58,7 @@ export function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
 
@@ -70,11 +71,19 @@ export function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in…" : "Sign In"}
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Signing in...
+                </span>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
 
@@ -83,7 +92,7 @@ export function Login() {
               Demo Accounts:
             </p>
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>Admin: admin@example.com / password</p>
+              <p>Admin: admin@acme.com / adminpassword</p>
               <p>Employee: employee@example.com / password</p>
               <p>Client: client@example.com / password</p>
             </div>

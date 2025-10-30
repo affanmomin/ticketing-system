@@ -28,12 +28,17 @@ export function CommentForm({
       if (formState.file) {
         await attachmentsApi.upload({ file: formState.file, ticketId });
       }
+      toast({
+        title: "Success",
+        description: "Comment added successfully",
+      });
       setFormState({ text: "", file: null, saving: false });
       onPosted?.();
     } catch (e: any) {
       toast({
         title: "Failed to add comment",
         description: e?.response?.data?.message || "Error",
+        variant: "destructive",
       });
       setFormState((prev) => ({ ...prev, saving: false }));
     }
