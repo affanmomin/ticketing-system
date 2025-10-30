@@ -19,8 +19,8 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TicketCreateForm } from "@/components/forms/TicketCreateForm";
 import { TicketEditForm } from "@/components/forms/TicketEditForm";
-import { CommentForm } from "@/components/forms/CommentForm";
 import * as ticketsApi from "@/api/tickets";
+import * as usersApi from "@/api/users";
 import { WorkFilterBar } from "@/components/forms/WorkFilterBar";
 import { useSearchParams } from "react-router-dom";
 
@@ -54,7 +54,6 @@ export function Tickets() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
-  const [openComment, setOpenComment] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -73,7 +72,6 @@ export function Tickets() {
     const parsedLimit = Number(get("limit")) || 20;
     const parsedOffset = Number(get("offset")) || 0;
     return {
-      search: get("search"),
       clientId: get("clientId"),
       projectId: get("projectId"),
       streamId: get("streamId"),
@@ -115,19 +113,63 @@ export function Tickets() {
           limit: currentLimit,
           offset: currentOffset,
         };
-        if (filters.search) query.search = filters.search;
         if (filters.clientId) query.clientId = filters.clientId;
         if (filters.projectId) query.projectId = filters.projectId;
         if (filters.streamId) query.streamId = filters.streamId;
         if (filters.assigneeId) query.assigneeId = filters.assigneeId;
         if (filters.priority) query.priority = filters.priority;
+
         const { data } = await ticketsApi.pagedList(query);
         setCount(data.count);
-        const mapped: UITicket[] = data.items.map((t, idx) => ({
+
+        // Get unique assignee IDs
+        const assigneeIds = [
+          ...new Set(
+            data.items
+              .map((t: any) => t.assigneeId)
+              .filter((id: string | null) => id !== null)
+          ),
+        ];
+
+        // Fetch all users to map assignees
+        const usersMap = new Map<
+          string,
+          { name: string; role: "employee" | "client" | "admin" }
+        >();
+        if (assigneeIds.length > 0) {
+          try {
+            const { data: usersData } = await usersApi.list({
+              limit: 100,
+              offset: 0,
+            });
+            usersData.data.forEach((user) => {
+              usersMap.set(user.id, {
+                name: user.name,
+                role:
+                  user.userType === "ADMIN"
+                    ? "admin"
+                    : user.userType === "CLIENT"
+                      ? "client"
+                      : "employee",
+              });
+            });
+          } catch (e) {
+            // Ignore user fetch errors
+          }
+        }
+
+        const mapped: UITicket[] = data.items.map((t: any, idx) => ({
           id: t.id,
           title: t.title,
           ticketNumber: idx + 1 + offset,
-          priority: "medium",
+          priority:
+            t.priority === "P0"
+              ? "urgent"
+              : t.priority === "P1"
+                ? "high"
+                : t.priority === "P2"
+                  ? "medium"
+                  : "low",
           status:
             t.status === "TODO"
               ? "todo"
@@ -139,6 +181,15 @@ export function Tickets() {
                     ? "done"
                     : // BACKLOG and anything else fall back to TODO column
                       "todo",
+          assignee: t.assigneeId
+            ? usersMap.get(t.assigneeId) || {
+                name: "Unknown User",
+                role: "employee" as const,
+              }
+            : null,
+          tags: [], // Will need to fetch tags separately if needed
+          commentCount: 0, // Will need to fetch comment count separately if needed
+          attachmentCount: 0, // Will need to fetch attachment count separately if needed
         }));
         setTickets(mapped);
       } finally {
@@ -148,7 +199,6 @@ export function Tickets() {
   }, [
     currentLimit,
     currentOffset,
-    filters.search,
     filters.clientId,
     filters.projectId,
     filters.streamId,
@@ -301,11 +351,6 @@ export function Tickets() {
               if (!v) setSelectedTicketId(null);
             }}
           >
-            <DialogTrigger asChild>
-              <Button variant="outline" className="hidden md:inline-flex">
-                Quick Edit
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-4xl">
               <TicketEditForm
                 ticketId={selectedTicketId ?? undefined}
@@ -342,20 +387,6 @@ export function Tickets() {
               />
             </DialogContent>
           </Dialog>
-
-          <Dialog open={openComment} onOpenChange={setOpenComment}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="hidden md:inline-flex">
-                Add Comment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <div className="space-y-3">
-                <h2 className="text-lg font-semibold">Add Comment</h2>
-                <CommentForm />
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
@@ -366,7 +397,6 @@ export function Tickets() {
         }}
         onApply={() => {
           const sp = new URLSearchParams();
-          if (filters.search) sp.set("search", filters.search);
           if (filters.clientId) sp.set("clientId", filters.clientId);
           if (filters.projectId) sp.set("projectId", filters.projectId);
           if (filters.streamId) sp.set("streamId", filters.streamId);
@@ -441,11 +471,11 @@ export function Tickets() {
                       <div className="p-3 space-y-3 min-h-[300px] sm:min-h-[400px] lg:min-h-[500px] flex-1 overflow-y-auto">
                         {loading ? (
                           <>
-                            {[1, 2, 3].map((i) => (
+                            {[1, 2, 3, 4].map((i) => (
                               <TicketCardSkeleton key={i} />
                             ))}
                           </>
-                        ) : (
+                        ) : columnTickets.length > 0 ? (
                           columnTickets.map((ticket) => (
                             <DraggableTicket key={ticket.id} id={ticket.id}>
                               <TicketCard
@@ -458,6 +488,12 @@ export function Tickets() {
                               />
                             </DraggableTicket>
                           ))
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <div className="text-muted-foreground text-sm">
+                              No tickets
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -522,14 +558,49 @@ export function Tickets() {
                       <td className="p-3 text-sm text-muted-foreground font-mono">
                         {ticket.ticketNumber ? `#${ticket.ticketNumber}` : "—"}
                       </td>
-                      <td className="p-3 text-sm text-foreground font-medium">
+                      <td className="p-3 text-sm text-foreground font-medium max-w-xs truncate">
                         {ticket.title}
                       </td>
                       <td className="p-3">
-                        {/* StatusBadge component would go here */}
+                        <span
+                          className={cn(
+                            "px-2 py-1 rounded-full text-xs font-medium",
+                            ticket.status === "todo" &&
+                              "bg-blue-500/10 text-blue-700 dark:text-blue-300",
+                            ticket.status === "in_progress" &&
+                              "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
+                            ticket.status === "review" &&
+                              "bg-purple-500/10 text-purple-700 dark:text-purple-300",
+                            ticket.status === "done" &&
+                              "bg-green-500/10 text-green-700 dark:text-green-300"
+                          )}
+                        >
+                          {ticket.status === "todo"
+                            ? "To Do"
+                            : ticket.status === "in_progress"
+                              ? "In Progress"
+                              : ticket.status === "review"
+                                ? "Review"
+                                : "Done"}
+                        </span>
                       </td>
                       <td className="p-3">
-                        {/* PriorityBadge component would go here */}
+                        <span
+                          className={cn(
+                            "px-2 py-1 rounded-full text-xs font-medium",
+                            ticket.priority === "urgent" &&
+                              "bg-red-500/10 text-red-700 dark:text-red-300",
+                            ticket.priority === "high" &&
+                              "bg-orange-500/10 text-orange-700 dark:text-orange-300",
+                            ticket.priority === "medium" &&
+                              "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
+                            ticket.priority === "low" &&
+                              "bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                          )}
+                        >
+                          {ticket.priority.charAt(0).toUpperCase() +
+                            ticket.priority.slice(1)}
+                        </span>
                       </td>
                       <td className="p-3 text-sm text-muted-foreground">
                         {ticket.assignee?.name || "Unassigned"}

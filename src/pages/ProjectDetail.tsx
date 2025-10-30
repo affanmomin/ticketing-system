@@ -38,6 +38,8 @@ type ProjectDetail = {
     title: string;
     status: string;
     priority: string;
+    createdAt: string;
+    dueDate?: string | null;
     assignee?: {
       id: string;
       name: string;
@@ -272,10 +274,11 @@ export function ProjectDetail() {
                     <TableHead>Priority</TableHead>
                     <TableHead>Assignee</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Due Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {project.tickets.map((ticket) => (
+                  {project.tickets.map((ticket: any) => (
                     <TableRow
                       key={ticket.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -293,7 +296,28 @@ export function ProjectDetail() {
                         {ticket.assignee?.name || "Unassigned"}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {new Date(ticket.id).toLocaleDateString()}
+                        {ticket.createdAt
+                          ? new Date(ticket.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {ticket.dueDate
+                          ? new Date(ticket.dueDate).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )
+                          : "—"}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -1,4 +1,3 @@
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -8,7 +7,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Search, Filter } from "lucide-react";
+import { X, Filter } from "lucide-react";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
@@ -57,7 +56,7 @@ export function WorkFilterBar({
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await clientsApi.list({ limit: 200, offset: 0 });
+        const { data } = await clientsApi.list({ limit: 100, offset: 0 });
         setClients(data.items.map((c) => ({ id: c.id, name: c.name })));
       } catch {
         // ignore for now
@@ -104,7 +103,7 @@ export function WorkFilterBar({
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await usersApi.list({ limit: 200, offset: 0 });
+        const { data } = await usersApi.list({ limit: 100, offset: 0 });
         setAssignees(data.data.map((u) => ({ id: u.id, name: u.name })));
       } catch {
         setAssignees([]);
@@ -114,7 +113,6 @@ export function WorkFilterBar({
 
   // Count active filters
   const activeFiltersCount =
-    (value.search ? 1 : 0) +
     (value.clientId ? 1 : 0) +
     (value.projectId ? 1 : 0) +
     (value.streamId ? 1 : 0) +
@@ -137,23 +135,6 @@ export function WorkFilterBar({
     <div className="space-y-3">
       {/* Main Filter Row */}
       <div className="flex flex-col sm:flex-row gap-3">
-        {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tickets..."
-            value={value.search || ""}
-            onChange={(e) => {
-              onChange({ search: e.target.value });
-              // Auto-apply on search
-              if (onApply) {
-                setTimeout(onApply, 300);
-              }
-            }}
-            className="pl-10"
-          />
-        </div>
-
         {/* Filter Selects */}
         <div className="flex flex-wrap gap-2">
           {/* Client Filter */}

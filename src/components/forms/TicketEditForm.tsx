@@ -119,7 +119,7 @@ export function TicketEditForm({
 
         // Load clients list
         const { data: clientsPaged } = await clientsApi.list({
-          limit: 200,
+          limit: 100,
           offset: 0,
         });
         if (!mounted) return;
@@ -217,7 +217,7 @@ export function TicketEditForm({
     (async () => {
       const [projectsRes, usersRes, tagsRes] = await Promise.all([
         projectsApi.list({ clientId: formState.client }),
-        usersApi.list({ limit: 200, offset: 0 }),
+        usersApi.list({ limit: 100, offset: 0 }),
         tagsApi.list({ clientId: formState.client }),
       ]);
       const mappedProjects = projectsRes.data.map((p) => ({
