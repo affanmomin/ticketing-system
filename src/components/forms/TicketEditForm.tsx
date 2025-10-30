@@ -134,7 +134,7 @@ export function TicketEditForm({
         // Load dependent lists based on client
         const [projectsRes, usersRes, tagsRes] = await Promise.all([
           projectsApi.list({ clientId: t.clientId }),
-          usersApi.assignableUsers(t.clientId),
+          usersApi.list({ limit: 100, offset: 0 }),
           tagsApi.list({ clientId: t.clientId }),
         ]);
         if (!mounted) return;
@@ -152,7 +152,7 @@ export function TicketEditForm({
                 { id: t.projectId, name: "Current project", code: "" },
               ]
         );
-        const fetchedUsers = usersRes.data.map((u) => ({
+        const fetchedUsers = usersRes.data.data.map((u) => ({
           id: u.id,
           name: u.name,
         }));
@@ -214,7 +214,7 @@ export function TicketEditForm({
     (async () => {
       const [projectsRes, usersRes, tagsRes] = await Promise.all([
         projectsApi.list({ clientId: formState.client }),
-        usersApi.assignableUsers(formState.client),
+        usersApi.list({ limit: 200, offset: 0 }),
         tagsApi.list({ clientId: formState.client }),
       ]);
       const mappedProjects = projectsRes.data.map((p) => ({
@@ -224,7 +224,7 @@ export function TicketEditForm({
       }));
       setProjects(mappedProjects);
       {
-        const mappedUsers = usersRes.data.map((u) => ({
+        const mappedUsers = usersRes.data.data.map((u) => ({
           id: u.id,
           name: u.name,
         }));
@@ -290,9 +290,6 @@ export function TicketEditForm({
     <div className="space-y-4">
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground font-mono">
-            {headerTicketId}
-          </p>
           <h2 className="text-lg font-semibold">Edit Ticket</h2>
         </div>
         {role === "CLIENT" && (
@@ -449,7 +446,7 @@ export function TicketEditForm({
         <Separator className="md:col-span-2" />
 
         <div className="space-y-2">
-          <Label>Assignee</Label>
+          <Label>Assigned To</Label>
           <Select
             value={formState.assignee}
             onValueChange={(v) =>

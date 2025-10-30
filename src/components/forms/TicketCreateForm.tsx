@@ -56,7 +56,7 @@ export function TicketCreateForm() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await clientsApi.list({ limit: 200, offset: 0 });
+      const { data } = await clientsApi.list({ limit: 100, offset: 0 });
       const items = data.items.map((c) => ({ id: c.id, name: c.name }));
       setClients(items);
       if (items.length)
@@ -67,26 +67,41 @@ export function TicketCreateForm() {
   useEffect(() => {
     if (!formState.client) return;
     (async () => {
-      const { data: projectsData } = await projectsApi.list({
-        clientId: formState.client,
-      });
-      const mapped = projectsData.map((p) => ({
-        id: p.id,
-        name: p.name,
-        code: p.code,
-      }));
-      setProjects(mapped);
-      setFormState((prev) => ({ ...prev, project: mapped[0]?.id || "" }));
-      const { data: usersData } = await usersApi.assignableUsers(
-        formState.client
-      );
-      setUsers(usersData.map((u) => ({ id: u.id, name: u.name })));
-      const { data: tagsData } = await tagsApi.list({
-        clientId: formState.client,
-      });
-      setTags(
-        tagsData.map((t) => ({ id: t.id, name: t.name, color: t.color }))
-      );
+      try {
+        const { data: projectsData } = await projectsApi.list({
+          clientId: formState.client,
+        });
+        const mapped = projectsData.map((p) => ({
+          id: p.id,
+          name: p.name,
+          code: p.code,
+        }));
+        setProjects(mapped);
+        setFormState((prev) => ({ ...prev, project: mapped[0]?.id || "" }));
+      } catch (e) {
+        console.error("Failed to load projects:", e);
+      }
+
+      try {
+        const { data: allUsers } = await usersApi.list({
+          limit: 100,
+          offset: 0,
+        });
+        setUsers(allUsers.data.map((u) => ({ id: u.id, name: u.name })));
+      } catch (e) {
+        console.error("Failed to load users:", e);
+      }
+
+      try {
+        const { data: tagsData } = await tagsApi.list({
+          clientId: formState.client,
+        });
+        setTags(
+          tagsData.map((t) => ({ id: t.id, name: t.name, color: t.color }))
+        );
+      } catch (e) {
+        console.error("Failed to load tags:", e);
+      }
     })();
   }, [formState.client]);
 
@@ -363,11 +378,11 @@ export function TicketCreateForm() {
           </div>
         </div>
 
-        {/* Assignee & Due Date Row */}
+        {/* Assigned To & Due Date Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <Label htmlFor="ticket-assignee" className="text-sm font-medium">
-              Assignee
+              Assigned To
             </Label>
             <Select
               value={formState.assignee || "none"}
@@ -388,6 +403,11 @@ export function TicketCreateForm() {
                     {u.name}
                   </SelectItem>
                 ))}
+                {users.length === 0 && (
+                  <SelectItem value="no-users" disabled>
+                    No users available
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

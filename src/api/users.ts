@@ -75,4 +75,4 @@ export const remove = (id: string, hard: boolean = false) =>
 
 // Get assignable users for a client
 export const assignableUsers = (clientId: string) =>
-  api.get<AssignableUser[]>("/users/assignable", { params: { clientId } });
+  api.get<AssignableUser[]>("/users", { params: { clientId } });
