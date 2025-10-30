@@ -44,7 +44,7 @@ export function Login() {
               <FileText className="w-7 h-7 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Welcome to Ticketly</CardTitle>
+          <CardTitle className="text-2xl">Welcome to SAAIT</CardTitle>
           <CardDescription>Sign in to your account to continue</CardDescription>
         </CardHeader>
         <CardContent>

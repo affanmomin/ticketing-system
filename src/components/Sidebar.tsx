@@ -7,7 +7,6 @@ import {
   FileText,
   Tag,
   Users,
-  Settings,
   Building2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
@@ -61,11 +60,13 @@ const navItems: NavItem[] = [
     icon: <Users className="w-5 h-5" />,
     roles: ["ADMIN"],
   },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: <Settings className="w-5 h-5" />,
-  },
+  // /*
+  // {
+  //   title: "Settings",
+  //   href: "/settings",
+  //   icon: <Settings className="w-5 h-5" />,
+  // },
+  // */
 ];
 
 export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
@@ -119,7 +120,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
             {!renderCollapsed && (
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
-                  Ticketly
+                  SAAIT
                 </h1>
                 <p className="text-xs text-muted-foreground">
                   Project Management

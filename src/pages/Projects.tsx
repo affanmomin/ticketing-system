@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Plus, GitBranch, Eye } from "lucide-react";
+import { Plus, Eye } from "lucide-react";
 import * as projectsApi from "@/api/projects";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import ProjectForm from "@/components/forms/ProjectForm";
-import StreamForm from "@/components/forms/StreamForm";
 
 type Project = {
   id: string;
@@ -30,7 +29,6 @@ export function Projects() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [open, setOpen] = useState(false);
-  const [openStream, setOpenStream] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
 
   async function load() {
@@ -57,23 +55,6 @@ export function Projects() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={openStream} onOpenChange={setOpenStream}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <GitBranch className="w-4 h-4 mr-2" />
-                New Stream
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <StreamForm
-                onSuccess={() => {
-                  setOpenStream(false);
-                  load();
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>

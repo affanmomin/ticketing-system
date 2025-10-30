@@ -6,7 +6,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Tickets } from "./pages/Tickets";
 import { Projects } from "./pages/Projects";
 import { ProjectDetail } from "./pages/ProjectDetail";
-import { Settings } from "./pages/Settings";
+// import { Settings } from "./pages/Settings";
 import { Tags } from "./pages/Tags";
 import { Clients } from "./pages/Clients";
 import { Users } from "./pages/Users";
@@ -59,7 +59,7 @@ function AppRoutes() {
         <Route path="tickets" element={<Tickets />} />
         <Route path="projects" element={<Projects />} />
         <Route path="projects/:id" element={<ProjectDetail />} />
-        <Route path="settings" element={<Settings />} />
+        {/* <Route path="settings" element={<Settings />} /> */}
         <Route path="tags" element={<Tags />} />
         <Route path="clients" element={<Clients />} />
         <Route path="users" element={<Users />} />
