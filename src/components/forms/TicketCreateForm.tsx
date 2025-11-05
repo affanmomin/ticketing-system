@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,22 +11,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { CommentForm } from "@/components/forms/CommentForm";
-import { CommentsList } from "@/components/CommentsList";
-import { MessageSquare } from "lucide-react";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
-import * as usersApi from "@/api/users";
-import * as tagsApi from "@/api/tags";
+import * as subjectsApi from "@/api/subjects";
+import * as projectsMembersApi from "@/api/projects";
 import * as ticketsApi from "@/api/tickets";
 import * as attachmentsApi from "@/api/attachments";
-import type { TicketPriority, TicketType } from "@/types/api";
 import { toast } from "@/hooks/use-toast";
+import type {
+  AuthUser,
+  Priority,
+  Project,
+  ProjectMember,
+  Status,
+  Stream,
+  Subject,
+} from "@/types/api";
+import * as usersApi from "@/api/users";
 
-const PRIORITY: TicketPriority[] = ["P0", "P1", "P2", "P3"];
-const TYPE: TicketType[] = ["TASK", "BUG", "STORY", "EPIC"];
+const UNASSIGNED_VALUE = "__unassigned__";
 
 type TicketCreateFormProps = {
   clientId?: string;
@@ -34,527 +40,490 @@ type TicketCreateFormProps = {
   onCancel?: () => void;
 };
 
+type Option = { id: string; name: string };
+
 export function TicketCreateForm({
   clientId,
   projectId,
   onSuccess,
   onCancel,
 }: TicketCreateFormProps = {}) {
-  const [createdTicketId, setCreatedTicketId] = useState<string | null>(null);
-  const [commentsRefresh, setCommentsRefresh] = useState(0);
-  const [formState, setFormState] = useState({
+  const {
+    priorities,
+    statuses,
+    loading: taxonomyLoading,
+    refresh: refreshTaxonomy,
+  } = useTaxonomy();
+  const [clients, setClients] = useState<Option[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState({
+    clientId: clientId ?? "",
+    projectId: projectId ?? "",
+    streamId: "",
+    subjectId: "",
+    priorityId: "",
+    statusId: "",
     title: "",
-    description: "",
-    client: clientId || "",
-    project: projectId || "",
-    stream: "",
-    priority: PRIORITY[2],
-    type: TYPE[0],
-    assignee: "",
-    dueDate: "",
-    points: "" as number | "",
-    selectedTags: [] as string[],
-    files: [] as File[],
-    saving: false,
+    descriptionMd: "",
+    assignedTo: UNASSIGNED_VALUE,
   });
-  const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
-    []
-  );
-  const [projects, setProjects] = useState<
-    Array<{ id: string; name: string; code: string }>
-  >([]);
-  const [streams, setStreams] = useState<Array<{ id: string; name: string }>>(
-    []
-  );
-  const [users, setUsers] = useState<Array<{ id: string; name: string }>>([]);
-  const [tags, setTags] = useState<
-    Array<{ id: string; name: string; color: string }>
-  >([]);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await clientsApi.list({ limit: 100, offset: 0 });
-      const items = data.items.map((c) => ({ id: c.id, name: c.name }));
-      setClients(items);
-      // Only set default client if not provided via props
-      if (items.length && !clientId)
-        setFormState((prev) => ({ ...prev, client: items[0].id }));
-    })();
-  }, [clientId]);
-
-  useEffect(() => {
-    if (!formState.client) return;
     (async () => {
       try {
-        const { data: projectsData } = await projectsApi.list({
-          clientId: formState.client,
-        });
-        const mapped = projectsData.map((p) => ({
-          id: p.id,
-          name: p.name,
-          code: p.code,
+        const { data } = await clientsApi.list({ limit: 200, offset: 0 });
+        const options = data.data.map((client) => ({
+          id: client.id,
+          name: client.name,
         }));
-        setProjects(mapped);
-        // Only set default project if not provided via props
-        if (!projectId) {
-          setFormState((prev) => ({ ...prev, project: mapped[0]?.id || "" }));
+        setClients(options);
+        if (!clientId && options.length) {
+          setForm((prev) => ({ ...prev, clientId: options[0].id }));
         }
-      } catch (e) {
-        console.error("Failed to load projects:", e);
-      }
-
-      try {
-        const { data: allUsers } = await usersApi.list({
-          limit: 100,
-          offset: 0,
-        });
-        setUsers(allUsers.data.map((u) => ({ id: u.id, name: u.name })));
-      } catch (e) {
-        console.error("Failed to load users:", e);
-      }
-
-      try {
-        const { data: tagsData } = await tagsApi.list({
-          clientId: formState.client,
-        });
-        setTags(
-          tagsData.map((t) => ({ id: t.id, name: t.name, color: t.color }))
-        );
-      } catch (e) {
-        console.error("Failed to load tags:", e);
+      } catch (error) {
+        toast({ title: "Failed to load clients", variant: "destructive" });
       }
     })();
-  }, [formState.client, projectId]);
+  }, [clientId, toast]);
 
   useEffect(() => {
-    if (!formState.project) return;
     (async () => {
-      const { data } = await streamsApi.list(formState.project);
-      setStreams(data.map((s) => ({ id: s.id, name: s.name })));
+      try {
+        const { data } = await usersApi.list({ limit: 200, offset: 0 });
+        setUsers(data.data);
+      } catch (error) {
+        console.warn("Failed to load users", error);
+      }
     })();
-  }, [formState.project]);
+  }, []);
 
-  function toggleTag(id: string) {
-    setFormState((prev) => ({
-      ...prev,
-      selectedTags: prev.selectedTags.includes(id)
-        ? prev.selectedTags.filter((x) => x !== id)
-        : [...prev.selectedTags, id],
-    }));
-  }
+  useEffect(() => {
+    if (!form.clientId) return;
+    (async () => {
+      try {
+        const [projectsRes, streamsRes, subjectsRes] = await Promise.all([
+          projectsApi.list({ clientId: form.clientId, limit: 200, offset: 0 }),
+          streamsApi.listForClient(form.clientId, { limit: 200, offset: 0 }),
+          subjectsApi.listForClient(form.clientId, { limit: 200, offset: 0 }),
+        ]);
 
-  const canSave = useMemo(
-    () =>
-      formState.title.trim() &&
-      formState.description.trim() &&
-      formState.client &&
-      formState.project,
-    [
-      formState.title,
-      formState.description,
-      formState.client,
-      formState.project,
-    ]
-  );
+        const projectItems = projectsRes.data.data;
+        const streamItems = streamsRes.data.data;
+        const subjectItems = subjectsRes.data.data;
 
-  async function handleSave() {
-    if (!canSave || formState.saving) return;
-    setFormState((prev) => ({ ...prev, saving: true }));
-    try {
-      const payload: any = {
-        clientId: formState.client,
-        projectId: formState.project,
-        title: formState.title,
-        descriptionMd: formState.description,
+        setProjects(projectItems);
+        setStreams(streamItems);
+        setSubjects(subjectItems);
+
+        if (!projectId && projectItems.length) {
+          setForm((prev) => ({ ...prev, projectId: projectItems[0].id }));
+        }
+
+        if (streamItems.length) {
+          setForm((prev) => ({ ...prev, streamId: streamItems[0].id }));
+        } else {
+          setForm((prev) => ({ ...prev, streamId: "" }));
+        }
+
+        if (subjectItems.length) {
+          setForm((prev) => ({ ...prev, subjectId: subjectItems[0].id }));
+        } else {
+          setForm((prev) => ({ ...prev, subjectId: "" }));
+        }
+      } catch (error) {
+        toast({
+          title: "Failed to load project context",
+          variant: "destructive",
+        });
+      }
+    })();
+  }, [form.clientId, projectId, toast]);
+
+  useEffect(() => {
+    if (!form.projectId) return;
+    (async () => {
+      try {
+        const { data } = await projectsMembersApi.listMembers(form.projectId);
+        setMembers(data);
+      } catch (error) {
+        console.warn("Failed to load project members", error);
+      }
+    })();
+  }, [form.projectId]);
+
+  useEffect(() => {
+    if (!taxonomyLoading && (!form.priorityId || !form.statusId)) {
+      const firstPriority = priorities.find(
+        (priority) => priority.active !== false
+      );
+      const firstStatus = statuses.find(
+        (status) => status.active !== false && !status.isClosed
+      );
+      setForm((prev) => ({
+        ...prev,
+        priorityId: prev.priorityId || firstPriority?.id || "",
+        statusId: prev.statusId || firstStatus?.id || "",
+      }));
+    }
+  }, [taxonomyLoading, priorities, statuses]);
+
+  const memberOptions = members
+    .filter((member) => member.canBeAssigned)
+    .map((member) => {
+      const user = users.find((u) => u.id === member.userId);
+      return {
+        id: member.userId,
+        name: user?.fullName || user?.email || member.userId,
       };
-      if (formState.stream) payload.streamId = formState.stream;
-      if (formState.priority) payload.priority = formState.priority;
-      if (formState.type) payload.type = formState.type;
-      if (formState.assignee) payload.assigneeId = formState.assignee;
-      if (formState.dueDate)
-        payload.dueDate = new Date(
-          `${formState.dueDate}T00:00:00Z`
-        ).toISOString();
-      if (formState.points !== "") payload.points = Number(formState.points);
-      if (formState.selectedTags.length)
-        payload.tagIds = formState.selectedTags;
-      const { data: created } = await ticketsApi.create(payload);
-      for (const file of formState.files) {
-        await attachmentsApi.upload({ file, ticketId: created.id });
+    });
+
+  const canSubmit =
+    form.title.trim() &&
+    form.descriptionMd.trim() &&
+    form.clientId &&
+    form.projectId &&
+    form.streamId &&
+    form.subjectId &&
+    form.priorityId &&
+    form.statusId;
+
+  async function handleSubmit() {
+    if (!canSubmit || saving) return;
+    if (!form.streamId) {
+      toast({
+        title: "Missing stream",
+        description:
+          "Create at least one stream for this client before raising tickets.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!form.subjectId) {
+      toast({
+        title: "Missing subject",
+        description:
+          "Create at least one subject for this client before raising tickets.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        projectId: form.projectId,
+        streamId: form.streamId,
+        subjectId: form.subjectId,
+        priorityId: form.priorityId,
+        statusId: form.statusId,
+        title: form.title.trim(),
+        descriptionMd: form.descriptionMd.trim(),
+        assignedToUserId:
+          form.assignedTo === UNASSIGNED_VALUE ? undefined : form.assignedTo,
+      };
+
+      const { data } = await ticketsApi.create(payload);
+
+      for (const file of attachments) {
+        const presign = await attachmentsApi.presignUpload(data.id, {
+          fileName: file.name,
+          mimeType: file.type,
+        });
+        await axios.put(presign.data.uploadUrl, file, {
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+        });
+        await attachmentsApi.confirmUpload(data.id, {
+          storageUrl: presign.data.key,
+          fileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+        });
       }
 
-      // Save the created ticket ID to show comments section
-      setCreatedTicketId(created.id);
-
-      toast({
-        title: "Ticket created",
-        description:
-          "Your ticket was created successfully. You can now add comments below.",
-      });
-
-      // Call onSuccess callback if provided
+      toast({ title: "Ticket created" });
+      setAttachments([]);
       onSuccess?.();
-
-      // Reset form but keep client/project context
-      setFormState({
+      setForm((prev) => ({
+        ...prev,
         title: "",
-        description: "",
-        client: formState.client,
-        project: formState.project,
-        stream: "",
-        priority: PRIORITY[2],
-        type: TYPE[0],
-        assignee: "",
-        dueDate: "",
-        points: "",
-        selectedTags: [],
-        files: [],
-        saving: false,
+        descriptionMd: "",
+        assignedTo: UNASSIGNED_VALUE,
+      }));
+    } catch (error: any) {
+      toast({
+        title: "Failed to create ticket",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
       });
-    } catch (e: any) {
-      const m = e?.response?.data?.message || "Failed to create ticket";
-      toast({ title: "Error", description: m });
-      setFormState((prev) => ({ ...prev, saving: false }));
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
       <div className="space-y-1.5">
-        <h2 className="text-xl font-semibold tracking-tight">Create Ticket</h2>
+        <h2 className="text-xl font-semibold">Create ticket</h2>
         <p className="text-sm text-muted-foreground">
-          Create a new work item for tracking and collaboration
+          Tickets require a client stream and subject to keep work organized.
         </p>
       </div>
 
-      {/* Divider */}
-      <div className="h-px bg-border" />
-
-      {/* Form Fields */}
       <div className="space-y-6">
-        {/* Title & Client Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="ticket-title" className="text-sm font-medium">
-              Title
-              <span className="text-destructive ml-1">*</span>
-            </Label>
-            <Input
-              id="ticket-title"
-              placeholder="Brief description of the issue or task"
-              value={formState.title}
-              onChange={(e) =>
-                setFormState((prev) => ({ ...prev, title: e.target.value }))
-              }
-              aria-required="true"
-              className="h-10"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticket-client" className="text-sm font-medium">
-              Client
-              <span className="text-destructive ml-1">*</span>
-            </Label>
+            <Label htmlFor="ticket-client">Client</Label>
             <Select
-              value={formState.client}
-              onValueChange={(v) =>
-                setFormState((prev) => ({ ...prev, client: String(v) }))
+              value={form.clientId}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, clientId: value }))
               }
               disabled={!!clientId}
             >
-              <SelectTrigger id="ticket-client" className="w-full h-10">
+              <SelectTrigger id="ticket-client">
                 <SelectValue placeholder="Select client" />
               </SelectTrigger>
               <SelectContent>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        {/* Description */}
-        <div className="space-y-2">
-          <Label htmlFor="ticket-description" className="text-sm font-medium">
-            Description
-            <span className="text-destructive ml-1">*</span>
-          </Label>
-          <Textarea
-            id="ticket-description"
-            placeholder="Provide detailed information about this ticket (supports markdown)"
-            value={formState.description}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, description: e.target.value }))
-            }
-            aria-required="true"
-            className="min-h-[120px] resize-y"
-          />
-          <p className="text-xs text-muted-foreground">Markdown supported</p>
-        </div>
-
-        {/* Project & Stream Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="ticket-project" className="text-sm font-medium">
-              Project
-              <span className="text-destructive ml-1">*</span>
-            </Label>
+            <Label htmlFor="ticket-project">Project</Label>
             <Select
-              value={formState.project}
-              onValueChange={(v) =>
-                setFormState((prev) => ({ ...prev, project: String(v) }))
+              value={form.projectId}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, projectId: value }))
               }
               disabled={!!projectId}
             >
-              <SelectTrigger id="ticket-project" className="w-full h-10">
+              <SelectTrigger id="ticket-project">
                 <SelectValue placeholder="Select project" />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticket-stream" className="text-sm font-medium">
-              Stream
-            </Label>
-            <Select
-              value={formState.stream || "none"}
-              onValueChange={(v) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  stream: v === "none" ? "" : String(v),
-                }))
-              }
-            >
-              <SelectTrigger id="ticket-stream" className="w-full h-10">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {streams.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
+                {projects.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    No projects for this client.
+                  </div>
+                ) : (
+                  projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* Priority & Type Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="ticket-priority" className="text-sm font-medium">
-              Priority
-            </Label>
+            <Label htmlFor="ticket-stream">Stream</Label>
             <Select
-              value={formState.priority}
-              onValueChange={(v) =>
-                setFormState((prev) => ({ ...prev, priority: v as any }))
+              value={form.streamId}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, streamId: value }))
               }
             >
-              <SelectTrigger id="ticket-priority" className="w-full h-10">
-                <SelectValue placeholder="Select priority" />
+              <SelectTrigger id="ticket-stream">
+                <SelectValue placeholder="Select stream" />
               </SelectTrigger>
               <SelectContent>
-                {PRIORITY.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticket-type" className="text-sm font-medium">
-              Type
-            </Label>
-            <Select
-              value={formState.type}
-              onValueChange={(v) =>
-                setFormState((prev) => ({ ...prev, type: v as any }))
-              }
-            >
-              <SelectTrigger id="ticket-type" className="w-full h-10">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {TYPE.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Assigned To & Due Date Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="ticket-assignee" className="text-sm font-medium">
-              Assigned To
-            </Label>
-            <Select
-              value={formState.assignee || "none"}
-              onValueChange={(v) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  assignee: v === "none" ? "" : v,
-                }))
-              }
-            >
-              <SelectTrigger id="ticket-assignee" className="w-full h-10">
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Unassigned</SelectItem>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
-                  </SelectItem>
-                ))}
-                {users.length === 0 && (
-                  <SelectItem value="no-users" disabled>
-                    No users available
-                  </SelectItem>
+                {streams.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    No streams found. Create streams in the client workspace
+                    first.
+                  </div>
+                ) : (
+                  streams.map((stream) => (
+                    <SelectItem key={stream.id} value={stream.id}>
+                      {stream.name}
+                    </SelectItem>
+                  ))
                 )}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ticket-due-date" className="text-sm font-medium">
-              Due Date
-            </Label>
-            <Input
-              id="ticket-due-date"
-              type="date"
-              value={formState.dueDate}
-              onChange={(e) =>
-                setFormState((prev) => ({ ...prev, dueDate: e.target.value }))
+            <Label htmlFor="ticket-subject">Subject</Label>
+            <Select
+              value={form.subjectId}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, subjectId: value }))
               }
-              className="h-10"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticket-points" className="text-sm font-medium">
-              Story Points
-            </Label>
-            <Input
-              id="ticket-points"
-              type="number"
-              placeholder="0"
-              min="0"
-              value={formState.points as any}
-              onChange={(e) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  points: e.target.value ? Number(e.target.value) : "",
-                }))
-              }
-              className="h-10"
-            />
+            >
+              <SelectTrigger id="ticket-subject">
+                <SelectValue placeholder="Select subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    No subjects found. Create subjects in the client workspace
+                    first.
+                  </div>
+                ) : (
+                  subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {/* Tags */}
-        {tags.length > 0 && (
+        <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Tags</Label>
-            <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-card min-h-[48px]">
-              {tags.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => toggleTag(t.id)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    formState.selectedTags.includes(t.id)
-                      ? "bg-primary/10 ring-1 ring-primary"
-                      : "bg-secondary hover:bg-secondary/80"
-                  }`}
-                  aria-pressed={formState.selectedTags.includes(t.id)}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: t.color }}
-                  />
-                  <span>{t.name}</span>
-                </button>
-              ))}
-            </div>
+            <Label htmlFor="ticket-priority">Priority</Label>
+            <Select
+              value={form.priorityId}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, priorityId: value }))
+              }
+              disabled={taxonomyLoading}
+            >
+              <SelectTrigger id="ticket-priority">
+                <SelectValue placeholder="Select priority" />
+              </SelectTrigger>
+              <SelectContent>
+                {priorities.map((priority: Priority) => (
+                  <SelectItem key={priority.id} value={priority.id}>
+                    {priority.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
+
+          <div className="space-y-2">
+            <Label htmlFor="ticket-status">Status</Label>
+            <Select
+              value={form.statusId}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, statusId: value }))
+              }
+              disabled={taxonomyLoading}
+            >
+              <SelectTrigger id="ticket-status">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statuses.map((status: Status) => (
+                  <SelectItem key={status.id} value={status.id}>
+                    {status.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ticket-title">Title</Label>
+          <Input
+            id="ticket-title"
+            value={form.title}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, title: event.target.value }))
+            }
+            placeholder="Brief summary"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ticket-description">Description</Label>
+          <Textarea
+            id="ticket-description"
+            value={form.descriptionMd}
+            onChange={(event) =>
+              setForm((prev) => ({
+                ...prev,
+                descriptionMd: event.target.value,
+              }))
+            }
+            placeholder="Markdown supported"
+            className="min-h-[140px]"
+          />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="ticket-assignee">Assignee (optional)</Label>
+            <Select
+              value={form.assignedTo}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, assignedTo: value }))
+              }
+            >
+              <SelectTrigger id="ticket-assignee">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
+                {memberOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {memberOptions.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Add project members to enable assignment.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ticket-attachments">Attachments</Label>
+            <Input
+              id="ticket-attachments"
+              type="file"
+              multiple
+              onChange={(event) => {
+                const files = event.target.files;
+                if (files) setAttachments(Array.from(files));
+              }}
+            />
+            {attachments.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {attachments.length} file(s) ready to upload.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Footer Actions */}
-      <div className="flex gap-3 justify-end pt-4">
-        <Button
-          variant="outline"
-          type="button"
-          disabled={formState.saving}
-          onClick={onCancel}
-          className="min-w-[80px]"
-        >
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button
-          type="button"
-          onClick={handleSave}
-          disabled={!canSave || formState.saving}
-          className="min-w-[120px]"
-        >
-          {formState.saving ? (
-            <span className="flex items-center gap-2">
-              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Creating
-            </span>
-          ) : (
-            "Create Ticket"
-          )}
+        <Button onClick={handleSubmit} disabled={!canSubmit || saving}>
+          {saving ? "Creating…" : "Create ticket"}
         </Button>
       </div>
 
-      {/* Comments Section - Only shown after ticket is created */}
-      {createdTicketId && (
-        <>
-          <Separator className="my-8" />
-          <div className="space-y-6">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">Conversation</h3>
-            </div>
-
-            {/* Comments List */}
-            <CommentsList
-              ticketId={createdTicketId}
-              refreshTrigger={commentsRefresh}
-            />
-
-            {/* Add Comment Form */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Add a comment</Label>
-              <CommentForm
-                ticketId={createdTicketId}
-                onPosted={() => setCommentsRefresh((prev) => prev + 1)}
-              />
-            </div>
-          </div>
-        </>
-      )}
+      <p className="text-xs text-muted-foreground">
+        Missing a priority or status?{" "}
+        <button className="underline" onClick={refreshTaxonomy}>
+          Refresh taxonomy
+        </button>
+      </p>
     </div>
   );
 }

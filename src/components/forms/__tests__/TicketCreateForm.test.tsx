@@ -32,7 +32,7 @@ describe("TicketCreateForm", () => {
     });
     await userEvent.click(projectOption);
 
-    const save = screen.getByRole("button", { name: /save/i });
+    const save = screen.getByRole("button", { name: /create ticket/i });
     await waitFor(() => expect(save).toBeEnabled());
     await userEvent.click(save);
 

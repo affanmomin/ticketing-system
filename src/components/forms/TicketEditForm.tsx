@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,613 +11,389 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { CommentForm } from "@/components/forms/CommentForm";
 import { CommentsList } from "@/components/CommentsList";
-import { MessageSquare } from "lucide-react";
+import AttachmentUpload from "@/components/forms/AttachmentUpload";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { toast } from "@/hooks/use-toast";
-import * as clientsApi from "@/api/clients";
+import * as ticketsApi from "@/api/tickets";
 import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
+import * as subjectsApi from "@/api/subjects";
 import * as usersApi from "@/api/users";
-import * as tagsApi from "@/api/tags";
-import * as ticketsApi from "@/api/tickets";
-import type { Ticket, TicketPriority, TicketType, UserRole } from "@/types/api";
-
-// Static options (same as create)
-const STATUS = [
-  "BACKLOG",
-  "TODO",
-  "IN_PROGRESS",
-  "REVIEW",
-  "DONE",
-  "CANCELLED",
-] as const;
-const PRIORITY: TicketPriority[] = ["P0", "P1", "P2", "P3"];
-const TYPE: TicketType[] = ["TASK", "BUG", "STORY", "EPIC"];
-
-const NONE = "__none__"; // sentinel for Radix Select (no empty string values)
+import type {
+  AuthUser,
+  Project,
+  ProjectMember,
+  Stream,
+  Subject,
+  Ticket,
+  TicketUpdateRequest,
+  UserRole,
+} from "@/types/api";
 
 type TicketEditFormProps = {
-  role?: UserRole;
   ticketId?: string;
+  role?: UserRole;
   onSaved?: (ticket: Ticket) => void;
   onCancel?: () => void;
 };
 
+type FormState = {
+  title: string;
+  descriptionMd: string;
+  priorityId: string;
+  statusId: string;
+  streamId: string;
+  subjectId: string;
+  assignedToUserId: string;
+};
+
 export function TicketEditForm({
-  role = "ADMIN",
   ticketId,
+  role = "ADMIN",
   onSaved,
   onCancel,
 }: TicketEditFormProps) {
-  const [loading, setLoading] = useState(false);
-  const [commentsRefresh, setCommentsRefresh] = useState(0);
-  const [formState, setFormState] = useState({
+  const {
+    priorities,
+    statuses,
+    loading: taxonomyLoading,
+    error: taxonomyError,
+    refresh: refreshTaxonomy,
+  } = useTaxonomy();
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
+  const [streams, setStreams] = useState<Stream[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [form, setForm] = useState<FormState>({
     title: "",
-    description: "",
-    client: "",
-    project: "",
-    stream: NONE,
-    priority: PRIORITY[2],
-    type: TYPE[0],
-    assignee: NONE,
-    dueDate: "",
-    points: "" as number | "",
-    status: String(STATUS[1]),
-    selectedTags: [] as string[],
+    descriptionMd: "",
+    priorityId: "",
+    statusId: "",
+    streamId: "",
+    subjectId: "",
+    assignedToUserId: "",
   });
-  const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
-    []
-  );
-  const [projects, setProjects] = useState<
-    Array<{ id: string; name: string; code: string }>
-  >([]);
-  const [streams, setStreams] = useState<Array<{ id: string; name: string }>>(
-    []
-  );
-  const [initialStreamId, setInitialStreamId] = useState<string | null>(null);
-  const [users, setUsers] = useState<Array<{ id: string; name: string }>>([]);
-  const [tags, setTags] = useState<
-    Array<{ id: string; name: string; color: string }>
-  >([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [commentsRefresh, setCommentsRefresh] = useState(0);
 
-  // Load ticket and option lists when id provided
   useEffect(() => {
-    let mounted = true;
     if (!ticketId) return;
+    setLoading(true);
     (async () => {
-      setLoading(true);
       try {
-        const { data: t } = await ticketsApi.get(ticketId);
-        if (!mounted) return;
-        // Set fields from ticket
-        setFormState({
-          title: t.title,
-          description: t.descriptionMd ?? "",
-          client: t.clientId,
-          project: t.projectId,
-          stream: (t.streamId as any) ?? NONE,
-          priority: (t.priority as any) ?? PRIORITY[2],
-          type: (t.type as any) ?? TYPE[0],
-          assignee: (t.assigneeId as any) ?? NONE,
-          dueDate: t.dueDate
-            ? new Date(t.dueDate).toISOString().slice(0, 10)
-            : "",
-          points: (t.points as any) ?? "",
-          status: t.status,
-          selectedTags: [],
-        });
-        setInitialStreamId(t.streamId ?? null);
+        const { data: ticketData } = await ticketsApi.get(ticketId);
+        const { data: projectData } = await projectsApi.get(
+          ticketData.projectId
+        );
+        const [streamsRes, subjectsRes, membersRes, usersRes] =
+          await Promise.all([
+            streamsApi.listForClient(projectData.clientId, {
+              limit: 200,
+              offset: 0,
+            }),
+            subjectsApi.listForClient(projectData.clientId, {
+              limit: 200,
+              offset: 0,
+            }),
+            projectsApi.listMembers(ticketData.projectId),
+            usersApi.list({ limit: 200, offset: 0 }),
+          ]);
 
-        // Pre-seed option lists so selects show a value before lists load
-        if (t.clientId) setClients([{ id: t.clientId, name: "Loading..." }]);
-        if (t.projectId)
-          setProjects([{ id: t.projectId, name: "Loading...", code: "" }]);
-        if (t.assigneeId) setUsers([{ id: t.assigneeId, name: "Loading..." }]);
-        if (t.streamId) setStreams([{ id: t.streamId, name: "Loading..." }]);
-
-        // Load clients list
-        const { data: clientsPaged } = await clientsApi.list({
-          limit: 100,
-          offset: 0,
-        });
-        if (!mounted) return;
-        const clientItems = clientsPaged.items.map((c) => ({
-          id: c.id,
-          name: c.name,
-        }));
-        const hasClient = !!clientItems.find((c) => c.id === t.clientId);
-        setClients(
-          hasClient
-            ? clientItems
-            : [...clientItems, { id: t.clientId, name: "Current client" }]
-        );
-
-        // Load dependent lists based on client
-        const [projectsRes, usersRes, tagsRes] = await Promise.all([
-          projectsApi.list({ clientId: t.clientId }),
-          usersApi.list({ limit: 100, offset: 0 }),
-          tagsApi.list({ clientId: t.clientId }),
-        ]);
-        if (!mounted) return;
-        const mappedProjects = projectsRes.data.map((p) => ({
-          id: p.id,
-          name: p.name,
-          code: p.code,
-        }));
-        const hasProject = !!mappedProjects.find((p) => p.id === t.projectId);
-        setProjects(
-          hasProject
-            ? mappedProjects
-            : [
-                ...mappedProjects,
-                { id: t.projectId, name: "Current project", code: "" },
-              ]
-        );
-        const fetchedUsers = usersRes.data.data.map((u) => ({
-          id: u.id,
-          name: u.name,
-        }));
-        const hasAssignee = !!(
-          t.assigneeId && fetchedUsers.find((u) => u.id === t.assigneeId)
-        );
-        setUsers(
-          hasAssignee
-            ? fetchedUsers
-            : t.assigneeId
-              ? [
-                  ...fetchedUsers,
-                  { id: t.assigneeId, name: "Current assignee" },
-                ]
-              : fetchedUsers
-        );
-        setTags(
-          tagsRes.data.map((tg) => ({
-            id: tg.id,
-            name: tg.name,
-            color: tg.color,
-          }))
-        );
-
-        // Load streams for project
-        if (t.projectId) {
-          const { data: streamsData } = await streamsApi.list(t.projectId);
-          if (!mounted) return;
-          const fetchedStreams = streamsData.map((s) => ({
-            id: s.id,
-            name: s.name,
-          }));
-          const hasStream = !!(
-            t.streamId && fetchedStreams.find((s) => s.id === t.streamId)
-          );
-          setStreams(
-            hasStream
-              ? fetchedStreams
-              : t.streamId
-                ? [
-                    ...fetchedStreams,
-                    { id: t.streamId, name: "Current stream" },
-                  ]
-                : fetchedStreams
-          );
+        setTicket(ticketData);
+        setProject(projectData);
+        const streamList = streamsRes.data.length ? streamsRes.data : [];
+        if (
+          ticketData.streamId &&
+          !streamList.find((stream) => stream.id === ticketData.streamId)
+        ) {
+          streamList.push({
+            id: ticketData.streamId,
+            clientId: projectData.clientId,
+            name: "Current stream",
+            description: null,
+            active: true,
+            createdAt: ticketData.createdAt,
+            updatedAt: ticketData.updatedAt,
+          } as Stream);
         }
+        const subjectList = subjectsRes.data.length ? subjectsRes.data : [];
+        if (
+          ticketData.subjectId &&
+          !subjectList.find((subject) => subject.id === ticketData.subjectId)
+        ) {
+          subjectList.push({
+            id: ticketData.subjectId,
+            clientId: projectData.clientId,
+            name: "Current subject",
+            description: null,
+            active: true,
+            createdAt: ticketData.createdAt,
+            updatedAt: ticketData.updatedAt,
+          } as Subject);
+        }
+        setStreams(streamList);
+        setSubjects(subjectList);
+        setMembers(membersRes);
+        setUsers(usersRes.data.data);
+
+        setForm({
+          title: ticketData.title,
+          descriptionMd: ticketData.descriptionMd ?? "",
+          priorityId: ticketData.priorityId,
+          statusId: ticketData.statusId,
+          streamId: ticketData.streamId,
+          subjectId: ticketData.subjectId,
+          assignedToUserId: ticketData.assignedToUserId ?? "",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Failed to load ticket",
+          description: error?.response?.data?.message || "Unexpected error",
+          variant: "destructive",
+        });
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
   }, [ticketId]);
 
-  // When client changes, reload projects/users/tags
   useEffect(() => {
-    if (!formState.client) return;
-    (async () => {
-      const [projectsRes, usersRes, tagsRes] = await Promise.all([
-        projectsApi.list({ clientId: formState.client }),
-        usersApi.list({ limit: 100, offset: 0 }),
-        tagsApi.list({ clientId: formState.client }),
-      ]);
-      const mappedProjects = projectsRes.data.map((p) => ({
-        id: p.id,
-        name: p.name,
-        code: p.code,
-      }));
-      setProjects(mappedProjects);
-      {
-        const mappedUsers = usersRes.data.data.map((u) => ({
-          id: u.id,
-          name: u.name,
-        }));
-        // Ensure current assignee remains selectable if not in list
-        if (
-          formState.assignee !== NONE &&
-          !mappedUsers.find((u) => u.id === formState.assignee)
-        ) {
-          mappedUsers.push({
-            id: formState.assignee,
-            name: "Current assignee",
-          });
-        }
-        setUsers(mappedUsers);
-      }
-      setTags(
-        tagsRes.data.map((tg) => ({
-          id: tg.id,
-          name: tg.name,
-          color: tg.color,
-        }))
-      );
-      // Maintain current project if present, else choose first
-      setFormState((prev) => ({
-        ...prev,
-        project: mappedProjects.find((p) => p.id === prev.project)
-          ? prev.project
-          : mappedProjects[0]?.id || "",
-      }));
-    })();
-  }, [formState.client]);
-
-  // When project changes, reload streams
-  useEffect(() => {
-    if (!formState.project) return;
-    (async () => {
-      const { data } = await streamsApi.list(formState.project);
-      let mapped = data.map((s) => ({ id: s.id, name: s.name }));
-      if (initialStreamId && !mapped.find((s) => s.id === initialStreamId)) {
-        mapped = [...mapped, { id: initialStreamId, name: "Current stream" }];
-      }
-      setStreams(mapped);
-      setFormState((prev) => {
-        if (prev.stream !== NONE && mapped.find((s) => s.id === prev.stream))
-          return prev;
-        if (initialStreamId && mapped.find((s) => s.id === initialStreamId))
-          return { ...prev, stream: initialStreamId };
-        return { ...prev, stream: NONE };
+    if (taxonomyError) {
+      toast({
+        title: "Failed to load taxonomy",
+        description: taxonomyError,
+        variant: "destructive",
       });
-    })();
-  }, [formState.project, initialStreamId]);
+    }
+  }, [taxonomyError]);
 
-  function toggleTag(id: string) {
-    setFormState((prev) => ({
-      ...prev,
-      selectedTags: prev.selectedTags.includes(id)
-        ? prev.selectedTags.filter((x) => x !== id)
-        : [...prev.selectedTags, id],
-    }));
+  const assignableMembers = useMemo(() => {
+    const eligible = members.filter((member) => member.canBeAssigned);
+    return eligible.map((member) => {
+      const user = users.find((u) => u.id === member.userId);
+      return {
+        id: member.userId,
+        name: user?.fullName || user?.email || member.userId,
+        role: member.role,
+      };
+    });
+  }, [members, users]);
+
+  const statusOptions = statuses.filter(
+    (status) => role !== "CLIENT" || !status.isClosed
+  );
+
+  const priorityOptions = priorities;
+
+  const canEditStatus = role !== "CLIENT";
+
+  const disableSubmit =
+    !ticketId ||
+    saving ||
+    !form.title.trim() ||
+    !form.descriptionMd.trim() ||
+    !form.priorityId ||
+    !form.statusId ||
+    !form.streamId ||
+    !form.subjectId;
+
+  async function handleSubmit() {
+    if (!ticketId || disableSubmit) return;
+    setSaving(true);
+    try {
+      const payload: TicketUpdateRequest = {
+        title: form.title.trim(),
+        descriptionMd: form.descriptionMd.trim(),
+        priorityId: form.priorityId,
+        statusId: form.statusId,
+        assignedToUserId: form.assignedToUserId || null,
+      };
+
+      const { data } = await ticketsApi.update(ticketId, payload);
+      toast({ title: "Ticket updated" });
+      onSaved?.(data);
+    } catch (error: any) {
+      toast({
+        title: "Failed to update ticket",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!ticketId) {
+    return (
+      <p className="text-sm text-muted-foreground">Select a ticket to edit.</p>
+    );
+  }
+
+  if (loading || !ticket || !project) {
+    return (
+      <p className="text-sm text-muted-foreground">Loading ticket details…</p>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <header className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Edit Ticket</h2>
-        </div>
-        {role === "CLIENT" && (
-          <Alert variant="default">
-            Status changes are managed by the team.
-          </Alert>
-        )}
-      </header>
+    <div className="space-y-6">
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold">Edit ticket</h2>
+        <p className="text-sm text-muted-foreground">
+          {project.name} · {project.clientId}
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2 md:col-span-2">
-          <Label>
-            Title{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="edit-ticket-title">Title</Label>
           <Input
-            value={formState.title}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, title: e.target.value }))
+            id="edit-ticket-title"
+            value={form.title}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, title: event.target.value }))
             }
-            aria-required="true"
           />
         </div>
 
         <div className="md:col-span-2 space-y-2">
-          <Label>
-            Description{" "}
-            <span aria-hidden className="text-red-400">
-              *
-            </span>
-          </Label>
+          <Label htmlFor="edit-ticket-description">Description</Label>
           <Textarea
-            value={formState.description}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, description: e.target.value }))
-            }
-            aria-required="true"
-          />
-        </div>
-
-        <Separator className="md:col-span-2" />
-
-        <div className="space-y-2">
-          <Label>Client</Label>
-          <Select
-            value={formState.client}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, client: String(v) }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select client" />
-            </SelectTrigger>
-            <SelectContent>
-              {clients.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Project</Label>
-          <Select
-            value={formState.project}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, project: String(v) }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select project" />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Priority</Label>
-          <Select
-            value={formState.priority}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, priority: v as any }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              {PRIORITY.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Type</Label>
-          <Select
-            value={formState.type}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, type: v as any }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              {TYPE.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Points</Label>
-          <Input
-            type="number"
-            value={formState.points as any}
-            onChange={(e) =>
-              setFormState((prev) => ({
+            id="edit-ticket-description"
+            value={form.descriptionMd}
+            onChange={(event) =>
+              setForm((prev) => ({
                 ...prev,
-                points: e.target.value ? Number(e.target.value) : "",
+                descriptionMd: event.target.value,
               }))
             }
+            className="min-h-[160px]"
+            placeholder="Markdown supported"
           />
         </div>
 
         <div className="space-y-2">
-          <Label>Due date</Label>
-          <Input
-            type="date"
-            value={formState.dueDate}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, dueDate: e.target.value }))
-            }
-          />
-        </div>
-
-        <Separator className="md:col-span-2" />
-
-        <div className="space-y-2">
-          <Label>Assigned To</Label>
+          <Label htmlFor="edit-ticket-priority">Priority</Label>
           <Select
-            value={formState.assignee}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, assignee: String(v) }))
+            value={form.priorityId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, priorityId: value }))
             }
+            disabled={taxonomyLoading}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="edit-ticket-priority">
+              <SelectValue placeholder="Select priority" />
+            </SelectTrigger>
+            <SelectContent>
+              {priorityOptions.map((priority) => (
+                <SelectItem key={priority.id} value={priority.id}>
+                  {priority.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="edit-ticket-status">Status</Label>
+          <Select
+            value={form.statusId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, statusId: value }))
+            }
+            disabled={!canEditStatus || taxonomyLoading}
+          >
+            <SelectTrigger id="edit-ticket-status">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((status) => (
+                <SelectItem key={status.id} value={status.id}>
+                  {status.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {role === "CLIENT" && (
+            <p className="text-xs text-muted-foreground">
+              Contact your project team to change ticket status.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="edit-ticket-assignee">Assignee</Label>
+          <Select
+            value={form.assignedToUserId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, assignedToUserId: value }))
+            }
+            disabled={assignableMembers.length === 0}
+          >
+            <SelectTrigger id="edit-ticket-assignee">
               <SelectValue placeholder="Unassigned" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE}>Unassigned</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.name}
+              <SelectItem value="">Unassigned</SelectItem>
+              {assignableMembers.map((member) => (
+                <SelectItem key={member.id} value={member.id}>
+                  {member.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {assignableMembers.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Enable "Can be assigned" for project members to populate this
+              list.
+            </p>
+          )}
         </div>
+      </div>
 
-        <div className="space-y-2">
-          <Label>Stream</Label>
-          <Select
-            value={formState.stream}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, stream: String(v) }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="(none)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>(none)</SelectItem>
-              {streams.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="md:col-span-2 space-y-2">
-          <Label>Tags</Label>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => toggleTag(t.id)}
-                className={`inline-flex items-center px-2 py-1 rounded ${formState.selectedTags.includes(t.id) ? "bg-white/5" : "bg-transparent"}`}
-                aria-pressed={formState.selectedTags.includes(t.id)}
-              >
-                <span
-                  className="w-2 h-2 rounded-full mr-2"
-                  style={{ background: t.color }}
-                />
-                <span className="text-sm">{t.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {role !== "CLIENT" && (
-          <div className="md:col-span-2 space-y-2">
-            <Label>Status</Label>
-            <Select
-              value={formState.status}
-              onValueChange={(v) =>
-                setFormState((prev) => ({ ...prev, status: String(v) }))
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      <div className="flex items-center gap-2">
+        <Badge variant={ticket.isDeleted ? "secondary" : "default"}>
+          Ticket ID · {ticket.id}
+        </Badge>
+        <Badge variant="outline">
+          Created {new Date(ticket.createdAt).toLocaleString()}
+        </Badge>
       </div>
 
       <Separator />
 
-      <div className="flex gap-2 justify-end">
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={() => (onCancel ? onCancel() : undefined)}
-        >
+      <AttachmentUpload ticketId={ticketId} />
+
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button
-          type="button"
-          disabled={loading || !formState.title || !formState.description}
-          onClick={async () => {
-            if (!ticketId) return; // require id to save
-            setLoading(true);
-            try {
-              const patch: any = {
-                title: formState.title,
-                descriptionMd: formState.description,
-                status: formState.status,
-                priority: formState.priority,
-                type: formState.type,
-                assigneeId:
-                  formState.assignee === NONE ? undefined : formState.assignee,
-                streamId:
-                  formState.stream === NONE ? undefined : formState.stream,
-                dueDate: formState.dueDate
-                  ? new Date(`${formState.dueDate}T00:00:00Z`).toISOString()
-                  : undefined,
-                points: formState.points === "" ? undefined : formState.points,
-                // tagIds: selectedTags.length ? selectedTags : undefined, // left out unless supported
-              };
-              const { data } = await ticketsApi.update(ticketId, patch);
-              toast({
-                title: "Success",
-                description: "Ticket updated successfully",
-              });
-              onSaved?.(data as Ticket);
-            } catch (e: any) {
-              toast({
-                title: "Failed to update ticket",
-                description: e?.response?.data?.message || "Error",
-                variant: "destructive",
-              });
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          {loading ? "Saving..." : "Save"}
+        <Button onClick={handleSubmit} disabled={disableSubmit}>
+          {saving ? "Saving…" : "Save changes"}
         </Button>
       </div>
 
-      {/* Comments Section */}
-      {ticketId && (
-        <>
-          <Separator className="my-8" />
-          <div className="space-y-6">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">Conversation</h3>
-            </div>
+      <Separator />
 
-            {/* Comments List */}
-            <CommentsList
-              ticketId={ticketId}
-              refreshTrigger={commentsRefresh}
-            />
-
-            {/* Add Comment Form */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Add a comment</Label>
-              <CommentForm
-                ticketId={ticketId}
-                onPosted={() => setCommentsRefresh((prev) => prev + 1)}
-              />
-            </div>
-          </div>
-        </>
-      )}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold">Conversation</h3>
+          <Button variant="ghost" size="sm" onClick={refreshTaxonomy}>
+            Refresh taxonomy
+          </Button>
+        </div>
+        <CommentForm
+          ticketId={ticketId}
+          onPosted={() => setCommentsRefresh((prev) => prev + 1)}
+        />
+        <CommentsList ticketId={ticketId} refreshTrigger={commentsRefresh} />
+      </div>
     </div>
   );
 }

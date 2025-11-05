@@ -1,11 +1,34 @@
 import { api } from "@/lib/axios";
-import type { Stream } from "@/types/api";
+import type { PaginatedResponse, Stream } from "@/types/api";
 
-export const list = (projectId: string) =>
-  api.get<Stream[]>("/streams", { params: { projectId } });
+export interface ListStreamsQuery {
+  limit?: number;
+  offset?: number;
+  active?: boolean;
+}
 
-export const create = (dto: { projectId: string; name: string }) =>
-  api.post("/streams", dto);
+export interface StreamCreateRequest {
+  name: string;
+  description?: string;
+}
 
-export const update = (id: string, patch: { name?: string }) =>
-  api.post(`/streams-update/${id}`, patch);
+export interface StreamUpdateRequest {
+  name?: string;
+  description?: string | null;
+  active?: boolean;
+}
+
+export const listForClient = (
+  clientId: string,
+  params: ListStreamsQuery = {}
+) => api.get<PaginatedResponse<Stream>>(`/clients/${clientId}/streams`, {
+  params,
+});
+
+export const createForClient = (
+  clientId: string,
+  payload: StreamCreateRequest
+) => api.post<Stream>(`/clients/${clientId}/streams`, payload);
+
+export const update = (id: string, payload: StreamUpdateRequest) =>
+  api.patch<Stream>(`/streams/${id}`, payload);

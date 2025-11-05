@@ -19,11 +19,13 @@ describe("Tickets page", () => {
       await screen.findByRole("heading", { name: /tickets/i })
     ).toBeInTheDocument();
 
-    // Switch to List tab for simpler assertions
-    const listTab = screen.getByRole("tab", { name: /list/i });
-    listTab.click();
+    // Expect table to be rendered
+    expect(await screen.findByRole("table")).toBeInTheDocument();
 
-    // Expect rows to render after fetch (Ticket 1 should be present)
-    expect(await screen.findByText(/^Ticket 1$/)).toBeInTheDocument();
+    // Expect pagination buttons to be present
+    expect(
+      screen.getByRole("button", { name: /previous/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
   });
 });

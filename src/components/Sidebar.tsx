@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   FolderKanban,
   FileText,
-  Tag,
   Users,
   Settings,
   Building2,
@@ -42,12 +41,6 @@ const navItems: NavItem[] = [
     title: "Tickets",
     href: "/tickets",
     icon: <FileText className="w-5 h-5" />,
-  },
-  {
-    title: "Tags",
-    href: "/tags",
-    icon: <Tag className="w-5 h-5" />,
-    roles: ["ADMIN", "EMPLOYEE"],
   },
   {
     title: "Clients",

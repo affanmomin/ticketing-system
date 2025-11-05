@@ -1,23 +1,35 @@
 import { api } from "@/lib/axios";
-import type { Client, Paged } from "@/types/api";
+import type { Client, PaginatedResponse } from "@/types/api";
 
-export const list = (params: { limit?: number; offset?: number } = {}) =>
-  api.get<Paged<Client>>("/clients", { params });
-
-export const create = (dto: {
-  name: string;
-  domain?: string;
+export interface ListClientsQuery {
+  limit?: number;
+  offset?: number;
   active?: boolean;
-}) => api.post("/clients", dto);
+  search?: string;
+}
+
+export interface ClientCreateRequest {
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface ClientUpdateRequest {
+  name?: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  active?: boolean;
+}
+
+export const list = (params: ListClientsQuery = {}) =>
+  api.get<PaginatedResponse<Client>>("/clients", { params });
+
+export const create = (dto: ClientCreateRequest) =>
+  api.post<Client>("/clients", dto);
 
 export const get = (id: string) => api.get<Client>(`/clients/${id}`);
 
-export const update = (
-  id: string,
-  patch: { name?: string; domain?: string; active?: boolean }
-) => api.patch(`/clients/${id}`, patch);
-
-export const remove = (id: string) => api.delete(`/clients/${id}`);
-
-export const mapEmployee = (id: string, userId: string) =>
-  api.post(`/clients/${id}/map-employee`, { userId });
+export const update = (id: string, patch: ClientUpdateRequest) =>
+  api.patch<Client>(`/clients/${id}`, patch);

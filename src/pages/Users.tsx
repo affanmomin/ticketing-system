@@ -1,8 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Users as UsersIcon, Plus, Search, Settings2, ToggleLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { UserRowSkeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -10,50 +19,58 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Users as UsersIcon, Plus, Search, Edit } from "lucide-react";
-import { UserAvatar } from "@/components/UserAvatar";
-import { Badge } from "@/components/ui/badge";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/PageHeader";
 import { InviteUserForm } from "@/components/forms/InviteUserForm";
 import { UserEditForm } from "@/components/forms/UserEditForm";
-import { toast } from "@/hooks/use-toast";
+import { TableRowSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 import * as usersApi from "@/api/users";
-import type { User, UserType } from "@/api/users";
+import * as clientsApi from "@/api/clients";
+import type { AuthUser, Client } from "@/types/api";
+
+const PAGE_SIZE = 50;
 
 export function Users() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<UserType | "all">("all");
-  const [open, setOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<string | null>(null);
-  const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | AuthUser["role"]>("all");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<AuthUser | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const clientMap = useMemo(() => {
+    const map = new Map<string, string>();
+    clients.forEach((client) => map.set(client.id, client.name));
+    return map;
+  }, [clients]);
 
   async function loadUsers() {
     setLoading(true);
     try {
-      const params: any = { limit: 100, offset: 0 };
-      if (roleFilter !== "all") params.userType = roleFilter;
-      if (query) params.search = query;
+      const params: usersApi.ListUsersQuery = { limit: PAGE_SIZE, offset };
+      if (roleFilter !== "all") params.role = roleFilter;
+      if (search.trim()) params.search = search.trim();
 
       const { data } = await usersApi.list(params);
       setUsers(data.data);
-    } catch (e: any) {
+      setTotal(data.total);
+    } catch (error: any) {
       toast({
         title: "Failed to load users",
-        description: e?.response?.data?.message || "An error occurred",
+        description: error?.response?.data?.message || "Unexpected error",
         variant: "destructive",
       });
     } finally {
@@ -61,261 +78,247 @@ export function Users() {
     }
   }
 
+  async function loadClients() {
+    try {
+      const { data } = await clientsApi.list({ limit: 200, offset: 0 });
+      setClients(data.data);
+    } catch (error) {
+      console.warn("Failed to load clients", error);
+    }
+  }
+
+  useEffect(() => {
+    loadClients();
+  }, []);
+
   useEffect(() => {
     loadUsers();
-  }, [roleFilter, query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offset, roleFilter]);
 
-  const handleInviteSuccess = () => {
-    setOpen(false);
-    loadUsers();
-  };
-
-  const handleEditSuccess = () => {
-    setUserToEdit(null);
-    loadUsers();
-  };
-
-  const toggleStatus = async (id: string, currentStatus: boolean) => {
-    setUpdatingUserId(id);
-    try {
-      await usersApi.update(id, { active: !currentStatus });
-      toast({
-        title: currentStatus ? "User deactivated" : "User activated",
-        description: "User status updated successfully",
-      });
+  useEffect(() => {
+    const debounce = setTimeout(() => {
+      setOffset(0);
       loadUsers();
-    } catch (e: any) {
+    }, 250);
+
+    return () => clearTimeout(debounce);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  async function toggleActive(user: AuthUser, active: boolean) {
+    setUpdatingId(user.id);
+    try {
+      await usersApi.update(user.id, { isActive: active });
+      await loadUsers();
+    } catch (error: any) {
       toast({
         title: "Failed to update user",
-        description: e?.response?.data?.message || "An error occurred",
+        description: error?.response?.data?.message || "Unexpected error",
         variant: "destructive",
       });
     } finally {
-      setUpdatingUserId(null);
+      setUpdatingId(null);
     }
-  };
+  }
 
-  const changeUserType = async (id: string, newUserType: UserType) => {
-    setUpdatingUserId(id);
-    try {
-      await usersApi.update(id, { userType: newUserType });
-      toast({
-        title: "User type updated",
-        description: "User type changed successfully",
-      });
-      loadUsers();
-    } catch (e: any) {
-      toast({
-        title: "Failed to update user type",
-        description: e?.response?.data?.message || "An error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setUpdatingUserId(null);
-    }
-  };
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return users;
+    const q = search.trim().toLowerCase();
+    return users.filter((user) =>
+      [user.fullName ?? "", user.email ?? "", user.id]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [users, search]);
 
-  const handleDeleteUser = async () => {
-    if (!userToDelete) return;
-
-    try {
-      await usersApi.remove(userToDelete, false);
-      toast({
-        title: "User deleted",
-        description: "User has been deactivated",
-      });
-      setUserToDelete(null);
-      loadUsers();
-    } catch (e: any) {
-      toast({
-        title: "Failed to delete user",
-        description: e?.response?.data?.message || "An error occurred",
-        variant: "destructive",
-      });
-    }
-  };
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Users"
-        description="Admin management of users"
+        description="Administer workspace members and client contacts"
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Invite User
+                <Plus className="mr-2 h-4 w-4" />New User
               </Button>
             </DialogTrigger>
-            <DialogContent>
-              <InviteUserForm onSuccess={handleInviteSuccess} />
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create User</DialogTitle>
+              </DialogHeader>
+              <InviteUserForm
+                onSuccess={() => {
+                  setCreateOpen(false);
+                  loadUsers();
+                }}
+              />
             </DialogContent>
           </Dialog>
         }
       />
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between w-full text-muted-foreground">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <UsersIcon className="w-4 h-4" />
-              All Users
-            </span>
-            <div className="flex items-center gap-3">
-              <Select
-                value={roleFilter}
-                onValueChange={(v: UserType | "all") => setRoleFilter(v)}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Filter user type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
-                  <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                  <SelectItem value="CLIENT">Client</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-2 top-2.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search users..."
-                  className="pl-8 w-64"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </div>
-            </div>
+        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <CardTitle className="flex items-center gap-2 text-muted-foreground">
+            <UsersIcon className="h-4 w-4" />
+            Workspace Users
           </CardTitle>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <Select value={roleFilter} onValueChange={(value) => {
+              setRoleFilter(value as "all" | AuthUser["role"]);
+              setOffset(0);
+            }}>
+              <SelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="Role filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                <SelectItem value="ADMIN">Admins</SelectItem>
+                <SelectItem value="EMPLOYEE">Employees</SelectItem>
+                <SelectItem value="CLIENT">Clients</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search by name or email"
+                className="pl-8"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="p-6 text-sm text-muted-foreground text-center">
-              Loading users...
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell colSpan={5} className="p-0">
+                        <TableRowSkeleton columns={5} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                      No users found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-muted/40">
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="font-medium text-foreground">
+                            {user.fullName || user.email || user.id}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {user.email || "—"}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="uppercase">
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {user.clientId ? clientMap.get(user.clientId) ?? user.clientId : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={user.isActive === false ? "secondary" : "default"}>
+                            {user.isActive === false ? "Inactive" : "Active"}
+                          </Badge>
+                          <Switch
+                            checked={user.isActive !== false}
+                            onCheckedChange={(checked) => toggleActive(user, checked)}
+                            disabled={updatingId === user.id}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingUser(user)}
+                          >
+                            <Settings2 className="mr-2 h-4 w-4" />Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleActive(user, !(user.isActive !== false))}
+                            disabled={updatingId === user.id}
+                          >
+                            <ToggleLeft className="mr-2 h-4 w-4" />
+                            {user.isActive === false ? "Activate" : "Deactivate"}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              {total} total • Page {page} / {totalPages}
             </div>
-          ) : (
-            <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
-              {users.map((u) => (
-                <div
-                  key={u.id}
-                  className="grid grid-cols-1 sm:grid-cols-12 items-center gap-4 p-4"
-                >
-                  <div className="sm:col-span-4 flex items-center gap-3">
-                    <UserAvatar
-                      name={u.name}
-                      role={
-                        u.userType.toLowerCase() as
-                          | "admin"
-                          | "employee"
-                          | "client"
-                      }
-                      showTooltip={false}
-                    />
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">
-                        {u.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {u.email}
-                      </p>
-                      {u.clientCompanyName && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {u.clientCompanyName}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Badge variant="secondary" className="capitalize">
-                      {u.userType.toLowerCase()}
-                    </Badge>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Badge
-                      className={
-                        u.active
-                          ? "bg-green-500/20 text-green-300"
-                          : "bg-red-500/20 text-red-300"
-                      }
-                    >
-                      {u.active ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Select
-                      value={u.userType}
-                      onValueChange={(v: UserType) => changeUserType(u.id, v)}
-                      disabled={updatingUserId === u.id}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ADMIN">Admin</SelectItem>
-                        <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                        <SelectItem value="CLIENT">Client</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="sm:col-span-2 flex justify-start sm:justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setUserToEdit(u)}
-                      disabled={updatingUserId === u.id}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleStatus(u.id, u.active)}
-                      disabled={updatingUserId === u.id}
-                    >
-                      {u.active ? "Deactivate" : "Activate"}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              {users.length === 0 && (
-                <div className="p-6 text-sm text-muted-foreground">
-                  No users found.
-                </div>
-              )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                disabled={offset === 0 || loading}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setOffset(offset + PAGE_SIZE)}
+                disabled={page >= totalPages || loading}
+              >
+                Next
+              </Button>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      <AlertDialog
-        open={!!userToDelete}
-        onOpenChange={(open) => !open && setUserToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to deactivate this user? This action will
-              set their status to inactive.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog
-        open={!!userToEdit}
-        onOpenChange={(open) => !open && setUserToEdit(null)}
-      >
-        <DialogContent className="max-w-2xl">
-          {userToEdit && (
-            <UserEditForm user={userToEdit} onSuccess={handleEditSuccess} />
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit user details</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <UserEditForm
+              user={editingUser}
+              onSuccess={() => {
+                setEditingUser(null);
+                loadUsers();
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>

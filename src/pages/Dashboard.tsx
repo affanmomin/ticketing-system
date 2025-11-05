@@ -105,9 +105,6 @@ export function Dashboard() {
       <PageHeader
         title={`Welcome back, ${firstName}`}
         description={`Here's what's happening with your ${role === "client" ? "projects" : "workspace"} today.`}
-        actions={
-          <Button onClick={() => navigate("/tickets/new")}>New Ticket</Button>
-        }
       />
 
       {loading ? (

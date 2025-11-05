@@ -17,11 +17,10 @@ import { toast } from "@/hooks/use-toast";
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [tenantId, setTenantId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login } = useAuthStore();
+  const { login, error, clearError } = useAuthStore();
 
   // Auto-fill credentials from URL parameter
   useEffect(() => {
@@ -35,18 +34,14 @@ export function Login() {
         console.log("Parsed credentials:", {
           email: credentials.email,
           password: "***",
-          tenantId: credentials.tenantId,
         });
 
         if (credentials.email && credentials.password) {
           setEmail(credentials.email);
           setPassword(credentials.password);
-          if (credentials.tenantId) {
-            setTenantId(credentials.tenantId);
-          }
           toast({
             title: "Credentials loaded",
-            description: `Auto-filled: ${credentials.email}${credentials.tenantId ? " with tenant ID" : ""}. Click Sign In to continue.`,
+            description: `Auto-filled: ${credentials.email}. Click Sign In to continue.`,
           });
         } else {
           console.error(
@@ -70,6 +65,17 @@ export function Login() {
     }
   }, [searchParams, toast]);
 
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Authentication error",
+        description: error,
+        variant: "destructive",
+      });
+      clearError();
+    }
+  }, [error, clearError, toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -77,12 +83,11 @@ export function Login() {
     console.log("Login attempt with:", {
       email,
       password: "***",
-      tenantId: tenantId || "none",
     });
 
     try {
       setLoading(true);
-      await login(email, password, tenantId);
+      await login(email, password);
       navigate("/dashboard", { replace: true });
     } catch (err: any) {
       console.error("Login error:", err);
@@ -158,6 +163,18 @@ export function Login() {
               <p>Employee: employee@example.com / password</p>
               <p>Client: client@example.com / password</p>
             </div>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-border text-center">
+            <p className="text-sm text-muted-foreground">
+              Don't have an organization?{" "}
+              <a
+                href="/signup"
+                className="text-primary hover:underline font-medium"
+              >
+                Create one
+              </a>
+            </p>
           </div>
         </CardContent>
       </Card>

@@ -27,9 +27,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const store = useAuthStore();
   const profile: UserProfile | null = store.user
     ? {
-        full_name: store.user.id,
-        email: `${store.user.id}@example.com`,
-        role: store.user.role.toLowerCase() as any,
+        full_name:
+          store.user.fullName || store.user.email || store.user.id || "User",
+        email: store.user.email || "unknown@example.com",
+        role: store.user.role.toLowerCase() as UserProfile["role"],
       }
     : null;
 
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Sign up not supported");
     },
     signOut: async () => {
-      store.logout();
+      await store.logout();
     },
   };
 

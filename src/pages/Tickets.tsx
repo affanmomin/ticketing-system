@@ -1,668 +1,425 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, LayoutGrid, List, Calendar, Users } from "lucide-react";
-import { TicketCard } from "@/components/TicketCard";
-import { TicketCardSkeleton, TableRowSkeleton } from "@/components/ui/skeleton";
-import { toast } from "@/hooks/use-toast";
 import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { cn } from "@/lib/utils";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { TableRowSkeleton } from "@/components/ui/skeleton";
 import { TicketCreateForm } from "@/components/forms/TicketCreateForm";
 import { TicketEditForm } from "@/components/forms/TicketEditForm";
+import { PageHeader } from "@/components/PageHeader";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
+import { toast } from "@/hooks/use-toast";
 import * as ticketsApi from "@/api/tickets";
-import * as usersApi from "@/api/users";
-import { WorkFilterBar } from "@/components/forms/WorkFilterBar";
-import { useSearchParams } from "react-router-dom";
+import * as projectsApi from "@/api/projects";
+import * as clientsApi from "@/api/clients";
+import type {
+  Ticket,
+  Project,
+  Client,
+  Priority,
+  Status,
+  TicketsListQuery,
+} from "@/types/api";
+import { format } from "date-fns";
+import { Plus } from "lucide-react";
 
-type Status = "todo" | "in_progress" | "review" | "done";
-
-const statusColumns: Array<{ id: Status; label: string; color: string }> = [
-  { id: "todo", label: "To Do", color: "bg-blue-500/10" },
-  { id: "in_progress", label: "In Progress", color: "bg-yellow-500/10" },
-  { id: "review", label: "Review", color: "bg-purple-500/10" },
-  { id: "done", label: "Completed", color: "bg-green-500/10" },
-];
-
-type UITicket = {
-  id: string;
-  ticketNumber: number;
-  title: string;
-  status: Status;
-  priority: "low" | "medium" | "high" | "urgent";
-  assignee?: { name: string; role: "employee" | "client" | "admin" } | null;
-  tags?: Array<{ name: string; color: string }>;
-  commentCount?: number;
-  attachmentCount?: number;
+type TicketListItem = Ticket & {
+  priorityName?: string;
+  statusName?: string;
+  clientName?: string;
+  projectName?: string;
 };
 
 export function Tickets() {
-  const [tickets, setTickets] = useState<UITicket[]>([]);
-  const [limit] = useState(20);
-  const [offset, setOffset] = useState(0);
-  const [count, setCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const { priorities, statuses } = useTaxonomy();
+  const [tickets, setTickets] = useState<TicketListItem[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedTicketId, setSelectedTicketId] = useState<
+    string | undefined
+  >();
+  const [listLoading, setListLoading] = useState(false);
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  const [total, setTotal] = useState(0);
 
-  type FilterValues = {
-    search?: string;
-    clientId?: string;
-    projectId?: string;
-    streamId?: string;
-    assigneeId?: string;
-    priority?: "P0" | "P1" | "P2" | "P3";
-  };
+  const [filters, setFilters] = useState({
+    search: "",
+    clientId: "all",
+    projectId: "all",
+    statusId: "all",
+    priorityId: "all",
+  });
 
-  const parseParams = (): FilterValues & { limit: number; offset: number } => {
-    const sp = searchParams;
-    const get = (k: string) => sp.get(k) || undefined;
-    const parsedLimit = Number(get("limit")) || 20;
-    const parsedOffset = Number(get("offset")) || 0;
-    return {
-      clientId: get("clientId"),
-      projectId: get("projectId"),
-      streamId: get("streamId"),
-      assigneeId: get("assigneeId"),
-      priority: (get("priority") as any) || undefined,
-      limit: parsedLimit,
-      offset: parsedOffset,
-    };
-  };
-
-  const [filters, setFilters] = useState<FilterValues>(() => parseParams());
-  const currentLimit = useMemo(
-    () => Number(searchParams.get("limit")) || limit,
-    [searchParams, limit]
-  );
-  const currentOffset = useMemo(
-    () => Number(searchParams.get("offset")) || offset,
-    [searchParams, offset]
-  );
-  const page = Math.floor(offset / limit) + 1;
-  const totalPages = Math.max(1, Math.ceil(count / limit));
-
-  // keep filters in sync with URL changes (back/forward)
-  useEffect(() => {
-    const parsed = parseParams();
-    setFilters(parsed);
-    // also keep local paging in sync
-    setOffset(parsed.offset);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.toString()]);
-
-  // fetch when paging or filters change (based on URL)
   useEffect(() => {
     (async () => {
-      setLoading(true);
       try {
-        // Build query only with API-supported keys
-        const query: any = {
-          limit: currentLimit,
-          offset: currentOffset,
-        };
-        if (filters.clientId) query.clientId = filters.clientId;
-        if (filters.projectId) query.projectId = filters.projectId;
-        if (filters.streamId) query.streamId = filters.streamId;
-        if (filters.assigneeId) query.assigneeId = filters.assigneeId;
-        if (filters.priority) query.priority = filters.priority;
-
-        const { data } = await ticketsApi.pagedList(query);
-        setCount(data.count);
-
-        // Get unique assignee IDs
-        const assigneeIds = [
-          ...new Set(
-            data.items
-              .map((t: any) => t.assigneeId)
-              .filter((id: string | null) => id !== null)
-          ),
-        ];
-
-        // Fetch all users to map assignees
-        const usersMap = new Map<
-          string,
-          { name: string; role: "employee" | "client" | "admin" }
-        >();
-        if (assigneeIds.length > 0) {
-          try {
-            const { data: usersData } = await usersApi.list({
-              limit: 100,
-              offset: 0,
-            });
-            usersData.data.forEach((user) => {
-              usersMap.set(user.id, {
-                name: user.name,
-                role:
-                  user.userType === "ADMIN"
-                    ? "admin"
-                    : user.userType === "CLIENT"
-                      ? "client"
-                      : "employee",
-              });
-            });
-          } catch (e) {
-            // Ignore user fetch errors
-          }
-        }
-
-        const mapped: UITicket[] = data.items.map((t: any, idx) => ({
-          id: t.id,
-          title: t.title,
-          ticketNumber: idx + 1 + offset,
-          priority:
-            t.priority === "P0"
-              ? "urgent"
-              : t.priority === "P1"
-                ? "high"
-                : t.priority === "P2"
-                  ? "medium"
-                  : "low",
-          status:
-            t.status === "TODO"
-              ? "todo"
-              : t.status === "IN_PROGRESS"
-                ? "in_progress"
-                : t.status === "REVIEW"
-                  ? "review"
-                  : t.status === "DONE" || t.status === "CANCELLED"
-                    ? "done"
-                    : // BACKLOG and anything else fall back to TODO column
-                      "todo",
-          assignee: t.assigneeId
-            ? usersMap.get(t.assigneeId) || {
-                name: "Unknown User",
-                role: "employee" as const,
-              }
-            : null,
-          tags: [], // Will need to fetch tags separately if needed
-          commentCount: 0, // Will need to fetch comment count separately if needed
-          attachmentCount: 0, // Will need to fetch attachment count separately if needed
-        }));
-        setTickets(mapped);
-      } finally {
-        setLoading(false);
+        const [{ data: projectsRes }, { data: clientsRes }] = await Promise.all(
+          [
+            projectsApi.list({ limit: 200, offset: 0 }),
+            clientsApi.list({ limit: 200, offset: 0 }),
+          ]
+        );
+        setProjects(projectsRes.data);
+        setClients(clientsRes.data);
+        await loadTickets();
+      } catch (error) {
+        console.warn("Failed to load project/client filter data", error);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void loadTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    currentLimit,
-    currentOffset,
+    page,
     filters.clientId,
     filters.projectId,
-    filters.streamId,
-    filters.assigneeId,
-    filters.priority,
+    filters.priorityId,
+    filters.statusId,
   ]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      void loadTickets();
+    }, 250);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.search]);
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
+  async function loadTickets() {
+    setListLoading(true);
+    try {
+      const query: TicketsListQuery = {
+        limit: pageSize,
+        offset: page * pageSize,
+      };
+      if (filters.projectId !== "all") query.projectId = filters.projectId;
+      if (filters.statusId !== "all") query.statusId = filters.statusId;
+      if (filters.priorityId !== "all") query.priorityId = filters.priorityId;
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+      const { data } = await ticketsApi.list(query);
+      setTotal(data.total);
+      const priorityMap = new Map<string, Priority>();
+      priorities.forEach((priority) => priorityMap.set(priority.id, priority));
+      const statusMap = new Map<string, Status>();
+      statuses.forEach((status) => statusMap.set(status.id, status));
+      const projectMap = new Map<string, Project>();
+      projects.forEach((project) => projectMap.set(project.id, project));
+      const clientMap = new Map<string, Client>();
+      clients.forEach((client) => clientMap.set(client.id, client));
 
-    if (over && active.id !== over.id) {
-      const ticketId = active.id as string;
-      const newStatus = over.id as Status;
-      // optimistic update
-      setTickets((prev) => {
-        return prev.map((t) =>
-          t.id === ticketId ? { ...t, status: newStatus } : t
-        );
+      const filtered = data.data.filter((ticket) => {
+        const matchesSearch = filters.search
+          ? ticket.title.toLowerCase().includes(filters.search.toLowerCase())
+          : true;
+        const matchesClient =
+          filters.clientId === "all"
+            ? true
+            : projectMap.get(ticket.projectId)?.clientId === filters.clientId;
+        return matchesSearch && matchesClient;
       });
 
-      // persist to API, rollback on failure
-      const prevTickets = [...tickets];
-      const toApiStatus = (s: Status): string => {
-        switch (s) {
-          case "todo":
-            return "TODO";
-          case "in_progress":
-            return "IN_PROGRESS";
-          case "review":
-            return "REVIEW";
-          case "done":
-            return "DONE";
-        }
-      };
-      ticketsApi
-        .update(ticketId, { status: toApiStatus(newStatus) as any })
-        .then(() => {
-          toast({
-            title: "Status updated",
-            description: "Ticket status changed successfully",
-          });
-        })
-        .catch(() => {
-          // rollback UI state if the API call fails
-          setTickets(prevTickets);
-          toast({
-            title: "Failed to update status",
-            description: "Could not update ticket status",
-            variant: "destructive",
-          });
-        });
+      const decorated: TicketListItem[] = filtered.map((ticket) => {
+        const project = projectMap.get(ticket.projectId);
+        const client = project ? clientMap.get(project.clientId) : undefined;
+        return {
+          ...ticket,
+          projectName: project?.name,
+          clientName: client?.name,
+          priorityName: priorityMap.get(ticket.priorityId)?.name,
+          statusName: statusMap.get(ticket.statusId)?.name,
+        };
+      });
+
+      setTickets(decorated);
+    } catch (error: any) {
+      toast({
+        title: "Failed to load tickets",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setListLoading(false);
     }
-
-    setActiveId(null);
-  };
-
-  const activeTicket = tickets.find((t) => t.id === activeId);
-
-  // Draggable ticket wrapper
-  function DraggableTicket({
-    id,
-    children,
-  }: {
-    id: string;
-    children: React.ReactNode;
-  }) {
-    const { attributes, listeners, setNodeRef, transform, isDragging } =
-      useDraggable({ id });
-    const style = transform
-      ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-      : undefined;
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...listeners}
-        {...attributes}
-        className={cn(
-          "touch-none select-none",
-          isDragging ? "opacity-60" : "opacity-100"
-        )}
-      >
-        {children}
-      </div>
-    );
   }
 
-  // Droppable column wrapper
-  function DroppableColumn({
-    id,
-    children,
-  }: {
-    id: Status;
-    children: React.ReactNode;
-  }) {
-    const { setNodeRef, isOver } = useDroppable({ id });
-    return (
-      <div
-        ref={setNodeRef}
-        className={cn(isOver && "ring-2 ring-primary/30 rounded-xl")}
-      >
-        {children}
-      </div>
-    );
-  }
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground truncate">
-            Tickets
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground mt-1">
-            Manage and track all your tickets
-          </p>
-        </div>
-        <div className="flex justify-start md:justify-end gap-2">
+      <PageHeader
+        title="Tickets"
+        description="Track work across projects and clients"
+        actions={
           <Dialog open={openCreate} onOpenChange={setOpenCreate}>
             <DialogTrigger asChild>
-              <Button className="w-full md:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                New Ticket
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New ticket
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl">
               <TicketCreateForm
+                onSuccess={() => {
+                  setOpenCreate(false);
+                  void loadTickets();
+                }}
                 onCancel={() => setOpenCreate(false)}
-                onSuccess={() => setOpenCreate(false)}
               />
             </DialogContent>
           </Dialog>
+        }
+      />
 
-          <Dialog
-            open={openEdit}
-            onOpenChange={(v) => {
-              setOpenEdit(v);
-              if (!v) setSelectedTicketId(null);
-            }}
-          >
-            <DialogContent className="max-w-4xl">
-              <TicketEditForm
-                ticketId={selectedTicketId ?? undefined}
-                onCancel={() => {
-                  setOpenEdit(false);
-                  setSelectedTicketId(null);
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <span className="text-muted-foreground">Filters</span>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <Input
+                placeholder="Search title…"
+                value={filters.search}
+                onChange={(event) => {
+                  setFilters((prev) => ({
+                    ...prev,
+                    search: event.target.value,
+                  }));
+                  setPage(0);
                 }}
-                onSaved={(updated) => {
-                  // update local list with returned fields (status/title)
-                  setTickets((prev) =>
-                    prev.map((t) =>
-                      t.id === updated.id
-                        ? {
-                            ...t,
-                            title: updated.title ?? t.title,
-                            status:
-                              updated.status === "TODO"
-                                ? "todo"
-                                : updated.status === "IN_PROGRESS"
-                                  ? "in_progress"
-                                  : updated.status === "REVIEW"
-                                    ? "review"
-                                    : updated.status === "DONE" ||
-                                        updated.status === "CANCELLED"
-                                      ? "done"
-                                      : t.status,
-                          }
-                        : t
-                    )
-                  );
-                  setOpenEdit(false);
-                  setSelectedTicketId(null);
-                }}
+                className="w-full md:w-60"
               />
-            </DialogContent>
-          </Dialog>
+              <Select
+                value={filters.clientId}
+                onValueChange={(value) => {
+                  setFilters((prev) => ({
+                    ...prev,
+                    clientId: value,
+                    projectId: "all",
+                  }));
+                  setPage(0);
+                }}
+              >
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All clients</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.projectId}
+                onValueChange={(value) => {
+                  setFilters((prev) => ({ ...prev, projectId: value }));
+                  setPage(0);
+                }}
+              >
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All projects</SelectItem>
+                  {projects
+                    .filter((project) =>
+                      filters.clientId === "all"
+                        ? true
+                        : project.clientId === filters.clientId
+                    )
+                    .map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.statusId}
+                onValueChange={(value) => {
+                  setFilters((prev) => ({ ...prev, statusId: value }));
+                  setPage(0);
+                }}
+              >
+                <SelectTrigger className="w-full md:w-44">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {statuses.map((status) => (
+                    <SelectItem key={status.id} value={status.id}>
+                      {status.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.priorityId}
+                onValueChange={(value) => {
+                  setFilters((prev) => ({ ...prev, priorityId: value }));
+                  setPage(0);
+                }}
+              >
+                <SelectTrigger className="w-full md:w-44">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All priorities</SelectItem>
+                  {priorities.map((priority) => (
+                    <SelectItem key={priority.id} value={priority.id}>
+                      {priority.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">Ticket</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Project</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead className="text-right">Updated</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {listLoading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell colSpan={7} className="p-0">
+                      <TableRowSkeleton columns={7} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : tickets.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="py-8 text-center text-sm text-muted-foreground"
+                  >
+                    No tickets found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                tickets.map((ticket) => (
+                  <TableRow
+                    key={ticket.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => {
+                      setSelectedTicketId(ticket.id);
+                      setOpenEdit(true);
+                    }}
+                  >
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {ticket.id.substring(0, 8)}
+                    </TableCell>
+                    <TableCell className="max-w-[320px] truncate text-sm text-foreground">
+                      {ticket.title}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {ticket.statusName || ticket.statusId}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge>{ticket.priorityName || ticket.priorityId}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {ticket.projectName || ticket.projectId}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {ticket.clientName || "—"}
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">
+                      {ticket.updatedAt
+                        ? format(new Date(ticket.updatedAt), "MMM d, yyyy")
+                        : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {total} total • Page {page + 1} of {totalPages}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setPage((prev) => Math.max(0, prev - 1))}
+            disabled={listLoading || page === 0}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              setPage((prev) => Math.min(totalPages - 1, prev + 1))
+            }
+            disabled={listLoading || page + 1 >= totalPages}
+          >
+            Next
+          </Button>
         </div>
       </div>
 
-      <WorkFilterBar
-        value={filters}
-        onChange={(patch) => {
-          setFilters((f) => ({ ...f, ...patch }));
+      <Dialog
+        open={openEdit}
+        onOpenChange={(open) => {
+          setOpenEdit(open);
+          if (!open) setSelectedTicketId(undefined);
         }}
-        onApply={() => {
-          const sp = new URLSearchParams();
-          if (filters.clientId) sp.set("clientId", filters.clientId);
-          if (filters.projectId) sp.set("projectId", filters.projectId);
-          if (filters.streamId) sp.set("streamId", filters.streamId);
-          if (filters.assigneeId) sp.set("assigneeId", filters.assigneeId);
-          if (filters.priority) sp.set("priority", filters.priority);
-          sp.set("limit", String(limit));
-          sp.set("offset", "0");
-          setSearchParams(sp, { replace: false });
-        }}
-        onReset={() => {
-          setFilters({});
-          const sp = new URLSearchParams();
-          sp.set("limit", String(limit));
-          sp.set("offset", "0");
-          setSearchParams(sp, { replace: false });
-        }}
-      />
-
-      <Tabs defaultValue="kanban" className="space-y-4">
-        <div className="overflow-x-auto">
-          <TabsList className="min-w-max">
-            <TabsTrigger value="kanban">
-              <LayoutGrid className="w-4 h-4 mr-2" />
-              Kanban
-            </TabsTrigger>
-            <TabsTrigger value="list">
-              <List className="w-4 h-4 mr-2" />
-              List
-            </TabsTrigger>
-            <TabsTrigger value="calendar">
-              <Calendar className="w-4 h-4 mr-2" />
-              Calendar
-            </TabsTrigger>
-            <TabsTrigger value="assignee">
-              <Users className="w-4 h-4 mr-2" />
-              By Assignee
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="kanban" className="space-y-4">
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-              {statusColumns.map((column) => {
-                const columnTickets = tickets.filter(
-                  (t) => t.status === column.id
-                );
-
-                return (
-                  <DroppableColumn key={column.id} id={column.id}>
-                    <div className="bg-card rounded-xl border border-border h-full flex flex-col">
-                      <div
-                        className={cn(
-                          "p-3 border-b border-border",
-                          column.color
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-foreground text-sm lg:text-base">
-                            {column.label}
-                          </h3>
-                          <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
-                            {columnTickets.length}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="p-3 space-y-3 min-h-[300px] sm:min-h-[400px] lg:min-h-[500px] flex-1 overflow-y-auto">
-                        {loading ? (
-                          <>
-                            {[1, 2, 3, 4].map((i) => (
-                              <TicketCardSkeleton key={i} />
-                            ))}
-                          </>
-                        ) : columnTickets.length > 0 ? (
-                          columnTickets.map((ticket) => (
-                            <DraggableTicket key={ticket.id} id={ticket.id}>
-                              <TicketCard
-                                {...ticket}
-                                className="cursor-grab active:cursor-grabbing select-none"
-                                onClick={() => {
-                                  setSelectedTicketId(ticket.id);
-                                  setOpenEdit(true);
-                                }}
-                              />
-                            </DraggableTicket>
-                          ))
-                        ) : (
-                          <div className="flex flex-col items-center justify-center py-8 text-center">
-                            <div className="text-muted-foreground text-sm">
-                              No tickets
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </DroppableColumn>
-                );
-              })}
-            </div>
-
-            <DragOverlay>
-              {activeTicket ? (
-                <div className="rotate-3">
-                  <TicketCard {...activeTicket} />
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        </TabsContent>
-
-        <TabsContent value="list">
-          <div className="bg-card rounded-xl border border-border overflow-x-auto">
-            <table className="min-w-[640px] w-full">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="text-left p-3 text-sm font-semibold text-muted-foreground">
-                    ID
-                  </th>
-                  <th className="text-left p-3 text-sm font-semibold text-muted-foreground">
-                    Title
-                  </th>
-                  <th className="text-left p-3 text-sm font-semibold text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="text-left p-3 text-sm font-semibold text-muted-foreground">
-                    Priority
-                  </th>
-                  <th className="text-left p-3 text-sm font-semibold text-muted-foreground">
-                    Assignee
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <>
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <tr key={i}>
-                        <td colSpan={5} className="p-0">
-                          <TableRowSkeleton columns={5} />
-                        </td>
-                      </tr>
-                    ))}
-                  </>
-                ) : (
-                  tickets.map((ticket) => (
-                    <tr
-                      key={ticket.id}
-                      className="border-b border-border hover:bg-accent/50 cursor-pointer"
-                      onClick={() => {
-                        setSelectedTicketId(ticket.id);
-                        setOpenEdit(true);
-                      }}
-                    >
-                      <td className="p-3 text-sm text-muted-foreground font-mono">
-                        {ticket.ticketNumber ? `#${ticket.ticketNumber}` : "—"}
-                      </td>
-                      <td className="p-3 text-sm text-foreground font-medium max-w-xs truncate">
-                        {ticket.title}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
-                            ticket.status === "todo" &&
-                              "bg-blue-500/10 text-blue-700 dark:text-blue-300",
-                            ticket.status === "in_progress" &&
-                              "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
-                            ticket.status === "review" &&
-                              "bg-purple-500/10 text-purple-700 dark:text-purple-300",
-                            ticket.status === "done" &&
-                              "bg-green-500/10 text-green-700 dark:text-green-300"
-                          )}
-                        >
-                          {ticket.status === "todo"
-                            ? "To Do"
-                            : ticket.status === "in_progress"
-                              ? "In Progress"
-                              : ticket.status === "review"
-                                ? "Review"
-                                : "Done"}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
-                            ticket.priority === "urgent" &&
-                              "bg-red-500/10 text-red-700 dark:text-red-300",
-                            ticket.priority === "high" &&
-                              "bg-orange-500/10 text-orange-700 dark:text-orange-300",
-                            ticket.priority === "medium" &&
-                              "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
-                            ticket.priority === "low" &&
-                              "bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                          )}
-                        >
-                          {ticket.priority.charAt(0).toUpperCase() +
-                            ticket.priority.slice(1)}
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">
-                        {ticket.assignee?.name || "Unassigned"}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-            <div className="flex items-center justify-between p-3">
-              <div className="text-sm text-muted-foreground">
-                {count} total • Page {page}/{totalPages}{" "}
-                {loading ? "• Loading…" : ""}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  disabled={loading || offset === 0}
-                  onClick={() => {
-                    const newOffset = Math.max(0, offset - limit);
-                    setOffset(newOffset);
-                    const sp = new URLSearchParams(searchParams);
-                    sp.set("limit", String(limit));
-                    sp.set("offset", String(newOffset));
-                    setSearchParams(sp, { replace: false });
-                  }}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={loading || page >= totalPages}
-                  onClick={() => {
-                    const newOffset = offset + limit;
-                    setOffset(newOffset);
-                    const sp = new URLSearchParams(searchParams);
-                    sp.set("limit", String(limit));
-                    sp.set("offset", String(newOffset));
-                    setSearchParams(sp, { replace: false });
-                  }}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="calendar">
-          <div className="bg-card rounded-xl border border-border p-8 text-center">
-            <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Calendar view coming soon</p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="assignee">
-          <div className="bg-card rounded-xl border border-border p-8 text-center">
-            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Assignee view coming soon</p>
-          </div>
-        </TabsContent>
-      </Tabs>
+      >
+        <DialogContent className="max-w-4xl">
+          {selectedTicketId && (
+            <TicketEditForm
+              ticketId={selectedTicketId}
+              onSaved={() => {
+                setOpenEdit(false);
+                setSelectedTicketId(undefined);
+                void loadTickets();
+              }}
+              onCancel={() => {
+                setOpenEdit(false);
+                setSelectedTicketId(undefined);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

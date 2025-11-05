@@ -1,126 +1,163 @@
 import { useEffect, useState } from "react";
-import * as attachmentsApi from "@/api/attachments";
+import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import * as attachmentsApi from "@/api/attachments";
 
-export function AttachmentUpload({ ticketId }: { ticketId?: string }) {
-  const [files, setFiles] = useState<File[]>([]);
-  const [serverFiles, setServerFiles] = useState<
-    Array<{ id: string; filename: string; size: number; url?: string }>
-  >([]);
-  const [loading, setLoading] = useState(false);
+type AttachmentRecord = {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  storageUrl: string;
+  mimeType: string;
+};
+
+type AttachmentUploadProps = {
+  ticketId?: string;
+};
+
+export function AttachmentUpload({ ticketId }: AttachmentUploadProps) {
+  const [pickedFiles, setPickedFiles] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentRecord[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!ticketId) return;
     (async () => {
-      const { data } = await attachmentsApi.listByTicket(ticketId);
-      setServerFiles(
-        data.map((a) => ({
-          id: a.id,
-          filename: a.filename,
-          size: a.size,
-          url: a.url,
-        }))
-      );
+      try {
+        const { data } = await attachmentsApi.listByTicket(ticketId);
+        setAttachments(data as AttachmentRecord[]);
+      } catch (error) {
+        console.warn("Failed to load attachments", error);
+      }
     })();
   }, [ticketId]);
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = e.target.files;
-    if (!list) return;
-    setFiles((prev) => [...prev, ...Array.from(list)]);
-  };
-
-  const uploadAll = async () => {
-    if (!ticketId) return;
-    setLoading(true);
+  async function handleUpload() {
+    if (!ticketId || pickedFiles.length === 0) return;
+    setUploading(true);
     try {
-      for (const f of files) {
-        const { data } = await attachmentsApi.upload({ file: f, ticketId });
-        setServerFiles((s) => [
-          ...s,
-          {
-            id: data.id,
-            filename: data.filename,
-            size: data.size,
-            url: data.url,
-          },
-        ]);
+      for (const file of pickedFiles) {
+        const { data: presign } = await attachmentsApi.presignUpload(ticketId, {
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+        });
+
+        await axios.put(presign.uploadUrl, file, {
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+        });
+
+        const { data: stored } = await attachmentsApi.confirmUpload(ticketId, {
+          storageUrl: presign.key,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          fileSize: file.size,
+        });
+
+        setAttachments((prev) => [...prev, stored as AttachmentRecord]);
       }
-      setFiles([]);
+      setPickedFiles([]);
+      toast({ title: "Attachment uploaded" });
+    } catch (error: any) {
       toast({
-        title: "Uploaded",
-        description: "Attachments uploaded successfully.",
-      });
-    } catch (e: any) {
-      toast({
-        title: "Upload failed",
-        description: e?.response?.data?.message || "Error",
+        title: "Failed to upload",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
-  };
+  }
 
-  const remove = async (id: string) => {
-    await attachmentsApi.remove(id);
-    setServerFiles((s) => s.filter((f) => f.id !== id));
-  };
+  async function handleRemove(id: string) {
+    try {
+      await attachmentsApi.remove(id);
+      setAttachments((prev) =>
+        prev.filter((attachment) => attachment.id !== id)
+      );
+      toast({ title: "Attachment removed" });
+    } catch (error: any) {
+      toast({
+        title: "Failed to remove attachment",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    }
+  }
 
   return (
     <div className="space-y-3">
-      <div className="border-2 border-dashed border-border rounded p-6 text-center">
+      <div className="rounded-lg border border-dashed p-6 text-center">
         <p className="text-sm text-muted-foreground">
-          Drag & drop files here, or click to browse
+          Drag & drop files or browse to attach supporting material.
         </p>
-        <input type="file" multiple className="mt-2" onChange={onChange} />
-        <div className="mt-2 text-right">
+        <input
+          type="file"
+          multiple
+          className="mt-3"
+          onChange={(event) => {
+            const files = event.target.files;
+            if (!files) return;
+            setPickedFiles(Array.from(files));
+          }}
+          disabled={!ticketId || uploading}
+        />
+        <div className="mt-3 flex justify-end">
           <Button
-            disabled={!ticketId || files.length === 0 || loading}
-            onClick={uploadAll}
+            onClick={handleUpload}
+            disabled={!ticketId || pickedFiles.length === 0 || uploading}
           >
-            {loading ? "Uploading…" : "Upload"}
+            {uploading ? "Uploading…" : "Upload"}
           </Button>
         </div>
       </div>
 
-      <div>
-        <h4 className="text-sm font-medium">Files</h4>
-        <div className="space-y-2 mt-2">
-          {serverFiles.map((f) => (
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium text-foreground">
+          Current attachments
+        </h4>
+        {attachments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No attachments yet.</p>
+        ) : (
+          attachments.map((attachment) => (
             <div
-              key={f.id}
-              className="flex items-center justify-between text-sm text-muted-foreground"
+              key={attachment.id}
+              className="flex items-center justify-between rounded border bg-muted/40 px-3 py-2 text-sm"
             >
-              <div>
-                {f.url ? (
+              <div className="flex flex-col">
+                <span>{attachment.fileName}</span>
+                <span className="text-xs text-muted-foreground">
+                  {Math.round(attachment.fileSize / 1024)} KB ·{" "}
+                  {attachment.mimeType}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {attachment.storageUrl.startsWith("http") ? (
                   <a
-                    href={f.url}
+                    href={attachment.storageUrl}
+                    className="text-xs text-primary hover:underline"
                     target="_blank"
                     rel="noreferrer"
-                    className="underline"
                   >
-                    {f.filename}
+                    View
                   </a>
                 ) : (
-                  f.filename
+                  <span className="text-xs text-muted-foreground">
+                    Uploaded
+                  </span>
                 )}
-              </div>
-              <div>
-                {Math.round(f.size / 1024)} KB
-                <button
-                  className="ml-2 text-red-400"
-                  onClick={() => remove(f.id)}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleRemove(attachment.id)}
                 >
                   Remove
-                </button>
+                </Button>
               </div>
             </div>
-          ))}
-          {serverFiles.length === 0 && (
-            <div className="text-sm text-muted-foreground">No attachments.</div>
-          )}
-        </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -13,14 +13,22 @@ import { toast } from "@/hooks/use-toast";
 import * as usersApi from "@/api/users";
 import * as clientsApi from "@/api/clients";
 
+type CreateUserFormState = {
+  fullName: string;
+  email: string;
+  password: string;
+  role: "EMPLOYEE" | "CLIENT";
+  clientId: string;
+  saving: boolean;
+};
+
 export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [formState, setFormState] = useState({
-    name: "",
+  const [formState, setFormState] = useState<CreateUserFormState>({
+    fullName: "",
     email: "",
     password: "",
-    userType: "EMPLOYEE" as "ADMIN" | "EMPLOYEE" | "CLIENT",
-    clientCompanyId: "",
-    active: true,
+    role: "EMPLOYEE",
+    clientId: "",
     saving: false,
   });
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
@@ -31,7 +39,7 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
     (async () => {
       try {
         const { data } = await clientsApi.list({ limit: 200, offset: 0 });
-        setClients(data.items.map((c) => ({ id: c.id, name: c.name })));
+        setClients(data.data.map((client) => ({ id: client.id, name: client.name })));
       } catch (e) {
         console.error("Failed to load clients:", e);
       }
@@ -40,13 +48,13 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
   async function handleInvite() {
     if (
-      !formState.name.trim() ||
+      !formState.fullName.trim() ||
       !formState.email.trim() ||
       !formState.password.trim()
     ) {
       toast({
         title: "Validation Error",
-        description: "Name, email, and password are required",
+        description: "Full name, email, and password are required",
         variant: "destructive",
       });
       return;
@@ -61,28 +69,50 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
       return;
     }
 
-    setFormState((prev) => ({ ...prev, saving: true }));
-    try {
-      await usersApi.create({
-        name: formState.name,
-        email: formState.email,
-        password: formState.password,
-        userType: formState.userType,
-        clientCompanyId: formState.clientCompanyId || undefined,
-        active: formState.active,
-      });
+    if (formState.role === "CLIENT" && !formState.clientId) {
       toast({
-        title: "User invited",
-        description: `${formState.name} has been successfully invited`,
-      });
-      onSuccess?.();
-    } catch (e: any) {
-      toast({
-        title: "Failed to invite user",
-        description: e?.response?.data?.message || "An error occurred",
+        title: "Validation error",
+        description: "Select a client for client users",
         variant: "destructive",
       });
-    } finally {
+      return;
+    }
+
+    setFormState((prev) => ({ ...prev, saving: true }));
+    try {
+      if (formState.role === "EMPLOYEE") {
+        await usersApi.createEmployee({
+          fullName: formState.fullName.trim(),
+          email: formState.email.trim(),
+          password: formState.password,
+        });
+      } else {
+        await usersApi.createClientUser({
+          fullName: formState.fullName.trim(),
+          email: formState.email.trim(),
+          password: formState.password,
+          clientId: formState.clientId,
+        });
+      }
+      toast({
+        title: "User created",
+        description: `${formState.fullName} now has access to the workspace`,
+      });
+      onSuccess?.();
+      setFormState({
+        fullName: "",
+        email: "",
+        password: "",
+        role: formState.role,
+        clientId: "",
+        saving: false,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to create user",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
       setFormState((prev) => ({ ...prev, saving: false }));
     }
   }
@@ -106,15 +136,15 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="invite-name" className="text-sm font-medium">
-              Name
+              Full Name
               <span className="text-destructive ml-1">*</span>
             </Label>
             <Input
               id="invite-name"
               placeholder="Enter full name"
-              value={formState.name}
+              value={formState.fullName}
               onChange={(e) =>
-                setFormState((prev) => ({ ...prev, name: e.target.value }))
+                setFormState((prev) => ({ ...prev, fullName: e.target.value }))
               }
               aria-required="true"
               className="h-10"
@@ -165,15 +195,16 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
           <div className="space-y-2">
             <Label htmlFor="invite-user-type" className="text-sm font-medium">
-              User Type
+              User Role
               <span className="text-destructive ml-1">*</span>
             </Label>
             <Select
-              value={formState.userType}
+              value={formState.role}
               onValueChange={(v) =>
                 setFormState((prev) => ({
                   ...prev,
-                  userType: v as "ADMIN" | "EMPLOYEE" | "CLIENT",
+                  role: v as "EMPLOYEE" | "CLIENT",
+                  clientId: v === "CLIENT" ? prev.clientId : "",
                 }))
               }
             >
@@ -181,29 +212,28 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
                 <SelectValue placeholder="Select user type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ADMIN">Admin</SelectItem>
                 <SelectItem value="EMPLOYEE">Employee</SelectItem>
                 <SelectItem value="CLIENT">Client</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Determines user permissions and access
+              Employees belong to your organization. Clients are scoped to a client account.
             </p>
           </div>
         </div>
 
         {/* Client Company (conditional) */}
-        {formState.userType === "CLIENT" && (
+        {formState.role === "CLIENT" && (
           <div className="space-y-2">
             <Label htmlFor="invite-client" className="text-sm font-medium">
               Client Company
             </Label>
             <Select
-              value={formState.clientCompanyId}
+              value={formState.clientId}
               onValueChange={(v) =>
                 setFormState((prev) => ({
                   ...prev,
-                  clientCompanyId: String(v),
+                  clientId: String(v),
                 }))
               }
             >
@@ -245,7 +275,7 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
           type="button"
           onClick={handleInvite}
           disabled={
-            !formState.name.trim() ||
+            !formState.fullName.trim() ||
             !formState.email.trim() ||
             formState.saving
           }

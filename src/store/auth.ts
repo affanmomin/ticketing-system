@@ -1,82 +1,126 @@
 import { create, type StateCreator } from "zustand";
-import { api } from "@/lib/axios";
+import * as authApi from "@/api/auth";
 import type { AuthUser, LoginRequest, UserRole } from "@/types/api";
 
 type State = {
   token?: string;
   user?: AuthUser;
-  tenantId?: string;
+  organizationId?: string;
   isAuthenticated: boolean;
   loading: boolean;
+  error?: string;
 };
 
 type Actions = {
-  setToken: (t?: string) => void;
-  login: (email: string, password: string, tenantId?: string) => Promise<void>;
+  setToken: (token?: string) => void;
+  login: (email: string, password: string) => Promise<void>;
   bootstrap: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  clearError: () => void;
 };
+
+const TOKEN_STORAGE_KEY = "cc_token";
 
 const initializer: StateCreator<State & Actions> = (set, get) => ({
   token:
     typeof window !== "undefined"
-      ? localStorage.getItem("cc_token") || undefined
+      ? localStorage.getItem(TOKEN_STORAGE_KEY) || undefined
       : undefined,
   user: undefined,
-  tenantId: undefined,
+  organizationId: undefined,
   isAuthenticated: !!(
-    typeof window !== "undefined" && localStorage.getItem("cc_token")
+    typeof window !== "undefined" && localStorage.getItem(TOKEN_STORAGE_KEY)
   ),
   loading: false,
+  error: undefined,
 
-  setToken: (t?: string) => {
+  setToken: (token?: string) => {
     if (typeof window !== "undefined") {
-      if (t) localStorage.setItem("cc_token", t);
-      else localStorage.removeItem("cc_token");
+      if (token) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      } else {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+      }
     }
-    set({ token: t, isAuthenticated: !!t });
+    set({ token, isAuthenticated: !!token });
   },
 
-  login: async (email: string, password: string, tenantId?: string) => {
-    set({ loading: true });
-    const payload: LoginRequest = { email, password };
-    if (tenantId) payload.tenantId = tenantId;
-    const { data } = await api.post("/auth/login", payload);
-    get().setToken(data.accessToken);
-    await get().bootstrap();
+  clearError: () => set({ error: undefined }),
+
+  login: async (email: string, password: string) => {
+    set({ loading: true, error: undefined });
+    try {
+      const payload: LoginRequest = { email, password };
+      const { data } = await authApi.login(payload);
+      get().setToken(data.accessToken);
+      await get().bootstrap();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Authentication failed";
+      set({ error: message, loading: false });
+      throw error;
+    }
     set({ loading: false });
   },
 
   bootstrap: async () => {
+    const { token } = get();
+    if (!token) {
+      set({ user: undefined, organizationId: undefined, isAuthenticated: false });
+      return;
+    }
+
     set({ loading: true });
-    const { data: me } = await api.get("/auth/me");
-    const { data: t } = await api.get("/tenants/me");
-    // Normalize role from backend (case-insensitive safety)
-    const rawRole = (me.user?.role ?? "").toString().toUpperCase();
-    const normalizedRole: UserRole = ["ADMIN", "EMPLOYEE", "CLIENT"].includes(
-      rawRole as UserRole
-    )
-      ? (rawRole as UserRole)
-      : "CLIENT";
-    const normalizedUser: AuthUser = {
-      ...(me.user as AuthUser),
-      role: normalizedRole,
-    };
-    set({
-      user: normalizedUser,
-      tenantId: t.id,
-      isAuthenticated: true,
-      loading: false,
-    });
+    try {
+      const { data } = await authApi.me();
+      const normalizedRole = (data.role ?? "").toString().toUpperCase();
+      const role: UserRole = ["ADMIN", "EMPLOYEE", "CLIENT"].includes(
+        normalizedRole as UserRole
+      )
+        ? (normalizedRole as UserRole)
+        : "CLIENT";
+
+      const user: AuthUser = {
+        ...data,
+        role,
+      };
+
+      set({
+        user,
+        organizationId: data.organizationId,
+        isAuthenticated: true,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("Failed to bootstrap auth state", error);
+      get().setToken(undefined);
+      set({
+        user: undefined,
+        organizationId: undefined,
+        isAuthenticated: false,
+        loading: false,
+      });
+    }
   },
 
-  logout: () => {
-    if (typeof window !== "undefined") localStorage.removeItem("cc_token");
+  logout: async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      // Non-blocking – still proceed with local cleanup
+      console.warn("Logout request failed", error);
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+
     set({
       token: undefined,
       user: undefined,
-      tenantId: undefined,
+      organizationId: undefined,
       isAuthenticated: false,
+      loading: false,
+      error: undefined,
     });
   },
 });

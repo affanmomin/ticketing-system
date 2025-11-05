@@ -2,20 +2,56 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
+import { Signup } from "./pages/Signup";
 import { Dashboard } from "./pages/Dashboard";
 import { Tickets } from "./pages/Tickets";
 import { Projects } from "./pages/Projects";
 import { ProjectDetail } from "./pages/ProjectDetail";
 import { Settings } from "./pages/Settings";
-import { Tags } from "./pages/Tags";
 import { Clients } from "./pages/Clients";
 import { Users } from "./pages/Users";
 import { Toaster } from "./components/ui/sonner";
 import { Toaster as ShadcnToaster } from "./components/ui/toaster";
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
+import type { UserRole } from "@/types/api";
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+const DEFAULT_ROUTE_BY_ROLE: Record<UserRole, string> = {
+  ADMIN: "/dashboard",
+  EMPLOYEE: "/tickets",
+  CLIENT: "/tickets",
+};
+
+function getDefaultRoute(role?: UserRole): string {
+  if (!role) return "/dashboard";
+  return DEFAULT_ROUTE_BY_ROLE[role] ?? "/dashboard";
+}
+
+function ProtectedRoute({
+  children,
+  roles,
+}: {
+  children: React.ReactNode;
+  roles?: UserRole[];
+}) {
+  const { isAuthenticated, loading, user } = useAuthStore();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (roles && user && !roles.includes(user.role)) {
+    return <Navigate to={getDefaultRoute(user.role)} replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -42,7 +78,22 @@ function AppRoutes() {
       <Route
         path="/login"
         element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+          isAuthenticated ? (
+            <Navigate to={getDefaultRoute(user?.role)} replace />
+          ) : (
+            <Login />
+          )
+        }
+      />
+
+      <Route
+        path="/signup"
+        element={
+          isAuthenticated ? (
+            <Navigate to={getDefaultRoute(user?.role)} replace />
+          ) : (
+            <Signup />
+          )
         }
       />
 
@@ -54,18 +105,74 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="tickets" element={<Tickets />} />
-        <Route path="projects" element={<Projects />} />
-        <Route path="projects/:id" element={<ProjectDetail />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="tags" element={<Tags />} />
-        <Route path="clients" element={<Clients />} />
-        <Route path="users" element={<Users />} />
+        <Route
+          index
+          element={<Navigate to={getDefaultRoute(user?.role)} replace />}
+        />
+        <Route
+          path="dashboard"
+          element={
+            <ProtectedRoute roles={["ADMIN", "EMPLOYEE"]}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="tickets"
+          element={
+            <ProtectedRoute roles={["ADMIN", "EMPLOYEE", "CLIENT"]}>
+              <Tickets />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="projects"
+          element={
+            <ProtectedRoute roles={["ADMIN", "EMPLOYEE", "CLIENT"]}>
+              <Projects />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="projects/:id"
+          element={
+            <ProtectedRoute roles={["ADMIN", "EMPLOYEE", "CLIENT"]}>
+              <ProjectDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <ProtectedRoute roles={["ADMIN", "EMPLOYEE", "CLIENT"]}>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="clients"
+          element={
+            <ProtectedRoute roles={["ADMIN"]}>
+              <Clients />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="users"
+          element={
+            <ProtectedRoute roles={["ADMIN"]}>
+              <Users />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="*"
+        element={
+          <Navigate to={getDefaultRoute(user?.role)} replace />
+        }
+      />
     </Routes>
   );
 }

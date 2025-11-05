@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -9,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import { toast } from "@/hooks/use-toast";
@@ -17,9 +17,10 @@ import { toast } from "@/hooks/use-toast";
 export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   const [formState, setFormState] = useState({
     name: "",
-    code: "",
     client: "",
-    active: true,
+    description: "",
+    startDate: "",
+    endDate: "",
     saving: false,
   });
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
@@ -29,7 +30,7 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   useEffect(() => {
     (async () => {
       const { data } = await clientsApi.list({ limit: 200, offset: 0 });
-      const items = data.items.map((c) => ({ id: c.id, name: c.name }));
+      const items = data.data.map((c) => ({ id: c.id, name: c.name }));
       setClients(items);
       if (items.length)
         setFormState((prev) => ({ ...prev, client: items[0].id }));
@@ -37,15 +38,15 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   }, []);
 
   async function handleSave() {
-    if (!formState.name.trim() || !formState.code.trim() || !formState.client)
-      return;
+    if (!formState.name.trim() || !formState.client) return;
     setFormState((prev) => ({ ...prev, saving: true }));
     try {
       await projectsApi.create({
         clientId: formState.client,
         name: formState.name,
-        code: formState.code,
-        active: formState.active,
+        description: formState.description.trim() || undefined,
+        startDate: formState.startDate || undefined,
+        endDate: formState.endDate || undefined,
       });
       toast({
         title: "Success",
@@ -65,20 +66,16 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
       <div className="space-y-1.5">
         <h2 className="text-xl font-semibold tracking-tight">Create Project</h2>
         <p className="text-sm text-muted-foreground">
-          Set up a new project with a unique code and client assignment
+          Set up a new project under an existing client organization
         </p>
       </div>
 
-      {/* Divider */}
       <div className="h-px bg-border" />
 
-      {/* Form Fields */}
       <div className="space-y-6">
-        {/* Project Name & Code Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="project-name" className="text-sm font-medium">
@@ -98,82 +95,90 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="project-code" className="text-sm font-medium">
-              Project Code
-              <span className="text-destructive ml-1">*</span>
+            <Label htmlFor="project-client" className="text-sm font-medium">
+              Client
+            </Label>
+            <Select
+              value={formState.client}
+              onValueChange={(v) =>
+                setFormState((prev) => ({ ...prev, client: String(v) }))
+              }
+            >
+              <SelectTrigger id="project-client" className="w-full h-10">
+                <SelectValue placeholder="Select a client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    No clients available
+                  </div>
+                ) : (
+                  clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="project-description" className="text-sm font-medium">
+            Description
+          </Label>
+          <Textarea
+            id="project-description"
+            value={formState.description}
+            onChange={(event) =>
+              setFormState((prev) => ({
+                ...prev,
+                description: event.target.value,
+              }))
+            }
+            placeholder="Optional project overview or scope details"
+            className="min-h-[120px]"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="project-start" className="text-sm font-medium">
+              Start date
             </Label>
             <Input
-              id="project-code"
-              placeholder="e.g., CP"
-              maxLength={12}
-              value={formState.code}
-              onChange={(e) =>
+              id="project-start"
+              type="date"
+              value={formState.startDate}
+              onChange={(event) =>
                 setFormState((prev) => ({
                   ...prev,
-                  code: e.target.value.toUpperCase(),
+                  startDate: event.target.value,
                 }))
               }
-              aria-required="true"
-              className="h-10 font-mono"
             />
-            <p className="text-xs text-muted-foreground">
-              Short identifier (max 12 characters)
-            </p>
           </div>
-        </div>
-
-        {/* Client Selection */}
-        <div className="space-y-2">
-          <Label htmlFor="project-client" className="text-sm font-medium">
-            Client
-          </Label>
-          <Select
-            value={formState.client}
-            onValueChange={(v) =>
-              setFormState((prev) => ({ ...prev, client: String(v) }))
-            }
-          >
-            <SelectTrigger id="project-client" className="w-full h-10">
-              <SelectValue placeholder="Select a client" />
-            </SelectTrigger>
-            <SelectContent>
-              {clients.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">
-                  No clients available
-                </div>
-              ) : (
-                clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Active Status */}
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-          <div className="space-y-0.5">
-            <Label htmlFor="project-active" className="text-sm font-medium">
-              Active Status
+          <div className="space-y-2">
+            <Label htmlFor="project-end" className="text-sm font-medium">
+              Target completion
             </Label>
-            <p className="text-xs text-muted-foreground">
-              Enable or disable this project
-            </p>
+            <Input
+              id="project-end"
+              type="date"
+              value={formState.endDate}
+              onChange={(event) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  endDate: event.target.value,
+                }))
+              }
+              min={formState.startDate || undefined}
+            />
           </div>
-          <Switch
-            id="project-active"
-            checked={formState.active}
-            onCheckedChange={(v) =>
-              setFormState((prev) => ({ ...prev, active: Boolean(v) }))
-            }
-            aria-label="Active"
-          />
         </div>
       </div>
 
-      {/* Footer Actions */}
       <div className="flex gap-3 justify-end pt-4">
         <Button
           type="button"
@@ -187,10 +192,7 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           type="button"
           onClick={handleSave}
           disabled={
-            !formState.name.trim() ||
-            !formState.code.trim() ||
-            !formState.client ||
-            formState.saving
+            !formState.name.trim() || !formState.client || formState.saving
           }
           className="min-w-[80px]"
         >
@@ -200,7 +202,7 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
               Saving
             </span>
           ) : (
-            "Create Project"
+            "Save Project"
           )}
         </Button>
       </div>
