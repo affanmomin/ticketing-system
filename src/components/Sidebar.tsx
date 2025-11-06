@@ -8,6 +8,7 @@ import {
   Users,
   Settings,
   Building2,
+  Tag,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { UserAvatar } from "./UserAvatar";
@@ -17,7 +18,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-// Button removed (hover only behavior)
 
 interface NavItem {
   title: string;
@@ -55,13 +55,25 @@ const navItems: NavItem[] = [
     roles: ["ADMIN"],
   },
   {
+    title: "Tags",
+    href: "/tags",
+    icon: <Tag className="w-5 h-5" />,
+    roles: ["ADMIN"],
+  },
+  {
     title: "Settings",
     href: "/settings",
     icon: <Settings className="w-5 h-5" />,
   },
 ];
 
-export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
+export function Sidebar({
+  collapsed = false,
+  isMobile = false,
+}: {
+  collapsed?: boolean;
+  isMobile?: boolean;
+}) {
   const location = useLocation();
   const { user } = useAuthStore();
   const [hoverOpen, setHoverOpen] = useState(false);
@@ -75,27 +87,30 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
     return !!roleUpper && item.roles.includes(roleUpper);
   });
 
-  // Render-time collapsed state: expand on hover when initially collapsed
-  const renderCollapsed = collapsed && !hoverOpen;
+  // Render-time collapsed state: expand on hover when initially collapsed (desktop only)
+  const renderCollapsed = !isMobile && collapsed && !hoverOpen;
   const asideWidth = renderCollapsed ? "w-16" : "w-64";
 
   return (
     <aside
       className={cn(
         asideWidth,
-        "relative bg-card border-r border-border flex flex-col h-screen shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out"
+        "relative bg-card flex flex-col h-full shrink-0 overflow-hidden",
+        isMobile
+          ? "border-none"
+          : "border-r border-border transition-[width] duration-300 ease-in-out"
       )}
       aria-label="Sidebar"
       onMouseEnter={() => {
-        if (collapsed) setHoverOpen(true);
+        if (collapsed && !isMobile) setHoverOpen(true);
       }}
       onMouseLeave={() => {
-        if (collapsed) setHoverOpen(false);
+        if (collapsed && !isMobile) setHoverOpen(false);
       }}
     >
       <div
         className={cn(
-          "border-b border-border",
+          "border-b border-border shrink-0",
           renderCollapsed ? "p-3" : "p-4"
         )}
       >
@@ -105,16 +120,16 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
             renderCollapsed ? "justify-center gap-0" : "justify-between gap-2"
           )}
         >
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <FileText className="w-5 h-5 text-primary-foreground" />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
             {!renderCollapsed && (
-              <div>
-                <h1 className="text-lg font-semibold text-foreground">
+              <div className="overflow-hidden">
+                <h1 className="text-base sm:text-lg font-semibold text-foreground truncate">
                   Ticketly
                 </h1>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground truncate">
                   Project Management
                 </p>
               </div>
@@ -125,7 +140,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
 
       <nav
         className={cn(
-          "flex-1 space-y-1 overflow-y-auto",
+          "flex-1 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
           renderCollapsed ? "p-2" : "p-3"
         )}
       >
@@ -136,30 +151,42 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
               location.pathname.startsWith(item.href + "/");
 
             return (
-              <Tooltip key={item.href} disableHoverableContent={!collapsed}>
+              <Tooltip
+                key={item.href}
+                disableHoverableContent={!collapsed || isMobile}
+              >
                 <TooltipTrigger asChild>
                   <Link
                     to={item.href}
                     className={cn(
-                      "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+                      "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200",
                       renderCollapsed
-                        ? "px-2 py-2 justify-center"
-                        : "px-3 py-2",
+                        ? "px-2 py-2.5 justify-center"
+                        : "px-3 py-2.5 sm:py-2",
                       isActive
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        ? "bg-accent text-accent-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:shadow-sm"
                     )}
                   >
-                    <span className="text-muted-foreground group-hover:text-foreground">
+                    <span
+                      className={cn(
+                        "transition-colors shrink-0",
+                        isActive
+                          ? "text-accent-foreground"
+                          : "text-muted-foreground group-hover:text-foreground"
+                      )}
+                    >
                       {item.icon}
                     </span>
-                    {!renderCollapsed && <span>{item.title}</span>}
+                    {!renderCollapsed && (
+                      <span className="truncate">{item.title}</span>
+                    )}
                     {isActive && !renderCollapsed && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-primary" />
                     )}
                   </Link>
                 </TooltipTrigger>
-                {renderCollapsed && (
+                {renderCollapsed && !isMobile && (
                   <TooltipContent side="right" align="center">
                     {item.title}
                   </TooltipContent>
@@ -171,19 +198,24 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
       </nav>
 
       {user && (
-        <div className="p-3 border-t border-border">
-          <div className="flex items-center gap-3 px-3 py-2">
+        <div className="p-3 border-t border-border shrink-0 mt-auto">
+          <div
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-accent/50",
+              renderCollapsed && "justify-center px-2"
+            )}
+          >
             <UserAvatar
-              name={user.name || user.email || user.id}
+              name={user.fullName || user.email || user.id}
               role={(user.role ?? "").toString().toLowerCase() as any}
               showTooltip={false}
             />
             {!renderCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {user.name || user.email || user.id}
+                  {user.fullName || user.email || user.id}
                 </p>
-                <p className="text-xs text-muted-foreground capitalize">
+                <p className="text-xs text-muted-foreground capitalize truncate">
                   {(user.role ?? "").toString().toLowerCase()}
                 </p>
               </div>
@@ -191,8 +223,6 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
           </div>
         </div>
       )}
-
-      {/* Hover-only behavior: no explicit toggle button */}
     </aside>
   );
 }

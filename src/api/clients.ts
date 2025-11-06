@@ -32,4 +32,4 @@ export const create = (dto: ClientCreateRequest) =>
 export const get = (id: string) => api.get<Client>(`/clients/${id}`);
 
 export const update = (id: string, patch: ClientUpdateRequest) =>
-  api.patch<Client>(`/clients/${id}`, patch);
+  api.post<Client>(`/clients/${id}`, patch);

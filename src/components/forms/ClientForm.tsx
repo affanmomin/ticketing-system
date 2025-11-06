@@ -14,7 +14,13 @@ interface ClientFormState {
   saving: boolean;
 }
 
-export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
+export function ClientForm({
+  onSuccess,
+  onCancel,
+}: {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}) {
   const [formState, setFormState] = useState<ClientFormState>({
     name: "",
     email: "",
@@ -46,7 +52,13 @@ export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
         description: `${formState.name} has been added to your organization`,
       });
       onSuccess?.();
-      setFormState({ name: "", email: "", phone: "", address: "", saving: false });
+      setFormState({
+        name: "",
+        email: "",
+        phone: "",
+        address: "",
+        saving: false,
+      });
     } catch (error: any) {
       toast({
         title: "Failed to create client",
@@ -130,7 +142,10 @@ export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
               placeholder="123 Market Street, Suite 500, San Francisco, CA"
               value={formState.address}
               onChange={(event) =>
-                setFormState((prev) => ({ ...prev, address: event.target.value }))
+                setFormState((prev) => ({
+                  ...prev,
+                  address: event.target.value,
+                }))
               }
               className="min-h-[88px]"
             />
@@ -142,6 +157,7 @@ export function ClientForm({ onSuccess }: { onSuccess?: () => void }) {
         <Button
           type="button"
           variant="outline"
+          onClick={onCancel}
           disabled={formState.saving}
           className="min-w-[80px]"
         >

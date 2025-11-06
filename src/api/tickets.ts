@@ -16,6 +16,6 @@ export const create = (payload: TicketCreateRequest) =>
 export const get = (id: string) => api.get<Ticket>(`/tickets/${id}`);
 
 export const update = (id: string, payload: TicketUpdateRequest) =>
-  api.patch<Ticket>(`/tickets/${id}`, payload);
+  api.post<Ticket>(`/tickets/${id}`, payload);
 
 export const remove = (id: string) => api.delete<void>(`/tickets/${id}`);

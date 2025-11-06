@@ -35,12 +35,10 @@ export const list = (params: ListUsersQuery = {}) =>
 export const get = (id: string) => api.get<AuthUser>(`/users/${id}`);
 
 export const update = (id: string, payload: UserUpdateRequest) =>
-  api.patch<AuthUser>(`/users/${id}`, payload);
+  api.post<AuthUser>(`/users/${id}`, payload);
 
-export const changePassword = (
-  id: string,
-  payload: ChangePasswordRequest
-) => api.post<void>(`/users/${id}/password`, payload);
+export const changePassword = (id: string, payload: ChangePasswordRequest) =>
+  api.post<void>(`/users/${id}/password`, payload);
 
 export const createEmployee = (payload: CreateEmployeeRequest) =>
   api.post<AuthUser>("/employees", payload);

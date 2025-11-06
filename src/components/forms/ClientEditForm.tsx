@@ -19,9 +19,14 @@ interface EditableClient {
 interface ClientEditFormProps {
   client: EditableClient;
   onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export function ClientEditForm({ client, onSuccess }: ClientEditFormProps) {
+export function ClientEditForm({
+  client,
+  onSuccess,
+  onCancel,
+}: ClientEditFormProps) {
   const { toast } = useToast();
   const [formState, setFormState] = useState({
     name: "",
@@ -71,7 +76,8 @@ export function ClientEditForm({ client, onSuccess }: ClientEditFormProps) {
       toast({
         title: "Failed to update client",
         description:
-          error?.response?.data?.message || "There was a problem saving changes",
+          error?.response?.data?.message ||
+          "There was a problem saving changes",
         variant: "destructive",
       });
     } finally {
@@ -142,14 +148,20 @@ export function ClientEditForm({ client, onSuccess }: ClientEditFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-client-address" className="text-sm font-medium">
+            <Label
+              htmlFor="edit-client-address"
+              className="text-sm font-medium"
+            >
               Billing Address
             </Label>
             <Textarea
               id="edit-client-address"
               value={formState.address}
               onChange={(event) =>
-                setFormState((prev) => ({ ...prev, address: event.target.value }))
+                setFormState((prev) => ({
+                  ...prev,
+                  address: event.target.value,
+                }))
               }
               placeholder="123 Market Street, Suite 500, San Francisco, CA"
               className="min-h-[88px]"
@@ -180,6 +192,7 @@ export function ClientEditForm({ client, onSuccess }: ClientEditFormProps) {
         <Button
           type="button"
           variant="outline"
+          onClick={onCancel}
           disabled={formState.saving}
           className="min-w-[80px]"
         >

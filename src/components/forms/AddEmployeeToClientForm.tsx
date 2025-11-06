@@ -19,7 +19,11 @@ const CLIENTS = [
   { id: "c2", name: "Globex" },
 ];
 
-export function AddEmployeeToClientForm() {
+export function AddEmployeeToClientForm({
+  onCancel,
+}: {
+  onCancel?: () => void;
+}) {
   const [formState, setFormState] = useState({
     employee: "",
     client: CLIENTS[0].id,
@@ -120,6 +124,7 @@ export function AddEmployeeToClientForm() {
         <Button
           type="button"
           variant="outline"
+          onClick={onCancel}
           disabled={formState.saving}
           className="min-w-[80px]"
         >

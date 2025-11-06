@@ -145,6 +145,13 @@ export interface Attachment {
   createdAt: string;
 }
 
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  clientId?: string;
+}
+
 export interface OutboxNotification {
   id: string;
   topic: string;

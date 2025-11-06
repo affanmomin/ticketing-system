@@ -65,8 +65,6 @@ export function TicketEditForm({
   } = useTaxonomy();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [project, setProject] = useState<Project | null>(null);
-  const [streams, setStreams] = useState<Stream[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [form, setForm] = useState<FormState>({
@@ -107,10 +105,15 @@ export function TicketEditForm({
 
         setTicket(ticketData);
         setProject(projectData);
-        const streamList = streamsRes.data.length ? streamsRes.data : [];
+        const streamList =
+          (streamsRes as any).data?.data && (streamsRes as any).data.data.length
+            ? (streamsRes as any).data.data
+            : [];
         if (
           ticketData.streamId &&
-          !streamList.find((stream) => stream.id === ticketData.streamId)
+          !streamList.find(
+            (stream: Stream) => stream.id === ticketData.streamId
+          )
         ) {
           streamList.push({
             id: ticketData.streamId,
@@ -122,10 +125,16 @@ export function TicketEditForm({
             updatedAt: ticketData.updatedAt,
           } as Stream);
         }
-        const subjectList = subjectsRes.data.length ? subjectsRes.data : [];
+        const subjectList =
+          (subjectsRes as any).data?.data &&
+          (subjectsRes as any).data.data.length
+            ? (subjectsRes as any).data.data
+            : [];
         if (
           ticketData.subjectId &&
-          !subjectList.find((subject) => subject.id === ticketData.subjectId)
+          !subjectList.find(
+            (subject: Subject) => subject.id === ticketData.subjectId
+          )
         ) {
           subjectList.push({
             id: ticketData.subjectId,
@@ -137,10 +146,12 @@ export function TicketEditForm({
             updatedAt: ticketData.updatedAt,
           } as Subject);
         }
-        setStreams(streamList);
-        setSubjects(subjectList);
-        setMembers(membersRes);
-        setUsers(usersRes.data.data);
+        // membersRes is already an array of ProjectMember[]
+        setMembers(
+          Array.isArray(membersRes) ? membersRes : (membersRes.data ?? [])
+        );
+        // usersRes is AxiosResponse<PaginatedResponse<AuthUser>>, extract .data.data
+        setUsers((usersRes as any).data?.data || []);
 
         setForm({
           title: ticketData.title,

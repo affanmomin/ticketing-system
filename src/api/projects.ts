@@ -51,7 +51,7 @@ export const create = (dto: ProjectCreateRequest) =>
 export const get = (id: string) => api.get<Project>(`/projects/${id}`);
 
 export const update = (id: string, patch: ProjectUpdateRequest) =>
-  api.patch<Project>(`/projects/${id}`, patch);
+  api.post<Project>(`/projects/${id}`, patch);
 
 export const listMembers = (projectId: string) =>
   api.get<ProjectMember[]>(`/projects/${projectId}/members`);
@@ -63,10 +63,8 @@ export const updateMember = (
   projectId: string,
   userId: string,
   payload: ProjectMemberUpdateRequest
-) => api.patch<ProjectMember>(
-  `/projects/${projectId}/members/${userId}`,
-  payload
-);
+) =>
+  api.post<ProjectMember>(`/projects/${projectId}/members/${userId}`, payload);
 
 export const removeMember = (projectId: string, userId: string) =>
   api.delete<void>(`/projects/${projectId}/members/${userId}`);

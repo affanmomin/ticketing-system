@@ -13,14 +13,23 @@ import {
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import { toast } from "@/hooks/use-toast";
+import type { Project } from "@/types/api";
 
-export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
+export function ProjectForm({
+  project,
+  onSuccess,
+  onCancel,
+}: {
+  project?: Project;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}) {
   const [formState, setFormState] = useState({
-    name: "",
-    client: "",
-    description: "",
-    startDate: "",
-    endDate: "",
+    name: project?.name || "",
+    client: project?.clientId || "",
+    description: project?.description || "",
+    startDate: project?.startDate || "",
+    endDate: project?.endDate || "",
     saving: false,
   });
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
@@ -32,30 +41,42 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       const { data } = await clientsApi.list({ limit: 200, offset: 0 });
       const items = data.data.map((c) => ({ id: c.id, name: c.name }));
       setClients(items);
-      if (items.length)
+      if (items.length && !project)
         setFormState((prev) => ({ ...prev, client: items[0].id }));
     })();
-  }, []);
+  }, [project]);
 
   async function handleSave() {
     if (!formState.name.trim() || !formState.client) return;
     setFormState((prev) => ({ ...prev, saving: true }));
     try {
-      await projectsApi.create({
+      const payload = {
         clientId: formState.client,
         name: formState.name,
         description: formState.description.trim() || undefined,
         startDate: formState.startDate || undefined,
         endDate: formState.endDate || undefined,
-      });
-      toast({
-        title: "Success",
-        description: "Project created successfully",
-      });
+      };
+
+      if (project) {
+        // Update existing project
+        await projectsApi.update(project.id, payload);
+        toast({
+          title: "Success",
+          description: "Project updated successfully",
+        });
+      } else {
+        // Create new project
+        await projectsApi.create(payload);
+        toast({
+          title: "Success",
+          description: "Project created successfully",
+        });
+      }
       onSuccess?.();
     } catch (e: any) {
       toast({
-        title: "Failed to save project",
+        title: `Failed to ${project ? "update" : "create"} project`,
         description: e?.response?.data?.message || "Error",
         variant: "destructive",
       });
@@ -67,9 +88,13 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <div className="space-y-6">
       <div className="space-y-1.5">
-        <h2 className="text-xl font-semibold tracking-tight">Create Project</h2>
+        <h2 className="text-xl font-semibold tracking-tight">
+          {project ? "Edit Project" : "Create Project"}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Set up a new project under an existing client organization
+          {project
+            ? "Update project details and timeline"
+            : "Set up a new project under an existing client organization"}
         </p>
       </div>
 
@@ -183,6 +208,7 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         <Button
           type="button"
           variant="outline"
+          onClick={onCancel}
           disabled={formState.saving}
           className="min-w-[80px]"
         >
@@ -199,10 +225,10 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           {formState.saving ? (
             <span className="flex items-center gap-2">
               <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Saving
+              {project ? "Updating" : "Saving"}
             </span>
           ) : (
-            "Save Project"
+            project ? "Update Project" : "Save Project"
           )}
         </Button>
       </div>

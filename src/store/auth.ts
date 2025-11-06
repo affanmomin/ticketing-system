@@ -13,6 +13,7 @@ type State = {
 
 type Actions = {
   setToken: (token?: string) => void;
+  setUser: (user?: AuthUser) => void;
   login: (email: string, password: string) => Promise<void>;
   bootstrap: () => Promise<void>;
   logout: () => Promise<void>;
@@ -45,6 +46,10 @@ const initializer: StateCreator<State & Actions> = (set, get) => ({
     set({ token, isAuthenticated: !!token });
   },
 
+  setUser: (user?: AuthUser) => {
+    set({ user });
+  },
+
   clearError: () => set({ error: undefined }),
 
   login: async (email: string, password: string) => {
@@ -65,7 +70,11 @@ const initializer: StateCreator<State & Actions> = (set, get) => ({
   bootstrap: async () => {
     const { token } = get();
     if (!token) {
-      set({ user: undefined, organizationId: undefined, isAuthenticated: false });
+      set({
+        user: undefined,
+        organizationId: undefined,
+        isAuthenticated: false,
+      });
       return;
     }
 

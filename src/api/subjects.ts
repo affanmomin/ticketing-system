@@ -21,9 +21,10 @@ export interface SubjectUpdateRequest {
 export const listForClient = (
   clientId: string,
   params: ListSubjectsQuery = {}
-) => api.get<PaginatedResponse<Subject>>(`/clients/${clientId}/subjects`, {
-  params,
-});
+) =>
+  api.get<PaginatedResponse<Subject>>(`/clients/${clientId}/subjects`, {
+    params,
+  });
 
 export const createForClient = (
   clientId: string,
@@ -31,5 +32,4 @@ export const createForClient = (
 ) => api.post<Subject>(`/clients/${clientId}/subjects`, payload);
 
 export const update = (id: string, payload: SubjectUpdateRequest) =>
-  api.patch<Subject>(`/subjects/${id}`, payload);
-
+  api.post<Subject>(`/subjects/${id}`, payload);

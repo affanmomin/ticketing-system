@@ -21,9 +21,10 @@ export interface StreamUpdateRequest {
 export const listForClient = (
   clientId: string,
   params: ListStreamsQuery = {}
-) => api.get<PaginatedResponse<Stream>>(`/clients/${clientId}/streams`, {
-  params,
-});
+) =>
+  api.get<PaginatedResponse<Stream>>(`/clients/${clientId}/streams`, {
+    params,
+  });
 
 export const createForClient = (
   clientId: string,
@@ -31,4 +32,4 @@ export const createForClient = (
 ) => api.post<Stream>(`/clients/${clientId}/streams`, payload);
 
 export const update = (id: string, payload: StreamUpdateRequest) =>
-  api.patch<Stream>(`/streams/${id}`, payload);
+  api.post<Stream>(`/streams/${id}`, payload);

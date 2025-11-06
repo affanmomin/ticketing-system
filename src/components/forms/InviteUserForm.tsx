@@ -22,7 +22,13 @@ type CreateUserFormState = {
   saving: boolean;
 };
 
-export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
+export function InviteUserForm({
+  onSuccess,
+  onCancel,
+}: {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}) {
   const [formState, setFormState] = useState<CreateUserFormState>({
     fullName: "",
     email: "",
@@ -39,7 +45,9 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
     (async () => {
       try {
         const { data } = await clientsApi.list({ limit: 200, offset: 0 });
-        setClients(data.data.map((client) => ({ id: client.id, name: client.name })));
+        setClients(
+          data.data.map((client) => ({ id: client.id, name: client.name }))
+        );
       } catch (e) {
         console.error("Failed to load clients:", e);
       }
@@ -217,7 +225,8 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Employees belong to your organization. Clients are scoped to a client account.
+              Employees belong to your organization. Clients are scoped to a
+              client account.
             </p>
           </div>
         </div>
@@ -266,6 +275,7 @@ export function InviteUserForm({ onSuccess }: { onSuccess?: () => void }) {
         <Button
           type="button"
           variant="outline"
+          onClick={onCancel}
           disabled={formState.saving}
           className="min-w-[80px]"
         >

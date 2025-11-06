@@ -19,7 +19,7 @@ This document summarizes the core workflow, data model, and HTTP endpoints for t
    - Add project members with role flags (`POST /projects/{id}/members`).
 4. **Ticket lifecycle**
    - Authorized users (admin/employee/client with `canRaise`) create tickets (`POST /tickets`).
-   - Status/Priority updates, assignment workflows, and audit events occur via `PATCH /tickets/{id}`.
+   - Status/Priority updates, assignment workflows, and audit events occur via `POST /tickets/{id}`.
    - Comments enforce visibility rules (`POST /tickets/{id}/comments`).
    - Attachments use presign + confirm flow (`POST /tickets/{id}/attachments/presign`, `/confirm`).
 5. **Notifications**
@@ -59,25 +59,25 @@ Key auth endpoints:
 - `GET /users` – list internal + client users (ADMIN/EMPLOYEE).
 - `POST /employees` – create employee (ADMIN).
 - `POST /client-users` – create client-linked user (ADMIN).
-- `PATCH /users/{id}` – update name/email/active.
+- `POST /users/{id}` – update name/email/active.
 - `POST /users/{id}/password` – change own password.
 
 ### Clients
-- `GET /clients` / `POST /clients` / `PATCH /clients/{id}`.
+- `GET /clients` / `POST /clients` / `POST /clients/{id}`.
 - Records scoped per organization; deleting cascades to projects/tickets.
 
 ### Streams & Subjects (per client)
-- `GET /clients/{id}/streams`, `POST /clients/{id}/streams`, `PATCH /streams/{id}`.
-- `GET /clients/{id}/subjects`, `POST /clients/{id}/subjects`, `PATCH /subjects/{id}`.
+- `GET /clients/{id}/streams`, `POST /clients/{id}/streams`, `POST /streams/{id}`.
+- `GET /clients/{id}/subjects`, `POST /clients/{id}/subjects`, `POST /subjects/{id}`.
 - Used to categorize tickets.
 
 ### Projects & Membership
 - `GET /projects` – role-aware listing (admin = org, employee = memberships, client = client projects).
-- `POST /projects`, `PATCH /projects/{id}` (ADMIN).
+- `POST /projects`, `POST /projects/{id}` (ADMIN).
 - Membership endpoints:
   - `GET /projects/{id}/members`
   - `POST /projects/{id}/members`
-  - `PATCH /projects/{projectId}/members/{userId}`
+  - `POST /projects/{projectId}/members/{userId}`
   - `DELETE /projects/{projectId}/members/{userId}`
 - Membership flags:
   - `role`: MEMBER/MANAGER/VIEWER
@@ -88,7 +88,7 @@ Key auth endpoints:
 - `GET /tickets` – filters on project, status, priority, assignee.
 - `POST /tickets` – requires membership + `canRaise`.
 - `GET /tickets/{id}` – scoped detail view.
-- `PATCH /tickets/{id}` – updates status/priority/assignee/title/description.
+- `POST /tickets/{id}` – updates status/priority/assignee/title/description.
   - Audit events stored in `ticket_event`.
 - `DELETE /tickets/{id}` – soft delete (`is_deleted`).
 
@@ -128,7 +128,7 @@ Key auth endpoints:
 6. **Create Project**: `POST /projects`.
 7. **Add Project Members**: `POST /projects/{projectId}/members` (admin & employee).
 8. **Create Ticket**: `POST /tickets` assigned to employee.
-9. **Update Ticket**: `PATCH /tickets/{ticketId}` (status/priority/assignee).
+9. **Update Ticket**: `POST /tickets/{ticketId}` (status/priority/assignee).
 10. **Comments**: admin adds INTERNAL, client adds PUBLIC.
 11. **Attachments**: presign → upload → confirm.
 12. **Audit & Notifications**: events recorded in `ticket_event`, notifications queued in `notification_outbox`.

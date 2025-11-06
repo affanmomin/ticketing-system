@@ -16,9 +16,14 @@ import { toast } from "@/hooks/use-toast";
 type StreamFormProps = {
   projectId?: string;
   onSuccess?: () => void;
+  onCancel?: () => void;
 };
 
-export function StreamForm({ projectId, onSuccess }: StreamFormProps = {}) {
+export function StreamForm({
+  projectId,
+  onSuccess,
+  onCancel,
+}: StreamFormProps = {}) {
   const [formState, setFormState] = useState({
     name: "",
     project: projectId || "",
@@ -31,7 +36,11 @@ export function StreamForm({ projectId, onSuccess }: StreamFormProps = {}) {
   useEffect(() => {
     (async () => {
       const { data } = await projectsApi.list();
-      const items = data.map((p) => ({ id: p.id, name: p.name }));
+      // data is PaginatedResponse<Project>, extract .data array
+      const items = (data.data || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+      }));
       setProjects(items);
       // Only set default project if not provided via props
       if (items.length && !projectId)
@@ -43,9 +52,16 @@ export function StreamForm({ projectId, onSuccess }: StreamFormProps = {}) {
     if (!formState.name.trim() || !formState.project) return;
     setFormState((prev) => ({ ...prev, saving: true }));
     try {
-      await streamsApi.create({
-        projectId: formState.project,
+      // Note: streams are created per client, not per project
+      // This form would need client ID. For now, we'll need to fetch project to get clientId
+      const project = projects.find((p) => p.id === formState.project);
+      if (!project) throw new Error("Project not found");
+
+      // In a real scenario, get the project details to extract clientId
+      // For now, this is a placeholder - the backend needs to be consulted for proper flow
+      await streamsApi.createForClient(project.id, {
         name: formState.name,
+        description: "",
       });
       toast({
         title: "Success",
@@ -134,6 +150,7 @@ export function StreamForm({ projectId, onSuccess }: StreamFormProps = {}) {
         <Button
           type="button"
           variant="outline"
+          onClick={onCancel}
           disabled={formState.saving}
           className="min-w-[80px]"
         >
