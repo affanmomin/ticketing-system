@@ -390,7 +390,9 @@ export function Projects() {
                               variant="ghost"
                               size="sm"
                               className="h-8 text-xs sm:text-sm"
-                              onClick={() => navigate(`/projects/${project.id}`)}
+                              onClick={() =>
+                                navigate(`/projects/${project.id}`)
+                              }
                             >
                               View
                             </Button>

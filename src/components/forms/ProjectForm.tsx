@@ -227,8 +227,10 @@ export function ProjectForm({
               <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
               {project ? "Updating" : "Saving"}
             </span>
+          ) : project ? (
+            "Update Project"
           ) : (
-            project ? "Update Project" : "Save Project"
+            "Save Project"
           )}
         </Button>
       </div>
