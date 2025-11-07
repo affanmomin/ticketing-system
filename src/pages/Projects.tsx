@@ -106,8 +106,11 @@ export function Projects() {
 
   useEffect(() => {
     const debounce = setTimeout(() => {
-      setOffset(0);
-      loadProjects();
+      if (offset !== 0) {
+        setOffset(0);
+      } else {
+        loadProjects();
+      }
     }, 250);
     return () => clearTimeout(debounce);
     // eslint-disable-next-line react-hooks/exhaustive-deps

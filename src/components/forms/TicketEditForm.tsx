@@ -10,13 +10,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CommentForm } from "@/components/forms/CommentForm";
 import { CommentsList } from "@/components/CommentsList";
 import AttachmentUpload from "@/components/forms/AttachmentUpload";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { toast } from "@/hooks/use-toast";
+import {
+  FileText,
+  Calendar,
+  User,
+  Tag,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Building2,
+  Layers,
+  FolderOpen,
+  Loader2,
+} from "lucide-react";
 import * as ticketsApi from "@/api/tickets";
 import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
@@ -67,6 +80,8 @@ export function TicketEditForm({
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [form, setForm] = useState<FormState>({
     title: "",
     descriptionMd: "",
@@ -125,6 +140,7 @@ export function TicketEditForm({
             updatedAt: ticketData.updatedAt,
           } as Stream);
         }
+        setStreams(streamList);
         const subjectList =
           (subjectsRes as any).data?.data &&
           (subjectsRes as any).data.data.length
@@ -146,6 +162,7 @@ export function TicketEditForm({
             updatedAt: ticketData.updatedAt,
           } as Subject);
         }
+        setSubjects(subjectList);
         // membersRes is already an array of ProjectMember[]
         setMembers(
           Array.isArray(membersRes) ? membersRes : (membersRes.data ?? [])
@@ -242,169 +259,387 @@ export function TicketEditForm({
 
   if (!ticketId) {
     return (
-      <p className="text-sm text-muted-foreground">Select a ticket to edit.</p>
+      <div className="flex items-center justify-center py-12">
+        <p className="text-sm text-muted-foreground">
+          Select a ticket to edit.
+        </p>
+      </div>
     );
   }
 
   if (loading || !ticket || !project) {
     return (
-      <p className="text-sm text-muted-foreground">Loading ticket details…</p>
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Loading ticket details…</p>
+      </div>
     );
   }
 
+  const currentStatus = statuses.find((s) => s.id === form.statusId);
+  const currentPriority = priorities.find((p) => p.id === form.priorityId);
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h2 className="text-xl font-semibold">Edit ticket</h2>
-        <p className="text-sm text-muted-foreground">
-          {project.name} · {project.clientId}
-        </p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="md:col-span-2 space-y-2">
-          <Label htmlFor="edit-ticket-title">Title</Label>
-          <Input
-            id="edit-ticket-title"
-            value={form.title}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, title: event.target.value }))
-            }
-          />
-        </div>
-
-        <div className="md:col-span-2 space-y-2">
-          <Label htmlFor="edit-ticket-description">Description</Label>
-          <Textarea
-            id="edit-ticket-description"
-            value={form.descriptionMd}
-            onChange={(event) =>
-              setForm((prev) => ({
-                ...prev,
-                descriptionMd: event.target.value,
-              }))
-            }
-            className="min-h-[160px]"
-            placeholder="Markdown supported"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="edit-ticket-priority">Priority</Label>
-          <Select
-            value={form.priorityId}
-            onValueChange={(value) =>
-              setForm((prev) => ({ ...prev, priorityId: value }))
-            }
-            disabled={taxonomyLoading}
-          >
-            <SelectTrigger id="edit-ticket-priority">
-              <SelectValue placeholder="Select priority" />
-            </SelectTrigger>
-            <SelectContent>
-              {priorityOptions.map((priority) => (
-                <SelectItem key={priority.id} value={priority.id}>
-                  {priority.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="edit-ticket-status">Status</Label>
-          <Select
-            value={form.statusId}
-            onValueChange={(value) =>
-              setForm((prev) => ({ ...prev, statusId: value }))
-            }
-            disabled={!canEditStatus || taxonomyLoading}
-          >
-            <SelectTrigger id="edit-ticket-status">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((status) => (
-                <SelectItem key={status.id} value={status.id}>
-                  {status.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {role === "CLIENT" && (
-            <p className="text-xs text-muted-foreground">
-              Contact your project team to change ticket status.
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="edit-ticket-assignee">Assignee</Label>
-          <Select
-            value={form.assignedToUserId}
-            onValueChange={(value) =>
-              setForm((prev) => ({ ...prev, assignedToUserId: value }))
-            }
-            disabled={assignableMembers.length === 0}
-          >
-            <SelectTrigger id="edit-ticket-assignee">
-              <SelectValue placeholder="Unassigned" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Unassigned</SelectItem>
-              {assignableMembers.map((member) => (
-                <SelectItem key={member.id} value={member.id}>
-                  {member.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {assignableMembers.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              Enable "Can be assigned" for project members to populate this
-              list.
-            </p>
-          )}
+    <div className="space-y-6 pb-6">
+      {/* Header Section */}
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1 flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+              <h2 className="text-2xl font-semibold text-foreground truncate">
+                {form.title || "Edit Ticket"}
+              </h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                <span className="truncate">{project.name}</span>
+              </div>
+              <span>·</span>
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>{new Date(ticket.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {currentStatus && (
+              <Badge
+                variant={currentStatus.isClosed ? "secondary" : "default"}
+                className="text-xs"
+              >
+                {currentStatus.name}
+              </Badge>
+            )}
+            {currentPriority && (
+              <Badge variant="outline" className="text-xs">
+                {currentPriority.name}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Badge variant={ticket.isDeleted ? "secondary" : "default"}>
-          Ticket ID · {ticket.id}
-        </Badge>
-        <Badge variant="outline">
-          Created {new Date(ticket.createdAt).toLocaleString()}
-        </Badge>
-      </div>
+      {/* Main Form Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Ticket Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Title */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-ticket-title" className="text-sm font-medium">
+              Title
+            </Label>
+            <Input
+              id="edit-ticket-title"
+              value={form.title}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, title: event.target.value }))
+              }
+              className="text-base"
+              placeholder="Enter ticket title"
+            />
+          </div>
 
-      <Separator />
+          {/* Description */}
+          <div className="space-y-2">
+            <Label
+              htmlFor="edit-ticket-description"
+              className="text-sm font-medium"
+            >
+              Description
+            </Label>
+            <Textarea
+              id="edit-ticket-description"
+              value={form.descriptionMd}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  descriptionMd: event.target.value,
+                }))
+              }
+              className="min-h-[180px] resize-none text-sm"
+              placeholder="Describe the issue or request in detail. Markdown is supported."
+            />
+          </div>
 
-      <AttachmentUpload ticketId={ticketId} />
+          {/* Grid of Select Fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Priority */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="edit-ticket-priority"
+                className="text-sm font-medium flex items-center gap-2"
+              >
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                Priority
+              </Label>
+              <Select
+                value={form.priorityId}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, priorityId: value }))
+                }
+                disabled={taxonomyLoading}
+              >
+                <SelectTrigger id="edit-ticket-priority" className="w-full">
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorityOptions.map((priority) => (
+                    <SelectItem key={priority.id} value={priority.id}>
+                      {priority.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={onCancel} disabled={saving}>
+            {/* Status */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="edit-ticket-status"
+                className="text-sm font-medium flex items-center gap-2"
+              >
+                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                Status
+              </Label>
+              <Select
+                value={form.statusId}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, statusId: value }))
+                }
+                disabled={!canEditStatus || taxonomyLoading}
+              >
+                <SelectTrigger id="edit-ticket-status" className="w-full">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((status) => (
+                    <SelectItem key={status.id} value={status.id}>
+                      {status.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {role === "CLIENT" && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Contact your project team to change ticket status.
+                </p>
+              )}
+            </div>
+
+            {/* Stream */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="edit-ticket-stream"
+                className="text-sm font-medium flex items-center gap-2"
+              >
+                <Layers className="h-4 w-4 text-muted-foreground" />
+                Stream
+              </Label>
+              <Select
+                value={form.streamId}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, streamId: value }))
+                }
+              >
+                <SelectTrigger id="edit-ticket-stream" className="w-full">
+                  <SelectValue placeholder="Select stream" />
+                </SelectTrigger>
+                <SelectContent>
+                  {streams.map((stream) => (
+                    <SelectItem key={stream.id} value={stream.id}>
+                      {stream.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Subject */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="edit-ticket-subject"
+                className="text-sm font-medium flex items-center gap-2"
+              >
+                <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                Subject
+              </Label>
+              <Select
+                value={form.subjectId}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, subjectId: value }))
+                }
+              >
+                <SelectTrigger id="edit-ticket-subject" className="w-full">
+                  <SelectValue placeholder="Select subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Assignee */}
+            <div className="space-y-2 sm:col-span-2">
+              <Label
+                htmlFor="edit-ticket-assignee"
+                className="text-sm font-medium flex items-center gap-2"
+              >
+                <User className="h-4 w-4 text-muted-foreground" />
+                Assignee
+              </Label>
+              <Select
+                value={form.assignedToUserId || "unassigned"}
+                onValueChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    assignedToUserId: value === "unassigned" ? "" : value,
+                  }))
+                }
+                disabled={assignableMembers.length === 0}
+              >
+                <SelectTrigger id="edit-ticket-assignee" className="w-full">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {assignableMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {assignableMembers.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enable "Can be assigned" for project members to populate this
+                  list.
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Metadata Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Tag className="h-5 w-5" />
+            Ticket Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Ticket ID
+              </p>
+              <p className="text-sm font-mono text-foreground break-all">
+                {ticket.id}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Created
+              </p>
+              <div className="flex items-center gap-2 text-sm text-foreground">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{new Date(ticket.createdAt).toLocaleString()}</span>
+              </div>
+            </div>
+            {ticket.updatedAt && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Last Updated
+                </p>
+                <div className="flex items-center gap-2 text-sm text-foreground">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{new Date(ticket.updatedAt).toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+            {ticket.closedAt && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Closed
+                </p>
+                <div className="flex items-center gap-2 text-sm text-foreground">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{new Date(ticket.closedAt).toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Attachments Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Attachments</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AttachmentUpload ticketId={ticketId} />
+        </CardContent>
+      </Card>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t">
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          disabled={saving}
+          className="w-full sm:w-auto"
+        >
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={disableSubmit}>
-          {saving ? "Saving…" : "Save changes"}
+        <Button
+          onClick={handleSubmit}
+          disabled={disableSubmit}
+          className="w-full sm:w-auto"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving…
+            </>
+          ) : (
+            "Save Changes"
+          )}
         </Button>
       </div>
 
-      <Separator />
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold">Conversation</h3>
-          <Button variant="ghost" size="sm" onClick={refreshTaxonomy}>
-            Refresh taxonomy
-          </Button>
-        </div>
-        <CommentForm
-          ticketId={ticketId}
-          onPosted={() => setCommentsRefresh((prev) => prev + 1)}
-        />
-        <CommentsList ticketId={ticketId} refreshTrigger={commentsRefresh} />
-      </div>
+      {/* Comments Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Conversation</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshTaxonomy}
+              className="text-xs"
+            >
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <CommentForm
+            ticketId={ticketId}
+            onPosted={() => setCommentsRefresh((prev) => prev + 1)}
+          />
+          <CommentsList ticketId={ticketId} refreshTrigger={commentsRefresh} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

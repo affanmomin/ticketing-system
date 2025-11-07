@@ -109,12 +109,23 @@ export interface Status {
 export interface Ticket {
   id: string;
   projectId: string;
+  projectName?: string;
+  clientId?: string;
+  clientName?: string;
   raisedByUserId: string;
+  raisedByName?: string;
+  raisedByEmail?: string;
   assignedToUserId: string | null;
+  assignedToName?: string;
+  assignedToEmail?: string;
   streamId: string;
+  streamName?: string;
   subjectId: string;
+  subjectName?: string;
   priorityId: string;
+  priorityName?: string;
   statusId: string;
+  statusName?: string;
   title: string;
   descriptionMd: string | null;
   isDeleted: boolean;

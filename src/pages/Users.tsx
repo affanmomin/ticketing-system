@@ -104,8 +104,11 @@ export function Users() {
 
   useEffect(() => {
     const debounce = setTimeout(() => {
-      setOffset(0);
-      loadUsers();
+      if (offset !== 0) {
+        setOffset(0);
+      } else {
+        loadUsers();
+      }
     }, 250);
 
     return () => clearTimeout(debounce);

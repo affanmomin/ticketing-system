@@ -30,27 +30,13 @@ import { TicketsBoard } from "@/components/TicketsBoard";
 import * as ticketsApi from "@/api/tickets";
 import * as projectsApi from "@/api/projects";
 import * as clientsApi from "@/api/clients";
-import type {
-  Ticket,
-  Project,
-  Client,
-  Priority,
-  Status,
-  TicketsListQuery,
-} from "@/types/api";
+import type { Ticket, Project, Client, TicketsListQuery } from "@/types/api";
 import { format } from "date-fns";
 import { Plus } from "lucide-react";
 
-type TicketListItem = Ticket & {
-  priorityName?: string;
-  statusName?: string;
-  clientName?: string;
-  projectName?: string;
-};
-
 export function Tickets() {
   const { priorities, statuses } = useTaxonomy();
-  const [tickets, setTickets] = useState<TicketListItem[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<
@@ -89,7 +75,6 @@ export function Tickets() {
         );
         setProjects(projectsRes.data);
         setClients(clientsRes.data);
-        await loadTickets();
       } catch (error) {
         console.warn("Failed to load project/client filter data", error);
       }
@@ -111,7 +96,11 @@ export function Tickets() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      void loadTickets();
+      if (page !== 0) {
+        setPage(0);
+      } else {
+        void loadTickets();
+      }
     }, 250);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,15 +119,8 @@ export function Tickets() {
 
       const { data } = await ticketsApi.list(query);
       setTotal(data.total);
-      const priorityMap = new Map<string, Priority>();
-      priorities.forEach((priority) => priorityMap.set(priority.id, priority));
-      const statusMap = new Map<string, Status>();
-      statuses.forEach((status) => statusMap.set(status.id, status));
-      const projectMap = new Map<string, Project>();
-      projects.forEach((project) => projectMap.set(project.id, project));
-      const clientMap = new Map<string, Client>();
-      clients.forEach((client) => clientMap.set(client.id, client));
 
+      // API now returns tickets with all related data already populated
       const filtered = data.data.filter((ticket) => {
         const matchesSearch = filters.search
           ? ticket.title.toLowerCase().includes(filters.search.toLowerCase())
@@ -146,23 +128,11 @@ export function Tickets() {
         const matchesClient =
           filters.clientId === "all"
             ? true
-            : projectMap.get(ticket.projectId)?.clientId === filters.clientId;
+            : ticket.clientId === filters.clientId;
         return matchesSearch && matchesClient;
       });
 
-      const decorated: TicketListItem[] = filtered.map((ticket) => {
-        const project = projectMap.get(ticket.projectId);
-        const client = project ? clientMap.get(project.clientId) : undefined;
-        return {
-          ...ticket,
-          projectName: project?.name,
-          clientName: client?.name,
-          priorityName: priorityMap.get(ticket.priorityId)?.name,
-          statusName: statusMap.get(ticket.statusId)?.name,
-        };
-      });
-
-      setTickets(decorated);
+      setTickets(filtered);
     } catch (error: any) {
       toast({
         title: "Failed to load tickets",
@@ -644,15 +614,15 @@ export function Tickets() {
         </div>
       )}
 
-      <Dialog
-        open={openEdit}
-        onOpenChange={(open) => {
-          setOpenEdit(open);
-          if (!open) setSelectedTicketId(undefined);
-        }}
-      >
-        <DialogContent className="max-w-4xl">
-          {selectedTicketId && (
+      {selectedTicketId && (
+        <Dialog
+          open={openEdit}
+          onOpenChange={(open) => {
+            setOpenEdit(open);
+            if (!open) setSelectedTicketId(undefined);
+          }}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <TicketEditForm
               ticketId={selectedTicketId}
               onSaved={() => {
@@ -665,9 +635,9 @@ export function Tickets() {
                 setSelectedTicketId(undefined);
               }}
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
