@@ -1,3 +1,4 @@
+import React from 'react';
 import { cn } from '@/lib/utils';
 
 type Status = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';

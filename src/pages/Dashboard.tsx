@@ -1,21 +1,17 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, FolderKanban, Users, CheckCircle2, Loader2 } from "lucide-react";
+import { FileText, FolderKanban, Users, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { RecentTicketsWidget } from "@/components/RecentTicketsWidget";
-import * as ticketsApi from "@/api/tickets";
-import * as projectsApi from "@/api/projects";
-import * as usersApi from "@/api/users";
-import { useTaxonomy } from "@/hooks/useTaxonomy";
+import * as dashboardApi from "@/api/dashboard";
 import { toast } from "@/hooks/use-toast";
 
 export function Dashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const { statuses } = useTaxonomy();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalTickets: 0,
@@ -36,39 +32,13 @@ export function Dashboard() {
     async function loadDashboard() {
       setLoading(true);
       try {
-        const [ticketsRes, projectsRes, usersRes] = await Promise.all([
-          ticketsApi.list({ limit: 1, offset: 0 }),
-          projectsApi.list({ limit: 1, offset: 0, active: true }),
-          user?.role === "ADMIN" ? usersApi.list({ limit: 1, offset: 0 }) : Promise.resolve(null),
-        ]);
-
-        const totalTickets = ticketsRes.data.total;
-        const activeProjects = projectsRes.data.total;
-        const totalUsers = usersRes?.data.total || 0;
-
-        // Get completed tickets count
-        const closedStatuses = statuses.filter((s) => s.isClosed);
-        const closedStatusIds = closedStatuses.map((s) => s.id);
-        let completedTickets = 0;
-        if (closedStatusIds.length > 0) {
-          try {
-            const completedRes = await ticketsApi.list({
-              limit: 1,
-              offset: 0,
-              statusId: closedStatusIds[0],
-            });
-            completedTickets = completedRes.data.total;
-          } catch (error) {
-            // If filtering by status fails, estimate from total
-            completedTickets = Math.floor(totalTickets * 0.2); // Rough estimate
-          }
-        }
+        const { data: metrics } = await dashboardApi.getMetrics();
 
         setStats({
-          totalTickets,
-          activeProjects,
-          totalUsers,
-          completedTickets,
+          totalTickets: metrics.tickets.total,
+          activeProjects: metrics.projects.active,
+          totalUsers: metrics.users?.total || 0,
+          completedTickets: metrics.tickets.closed,
         });
       } catch (error: any) {
         console.error("Failed to load dashboard:", error);
@@ -82,7 +52,7 @@ export function Dashboard() {
       }
     }
     loadDashboard();
-  }, [user?.role, statuses]);
+  }, [user?.role]);
 
   const statsData = [
     {
@@ -182,7 +152,7 @@ export function Dashboard() {
       )}
 
       <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
-        <Card className="flex flex-col h-[320px] sm:h-[400px] relative">
+        <Card className="flex flex-col h-[420px] sm:h-[520px] relative border-border/60">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm sm:text-base tracking-tight text-muted-foreground">
@@ -203,7 +173,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col h-[320px] sm:h-[400px]">
+        <Card className="flex flex-col h-[420px] sm:h-[520px] border-border/60">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm sm:text-base tracking-tight text-muted-foreground">
               Quick Actions

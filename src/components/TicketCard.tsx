@@ -1,3 +1,4 @@
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { PriorityBadge } from './PriorityBadge';
 import { TagBadge } from './TagBadge';

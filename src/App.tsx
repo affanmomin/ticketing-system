@@ -10,6 +10,7 @@ import { ProjectDetail } from "./pages/ProjectDetail";
 import { Settings } from "./pages/Settings";
 import { Clients } from "./pages/Clients";
 import { Users } from "./pages/Users";
+import { UserActivity } from "./pages/UserActivity";
 import { Toaster } from "./components/ui/sonner";
 import { Toaster as ShadcnToaster } from "./components/ui/toaster";
 import { useEffect } from "react";
@@ -165,13 +166,19 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="users/:userId/activity"
+          element={
+            <ProtectedRoute roles={["ADMIN"]}>
+              <UserActivity />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
       <Route
         path="*"
-        element={
-          <Navigate to={getDefaultRoute(user?.role)} replace />
-        }
+        element={<Navigate to={getDefaultRoute(user?.role)} replace />}
       />
     </Routes>
   );

@@ -1071,7 +1071,7 @@ export function Tickets() {
               </div>
             </>
           ) : (
-            <div className="p-2 sm:p-4">
+            <div className="p-1 sm:p-2">
               <TicketsBoard
                 tickets={tickets}
                 statuses={visibleStatuses}

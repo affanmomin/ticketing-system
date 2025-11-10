@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import * as ticketsApi from "@/api/tickets";
 import type { Ticket } from "@/types/api";
 import { format } from "date-fns";
-import { FileText } from "lucide-react";
+import { FileText, User, UserCheck } from "lucide-react";
 
 export function RecentTicketsWidget() {
   const navigate = useNavigate();
@@ -17,8 +17,8 @@ export function RecentTicketsWidget() {
     async function loadRecentTickets() {
       setLoading(true);
       try {
-        const { data } = await ticketsApi.list({ limit: 5, offset: 0 });
-        setTickets(data.data);
+        const { data: ticketsData } = await ticketsApi.list({ limit: 5, offset: 0 });
+        setTickets(ticketsData.data);
       } catch (error) {
         console.warn("Failed to load recent tickets", error);
       } finally {
@@ -32,11 +32,14 @@ export function RecentTicketsWidget() {
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-start gap-3 p-2">
-            <Skeleton className="h-2 w-2 rounded-full mt-2 shrink-0" />
-            <div className="flex-1 space-y-2">
+          <div key={i} className="p-3 border rounded-lg">
+            <div className="space-y-2">
               <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-24" />
+              <div className="flex items-center gap-4 mt-3">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-3 w-28" />
+              </div>
             </div>
           </div>
         ))}
@@ -61,19 +64,42 @@ export function RecentTicketsWidget() {
           onClick={() => navigate(`/tickets?ticketId=${ticket.id}`)}
           className="w-full text-left"
         >
-          <Card className="p-3 hover:bg-accent transition-colors">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{ticket.title}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {ticket.updatedAt
-                    ? format(new Date(ticket.updatedAt), "MMM d, yyyy")
-                    : format(new Date(ticket.createdAt), "MMM d, yyyy")}
-                </p>
+          <Card className="p-3 hover:bg-accent/50 transition-all hover:shadow-sm border-border/60">
+            <div className="space-y-2.5">
+              {/* Ticket Title */}
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="text-sm font-medium line-clamp-2 flex-1 min-w-0">
+                  {ticket.title}
+                </h4>
+                <Badge variant="secondary" className="text-xs shrink-0 h-5">
+                  {ticket.priorityName || ticket.priorityId}
+                </Badge>
               </div>
-              <Badge variant="secondary" className="text-xs shrink-0">
-                {ticket.priorityId}
-              </Badge>
+
+              {/* Date */}
+              <p className="text-xs text-muted-foreground">
+                {ticket.updatedAt
+                  ? format(new Date(ticket.updatedAt), "MMM d, yyyy 'at' h:mm a")
+                  : format(new Date(ticket.createdAt), "MMM d, yyyy 'at' h:mm a")}
+              </p>
+
+              {/* Raised By and Assigned To */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 pt-1 border-t border-border/40">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="shrink-0">Raised by:</span>
+                  <span className="font-medium text-foreground truncate">
+                    {ticket.raisedByName || ticket.raisedByEmail || "Unknown"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+                  <UserCheck className="h-3 w-3 shrink-0" />
+                  <span className="shrink-0">Assigned:</span>
+                  <span className={`font-medium truncate ${ticket.assignedToUserId ? 'text-foreground' : 'text-muted-foreground/70'}`}>
+                    {ticket.assignedToName || ticket.assignedToEmail || "Unassigned"}
+                  </span>
+                </div>
+              </div>
             </div>
           </Card>
         </button>

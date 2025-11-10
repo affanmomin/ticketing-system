@@ -1,3 +1,4 @@
+import React from 'react';
 import { cn } from '@/lib/utils';
 import { AlertCircle, ArrowDown, ArrowUp, Circle } from 'lucide-react';
 

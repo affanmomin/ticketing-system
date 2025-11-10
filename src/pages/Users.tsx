@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Users as UsersIcon,
   Plus,
   Search,
   Settings2,
   ToggleLeft,
+  BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +48,7 @@ const PAGE_SIZE = 50;
 
 export function Users() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
@@ -390,6 +393,16 @@ export function Users() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              navigate(`/users/${user.id}/activity`)
+                            }
+                            title="View Activity"
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"

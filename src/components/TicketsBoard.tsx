@@ -9,7 +9,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -77,8 +77,26 @@ export function TicketsBoard({
     onMoveTicket?.(ticketId, toStatusId);
   }
 
+  const getGridColumns = () => {
+    const count = statuses.length;
+    // On mobile, show 1 column if more than 3 statuses, otherwise show all
+    // On tablet, show 2-3 columns max
+    // On desktop, show all columns
+    if (count <= 2) return `repeat(${count}, minmax(0, 1fr))`;
+    if (count === 3) return "repeat(auto-fit, minmax(200px, 1fr))";
+    return "repeat(auto-fit, minmax(180px, 1fr))";
+  };
+
   return (
-    <div className="flex h-[70vh] min-h-[420px] w-full gap-4 pb-2 px-1 sm:px-2 flex-col md:flex-row md:overflow-x-auto md:snap-x md:snap-mandatory md:touch-pan-x">
+    <div
+      className="w-full h-[calc(100vh-280px)] min-h-[400px] max-h-[800px] overflow-x-auto"
+      style={{
+        display: "grid",
+        gridTemplateColumns: getGridColumns(),
+        gap: "clamp(0.5rem, 2vw, 0.75rem)",
+        padding: "clamp(0.25rem, 1vw, 0.5rem)",
+      }}
+    >
       <DndContext
         sensors={sensors}
         onDragStart={(e) => setActiveId(String(e.active.id))}
@@ -125,7 +143,9 @@ export function TicketsBoard({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => onEditTicket?.(t.id)}>
+                          <DropdownMenuItem
+                            onClick={() => onEditTicket?.(t.id)}
+                          >
                             Edit Ticket
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onCardClick?.(t.id)}>
@@ -149,7 +169,7 @@ export function TicketsBoard({
         ))}
         <DragOverlay dropAnimation={{ duration: 180, easing: "ease-out" }}>
           {activeId ? (
-            <Card className="pointer-events-none w-[300px] p-3 shadow-xl">
+            <Card className="pointer-events-none w-full max-w-[300px] p-3 shadow-xl">
               <div className="h-4 w-24 rounded bg-muted mb-2" />
               <div className="h-3 w-full rounded bg-muted mb-1" />
               <div className="h-3 w-2/3 rounded bg-muted" />
@@ -165,51 +185,51 @@ function statusColor(status: Status) {
   const key = status.name.toLowerCase();
   if (key.includes("backlog"))
     return {
-      ring: "ring-slate-400/40",
-      header: "text-slate-700 dark:text-slate-300",
-      tint: "bg-slate-50 dark:bg-slate-900/40",
-      dot: "bg-slate-500",
+      ring: "ring-gray-300/50 dark:ring-gray-600/50",
+      header: "text-gray-700 dark:text-gray-300",
+      tint: "bg-gradient-to-b from-gray-50/80 to-gray-100/40 dark:from-gray-800/30 dark:to-gray-900/40 border-gray-200/60 dark:border-gray-700/60",
+      dot: "bg-gray-400 dark:bg-gray-500",
     };
   if (key.includes("todo") || key.includes("to do"))
     return {
-      ring: "ring-blue-400/40",
-      header: "text-blue-700 dark:text-blue-300",
-      tint: "bg-blue-50 dark:bg-blue-900/30",
-      dot: "bg-blue-500",
+      ring: "ring-indigo-300/50 dark:ring-indigo-600/50",
+      header: "text-indigo-700 dark:text-indigo-300",
+      tint: "bg-gradient-to-b from-indigo-50/80 to-indigo-100/40 dark:from-indigo-950/30 dark:to-indigo-900/40 border-indigo-200/60 dark:border-indigo-800/60",
+      dot: "bg-indigo-500 dark:bg-indigo-400",
     };
   if (key.includes("progress"))
     return {
-      ring: "ring-amber-400/40",
-      header: "text-amber-700 dark:text-amber-300",
-      tint: "bg-amber-50 dark:bg-amber-900/30",
-      dot: "bg-amber-500",
+      ring: "ring-sky-300/50 dark:ring-sky-600/50",
+      header: "text-sky-700 dark:text-sky-300",
+      tint: "bg-gradient-to-b from-sky-50/80 to-sky-100/40 dark:from-sky-950/30 dark:to-sky-900/40 border-sky-200/60 dark:border-sky-800/60",
+      dot: "bg-sky-500 dark:bg-sky-400",
     };
   if (key.includes("review") || key.includes("qa"))
     return {
-      ring: "ring-violet-400/40",
-      header: "text-violet-700 dark:text-violet-300",
-      tint: "bg-violet-50 dark:bg-violet-900/30",
-      dot: "bg-violet-500",
+      ring: "ring-purple-300/50 dark:ring-purple-600/50",
+      header: "text-purple-700 dark:text-purple-300",
+      tint: "bg-gradient-to-b from-purple-50/80 to-purple-100/40 dark:from-purple-950/30 dark:to-purple-900/40 border-purple-200/60 dark:border-purple-800/60",
+      dot: "bg-purple-500 dark:bg-purple-400",
     };
   if (key.includes("done") || status.isClosed)
     return {
-      ring: "ring-emerald-400/40",
+      ring: "ring-emerald-300/50 dark:ring-emerald-600/50",
       header: "text-emerald-700 dark:text-emerald-300",
-      tint: "bg-emerald-50 dark:bg-emerald-900/30",
-      dot: "bg-emerald-500",
+      tint: "bg-gradient-to-b from-emerald-50/80 to-emerald-100/40 dark:from-emerald-950/30 dark:to-emerald-900/40 border-emerald-200/60 dark:border-emerald-800/60",
+      dot: "bg-emerald-500 dark:bg-emerald-400",
     };
   if (key.includes("cancel"))
     return {
-      ring: "ring-rose-400/40",
-      header: "text-rose-700 dark:text-rose-300",
-      tint: "bg-rose-50 dark:bg-rose-900/30",
-      dot: "bg-rose-500",
+      ring: "ring-red-300/50 dark:ring-red-600/50",
+      header: "text-red-700 dark:text-red-300",
+      tint: "bg-gradient-to-b from-red-50/80 to-red-100/40 dark:from-red-950/30 dark:to-red-900/40 border-red-200/60 dark:border-red-800/60",
+      dot: "bg-red-500 dark:bg-red-400",
     };
   return {
-    ring: "ring-muted/40",
-    header: "text-foreground",
-    tint: "bg-muted/20",
-    dot: "bg-muted-foreground",
+    ring: "ring-slate-300/50 dark:ring-slate-600/50",
+    header: "text-slate-700 dark:text-slate-300",
+    tint: "bg-gradient-to-b from-slate-50/80 to-slate-100/40 dark:from-slate-800/30 dark:to-slate-900/40 border-slate-200/60 dark:border-slate-700/60",
+    dot: "bg-slate-400 dark:bg-slate-500",
   };
 }
 
@@ -231,25 +251,30 @@ function Column({
   const { setNodeRef, isOver } = useDroppable({ id });
   const colors = statusColor(status);
   return (
-    <div className="flex flex-col w-full md:w-[320px] md:flex-shrink-0 md:snap-start">
-      <div className="sticky top-0 z-10 mb-2 flex items-center justify-between px-2 py-2 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="flex flex-col min-w-0 h-full">
+      <div className="sticky top-0 z-10 mb-2 flex items-center justify-between px-3 py-2.5 rounded-lg bg-background/95 backdrop-blur-sm shadow-sm border border-border/40">
         <div
           className={cn(
-            "text-sm font-medium flex items-center gap-2",
+            "text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 min-w-0",
             colors.header
           )}
         >
-          <span className={cn("h-2 w-2 rounded-full", colors.dot)} />
-          {title}
+          <span
+            className={cn(
+              "h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full flex-shrink-0 shadow-sm",
+              colors.dot
+            )}
+          />
+          <span className="truncate">{title}</span>
         </div>
-        <div className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        <div className="rounded-full bg-muted/80 px-2 sm:px-2.5 py-0.5 text-xs font-medium text-muted-foreground flex-shrink-0 min-w-[24px] text-center">
           {count}
         </div>
       </div>
       <div
         ref={setNodeRef}
         className={cn(
-          "min-h-[280px] md:min-h-[320px] flex-1 rounded-lg border border-border p-2 transition-all overflow-y-auto",
+          "flex-1 rounded-lg border p-1.5 sm:p-2 transition-all overflow-y-auto min-h-0 shadow-sm",
           colors.tint,
           isOver && cn("ring-2", colors.ring)
         )}
@@ -303,8 +328,10 @@ function DraggableCard({
           ref={setNodeRef}
           style={style}
           className={cn(
-            "cursor-grab select-none p-3 active:cursor-grabbing transition-transform duration-200 will-change-transform",
-            isDragging ? "z-50 shadow-xl scale-[1.02]" : "hover:shadow-sm"
+            "cursor-grab select-none p-2 sm:p-3 active:cursor-grabbing transition-all duration-200 will-change-transform bg-card/80 backdrop-blur-sm border-border/60",
+            isDragging
+              ? "z-50 shadow-2xl scale-[1.02] ring-2 ring-primary/20"
+              : "hover:shadow-md hover:border-border hover:-translate-y-0.5"
           )}
           onClick={handleClick}
           {...listeners}
@@ -313,7 +340,7 @@ function DraggableCard({
           {children}
         </Card>
       </HoverCardTrigger>
-      <HoverCardContent className="w-80">
+      <HoverCardContent className="w-80 hidden sm:block">
         <div className="space-y-3">
           <div>
             <h4 className="text-sm font-semibold mb-1">{ticket.title}</h4>

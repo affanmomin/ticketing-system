@@ -225,3 +225,147 @@ export interface AttachmentConfirmRequest {
   mimeType: string;
   fileSize: number;
 }
+
+// Dashboard types
+export interface TicketStatusCount {
+  statusId: string;
+  statusName: string;
+  count: number;
+}
+
+export interface TicketPriorityCount {
+  priorityId: string;
+  priorityName: string;
+  count: number;
+}
+
+export interface TicketMetrics {
+  total: number;
+  open: number;
+  closed: number;
+  byStatus: TicketStatusCount[];
+  byPriority: TicketPriorityCount[];
+  assignedToMe?: number; // Only for employees
+}
+
+export interface ProjectMetrics {
+  total: number;
+  active: number;
+}
+
+export interface ClientMetrics {
+  total: number;
+  active: number;
+}
+
+export interface UserMetrics {
+  total: number;
+  active: number;
+}
+
+export interface DashboardMetrics {
+  tickets: TicketMetrics;
+  projects: ProjectMetrics;
+  clients?: ClientMetrics; // Only for admins
+  users?: UserMetrics; // Only for admins
+}
+
+export type ActivityType =
+  | "COMMENT_ADDED"
+  | "STATUS_CHANGED"
+  | "ASSIGNEE_CHANGED"
+  | "TICKET_CREATED"
+  | "PRIORITY_CHANGED";
+
+export interface ActivityMetadata {
+  commentBody?: string;
+  visibility?: "PUBLIC" | "INTERNAL";
+  oldValue?: {
+    statusId?: string;
+    statusName?: string;
+    priorityId?: string;
+    priorityName?: string;
+    assignedToUserId?: string | null;
+    assignedToName?: string | null;
+  };
+  newValue?: {
+    statusId?: string;
+    statusName?: string;
+    priorityId?: string;
+    priorityName?: string;
+    assignedToUserId?: string | null;
+    assignedToName?: string | null;
+    title?: string;
+    description?: string;
+  };
+}
+
+export interface DashboardActivity {
+  id: string;
+  type: ActivityType;
+  ticketId: string;
+  ticketTitle: string;
+  actorId: string;
+  actorName: string;
+  actorEmail: string;
+  projectId: string;
+  projectName: string;
+  clientId: string;
+  clientName: string;
+  createdAt: string;
+  metadata: ActivityMetadata;
+}
+
+// User Activity & Performance types
+export interface UserActivityInfo {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  clientId: string | null;
+  clientName: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface UserTicketMetrics {
+  created: number;
+  assigned: number;
+  closed: number;
+  open: number;
+  byStatus: TicketStatusCount[];
+  byPriority: TicketPriorityCount[];
+}
+
+export interface UserActivityMetrics {
+  totalEvents: number;
+  totalComments: number;
+  eventsByType: Array<{
+    eventType: ActivityType;
+    count: number;
+  }>;
+  lastActivityAt: string;
+}
+
+export interface UserPerformanceMetrics {
+  averageResponseTime?: number; // hours (optional - may not be available)
+  averageResolutionTime?: number; // hours (optional - may not be available)
+  ticketsClosedLast30Days: number;
+  ticketsCreatedLast30Days: number;
+  commentsLast30Days: number;
+}
+
+export interface UserProjectMetrics {
+  total: number;
+  active: number;
+  asManager: number;
+  asMember: number;
+}
+
+export interface UserActivityResponse {
+  user: UserActivityInfo;
+  tickets: UserTicketMetrics;
+  activity: UserActivityMetrics;
+  performance: UserPerformanceMetrics;
+  projects: UserProjectMetrics;
+}
