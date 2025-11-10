@@ -9,10 +9,24 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import { Button } from "@/components/ui/button";
+import { MoreVertical, User, Calendar, Building2 } from "lucide-react";
 import type { Status, Ticket } from "@/types/api";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 export type TicketListItem = Ticket & {
   priorityName?: string;
@@ -27,6 +41,7 @@ interface TicketsBoardProps {
   loading?: boolean;
   onCardClick?: (ticketId: string) => void;
   onMoveTicket?: (ticketId: string, toStatusId: string) => void | Promise<void>;
+  onEditTicket?: (ticketId: string) => void;
 }
 
 export function TicketsBoard({
@@ -35,6 +50,7 @@ export function TicketsBoard({
   loading = false,
   onCardClick,
   onMoveTicket,
+  onEditTicket,
 }: TicketsBoardProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -83,17 +99,41 @@ export function TicketsBoard({
                 <DraggableCard
                   key={t.id}
                   id={t.id}
+                  ticket={t}
                   onClick={() => onCardClick?.(t.id)}
+                  onEdit={() => onEditTicket?.(t.id)}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <span className="text-xs text-muted-foreground font-mono">
                       {t.id.substring(0, 8)}
                     </span>
-                    {t.priorityName && (
-                      <Badge variant="secondary" className="h-5 px-2 text-xs">
-                        {t.priorityName}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {t.priorityName && (
+                        <Badge variant="secondary" className="h-5 px-2 text-xs">
+                          {t.priorityName}
+                        </Badge>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEditTicket?.(t.id)}>
+                            Edit Ticket
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onCardClick?.(t.id)}>
+                            View Details
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   <div className="text-sm font-medium text-foreground mb-1 line-clamp-2">
                     {t.title}
@@ -232,11 +272,15 @@ function Column({
 
 function DraggableCard({
   id,
+  ticket,
   onClick,
+  onEdit,
   children,
 }: {
   id: string;
+  ticket: TicketListItem;
   onClick?: () => void;
+  onEdit?: () => void;
   children: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -253,18 +297,84 @@ function DraggableCard({
   };
 
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "cursor-grab select-none p-3 active:cursor-grabbing transition-transform duration-200 will-change-transform",
-        isDragging ? "z-50 shadow-xl scale-[1.02]" : "hover:shadow-sm"
-      )}
-      onClick={handleClick}
-      {...listeners}
-      {...attributes}
-    >
-      {children}
-    </Card>
+    <HoverCard>
+      <HoverCardTrigger asChild>
+        <Card
+          ref={setNodeRef}
+          style={style}
+          className={cn(
+            "cursor-grab select-none p-3 active:cursor-grabbing transition-transform duration-200 will-change-transform",
+            isDragging ? "z-50 shadow-xl scale-[1.02]" : "hover:shadow-sm"
+          )}
+          onClick={handleClick}
+          {...listeners}
+          {...attributes}
+        >
+          {children}
+        </Card>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-80">
+        <div className="space-y-3">
+          <div>
+            <h4 className="text-sm font-semibold mb-1">{ticket.title}</h4>
+            <p className="text-xs text-muted-foreground line-clamp-3">
+              {ticket.descriptionMd || "No description"}
+            </p>
+          </div>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-3 w-3 text-muted-foreground" />
+              <span className="text-muted-foreground">Project:</span>
+              <span>{ticket.projectName || ticket.projectId}</span>
+            </div>
+            {ticket.clientName && (
+              <div className="flex items-center gap-2">
+                <Building2 className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Client:</span>
+                <span>{ticket.clientName}</span>
+              </div>
+            )}
+            {ticket.assignedToUserId && (
+              <div className="flex items-center gap-2">
+                <User className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Assigned to:</span>
+                <span>{ticket.assignedToUserId}</span>
+              </div>
+            )}
+            {ticket.updatedAt && (
+              <div className="flex items-center gap-2">
+                <Calendar className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Updated:</span>
+                <span>{format(new Date(ticket.updatedAt), "MMM d, yyyy")}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2 pt-2 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.();
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick?.();
+              }}
+            >
+              View
+            </Button>
+          </div>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }

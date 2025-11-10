@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { TableRow, TableCell } from "@/components/ui/table";
 
 function Skeleton({
   className,
@@ -15,15 +16,16 @@ function Skeleton({
 // Table row skeleton with multiple cells
 function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
   return (
-    <div className="flex items-center gap-4 p-4 border-b border-border last:border-0">
+    <TableRow>
       {Array.from({ length: columns }).map((_, i) => (
-        <Skeleton
-          key={i}
-          className="h-4"
-          style={{ width: i === 0 ? "25%" : i === columns - 1 ? "15%" : "20%" }}
-        />
+        <TableCell key={i}>
+          <Skeleton
+            className="h-4"
+            style={{ width: i === 0 ? "25%" : i === columns - 1 ? "15%" : "20%" }}
+          />
+        </TableCell>
       ))}
-    </div>
+    </TableRow>
   );
 }
 

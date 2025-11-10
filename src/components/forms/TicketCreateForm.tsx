@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Wizard } from "@/components/ui/wizard";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
@@ -62,6 +63,7 @@ export function TicketCreateForm({
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const [form, setForm] = useState({
     clientId: clientId ?? "",
@@ -194,6 +196,23 @@ export function TicketCreateForm({
     form.priorityId &&
     form.statusId;
 
+  // Step validation
+  const canProceedStep1 = !!(
+    form.clientId &&
+    form.projectId &&
+    form.streamId &&
+    form.subjectId
+  );
+  const canProceedStep2 = !!(form.title.trim() && form.descriptionMd.trim());
+  const canProceedStep3 = !!(form.priorityId && form.statusId);
+
+  const canProceed = useMemo(() => {
+    if (currentStep === 0) return canProceedStep1;
+    if (currentStep === 1) return canProceedStep2;
+    if (currentStep === 2) return canProceedStep3;
+    return false;
+  }, [currentStep, canProceedStep1, canProceedStep2, canProceedStep3]);
+
   async function handleSubmit() {
     if (!canSubmit || saving) return;
     if (!form.streamId) {
@@ -267,6 +286,299 @@ export function TicketCreateForm({
     }
   }
 
+  // Step 1: Basic Info
+  const step1Content = (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="ticket-client">Client</Label>
+          <Select
+            value={form.clientId}
+            onValueChange={(value) =>
+              setForm((prev) => ({
+                ...prev,
+                clientId: value,
+                projectId: "",
+                streamId: "",
+                subjectId: "",
+              }))
+            }
+            disabled={!!clientId}
+          >
+            <SelectTrigger id="ticket-client">
+              <SelectValue placeholder="Select client" />
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ticket-project">Project</Label>
+          <Select
+            value={form.projectId}
+            onValueChange={(value) =>
+              setForm((prev) => ({
+                ...prev,
+                projectId: value,
+                streamId: "",
+                subjectId: "",
+              }))
+            }
+            disabled={!!projectId || !form.clientId}
+          >
+            <SelectTrigger id="ticket-project">
+              <SelectValue placeholder="Select project" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">
+                  No projects for this client.
+                </div>
+              ) : (
+                projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="ticket-stream">Stream</Label>
+          <Select
+            value={form.streamId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, streamId: value }))
+            }
+            disabled={!form.clientId}
+          >
+            <SelectTrigger id="ticket-stream">
+              <SelectValue placeholder="Select stream" />
+            </SelectTrigger>
+            <SelectContent>
+              {streams.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">
+                  No streams found. Create streams in the client workspace
+                  first.
+                </div>
+              ) : (
+                streams.map((stream) => (
+                  <SelectItem key={stream.id} value={stream.id}>
+                    {stream.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ticket-subject">Subject</Label>
+          <Select
+            value={form.subjectId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, subjectId: value }))
+            }
+            disabled={!form.clientId}
+          >
+            <SelectTrigger id="ticket-subject">
+              <SelectValue placeholder="Select subject" />
+            </SelectTrigger>
+            <SelectContent>
+              {subjects.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">
+                  No subjects found. Create subjects in the client workspace
+                  first.
+                </div>
+              ) : (
+                subjects.map((subject) => (
+                  <SelectItem key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Step 2: Ticket Details
+  const step2Content = (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="ticket-title">Title</Label>
+        <Input
+          id="ticket-title"
+          value={form.title}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, title: event.target.value }))
+          }
+          placeholder="Brief summary of the issue or request"
+          className="text-base"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ticket-description">Description</Label>
+        <Textarea
+          id="ticket-description"
+          value={form.descriptionMd}
+          onChange={(event) =>
+            setForm((prev) => ({
+              ...prev,
+              descriptionMd: event.target.value,
+            }))
+          }
+          placeholder="Describe the issue or request in detail. Markdown is supported."
+          className="min-h-[200px] resize-none"
+        />
+        <p className="text-xs text-muted-foreground">
+          Markdown formatting is supported
+        </p>
+      </div>
+    </div>
+  );
+
+  // Step 3: Metadata
+  const step3Content = (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="ticket-priority">Priority</Label>
+          <Select
+            value={form.priorityId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, priorityId: value }))
+            }
+            disabled={taxonomyLoading}
+          >
+            <SelectTrigger id="ticket-priority">
+              <SelectValue placeholder="Select priority" />
+            </SelectTrigger>
+            <SelectContent>
+              {priorities.map((priority: Priority) => (
+                <SelectItem key={priority.id} value={priority.id}>
+                  {priority.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ticket-status">Status</Label>
+          <Select
+            value={form.statusId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, statusId: value }))
+            }
+            disabled={taxonomyLoading}
+          >
+            <SelectTrigger id="ticket-status">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((status: Status) => (
+                <SelectItem key={status.id} value={status.id}>
+                  {status.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="ticket-assignee">Assignee (optional)</Label>
+          <Select
+            value={form.assignedTo}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, assignedTo: value }))
+            }
+          >
+            <SelectTrigger id="ticket-assignee">
+              <SelectValue placeholder="Unassigned" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
+              {memberOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {memberOptions.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Add project members to enable assignment.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ticket-attachments">Attachments</Label>
+          <Input
+            id="ticket-attachments"
+            type="file"
+            multiple
+            onChange={(event) => {
+              const files = event.target.files;
+              if (files) setAttachments(Array.from(files));
+            }}
+          />
+          {attachments.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {attachments.length} file(s) ready to upload.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="pt-4 border-t">
+        <p className="text-xs text-muted-foreground">
+          Missing a priority or status?{" "}
+          <button className="underline" onClick={refreshTaxonomy}>
+            Refresh taxonomy
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+
+  const steps = [
+    {
+      id: "basic-info",
+      title: "Basic Information",
+      description: "Select client, project, stream, and subject",
+      component: step1Content,
+    },
+    {
+      id: "ticket-details",
+      title: "Ticket Details",
+      description: "Enter title and description",
+      component: step2Content,
+    },
+    {
+      id: "metadata",
+      title: "Metadata",
+      description: "Set priority, status, assignee, and attachments",
+      component: step3Content,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="space-y-1.5">
@@ -276,254 +588,20 @@ export function TicketCreateForm({
         </p>
       </div>
 
-      <div className="space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ticket-client">Client</Label>
-            <Select
-              value={form.clientId}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, clientId: value }))
-              }
-              disabled={!!clientId}
-            >
-              <SelectTrigger id="ticket-client">
-                <SelectValue placeholder="Select client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <Wizard
+        steps={steps}
+        currentStep={currentStep}
+        onStepChange={setCurrentStep}
+        onFinish={handleSubmit}
+        canProceed={canProceed}
+        isLoading={saving}
+      />
 
-          <div className="space-y-2">
-            <Label htmlFor="ticket-project">Project</Label>
-            <Select
-              value={form.projectId}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, projectId: value }))
-              }
-              disabled={!!projectId}
-            >
-              <SelectTrigger id="ticket-project">
-                <SelectValue placeholder="Select project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground">
-                    No projects for this client.
-                  </div>
-                ) : (
-                  projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ticket-stream">Stream</Label>
-            <Select
-              value={form.streamId}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, streamId: value }))
-              }
-            >
-              <SelectTrigger id="ticket-stream">
-                <SelectValue placeholder="Select stream" />
-              </SelectTrigger>
-              <SelectContent>
-                {streams.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground">
-                    No streams found. Create streams in the client workspace
-                    first.
-                  </div>
-                ) : (
-                  streams.map((stream) => (
-                    <SelectItem key={stream.id} value={stream.id}>
-                      {stream.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticket-subject">Subject</Label>
-            <Select
-              value={form.subjectId}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, subjectId: value }))
-              }
-            >
-              <SelectTrigger id="ticket-subject">
-                <SelectValue placeholder="Select subject" />
-              </SelectTrigger>
-              <SelectContent>
-                {subjects.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground">
-                    No subjects found. Create subjects in the client workspace
-                    first.
-                  </div>
-                ) : (
-                  subjects.map((subject) => (
-                    <SelectItem key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ticket-priority">Priority</Label>
-            <Select
-              value={form.priorityId}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, priorityId: value }))
-              }
-              disabled={taxonomyLoading}
-            >
-              <SelectTrigger id="ticket-priority">
-                <SelectValue placeholder="Select priority" />
-              </SelectTrigger>
-              <SelectContent>
-                {priorities.map((priority: Priority) => (
-                  <SelectItem key={priority.id} value={priority.id}>
-                    {priority.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticket-status">Status</Label>
-            <Select
-              value={form.statusId}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, statusId: value }))
-              }
-              disabled={taxonomyLoading}
-            >
-              <SelectTrigger id="ticket-status">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((status: Status) => (
-                  <SelectItem key={status.id} value={status.id}>
-                    {status.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="ticket-title">Title</Label>
-          <Input
-            id="ticket-title"
-            value={form.title}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, title: event.target.value }))
-            }
-            placeholder="Brief summary"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="ticket-description">Description</Label>
-          <Textarea
-            id="ticket-description"
-            value={form.descriptionMd}
-            onChange={(event) =>
-              setForm((prev) => ({
-                ...prev,
-                descriptionMd: event.target.value,
-              }))
-            }
-            placeholder="Markdown supported"
-            className="min-h-[140px]"
-          />
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ticket-assignee">Assignee (optional)</Label>
-            <Select
-              value={form.assignedTo}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, assignedTo: value }))
-              }
-            >
-              <SelectTrigger id="ticket-assignee">
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
-                {memberOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {memberOptions.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Add project members to enable assignment.
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticket-attachments">Attachments</Label>
-            <Input
-              id="ticket-attachments"
-              type="file"
-              multiple
-              onChange={(event) => {
-                const files = event.target.files;
-                if (files) setAttachments(Array.from(files));
-              }}
-            />
-            {attachments.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {attachments.length} file(s) ready to upload.
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-3">
+      <div className="flex justify-end">
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={!canSubmit || saving}>
-          {saving ? "Creating…" : "Create ticket"}
-        </Button>
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Missing a priority or status?{" "}
-        <button className="underline" onClick={refreshTaxonomy}>
-          Refresh taxonomy
-        </button>
-      </p>
     </div>
   );
 }

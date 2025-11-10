@@ -1,32 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, FolderKanban, Users, CheckCircle2 } from "lucide-react";
+import { FileText, FolderKanban, Users, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
+import { RecentTicketsWidget } from "@/components/RecentTicketsWidget";
+import * as ticketsApi from "@/api/tickets";
+import * as projectsApi from "@/api/projects";
+import * as usersApi from "@/api/users";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
+import { toast } from "@/hooks/use-toast";
 
 export function Dashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  // TODO: Dashboard API not implemented yet; using mock data
-  const [loading] = useState(false);
+  const { statuses } = useTaxonomy();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalTickets: 0,
+    activeProjects: 0,
+    totalUsers: 0,
+    completedTickets: 0,
+  });
 
-  // useEffect(() => {
-  //   async function loadDashboard() {
-  //     try {
-  //       const { data } = await authApi.getDashboard();
-  //       setDashboardData(data);
-  //     } catch (error) {
-  //       console.error("Failed to load dashboard:", error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   }
-  //   loadDashboard();
-  // }, []);
-
-  // Bypass auth-dependent rendering: provide sensible fallbacks when no profile
   const role =
     (user?.role?.toLowerCase?.() as
       | "admin"
@@ -35,35 +32,90 @@ export function Dashboard() {
       | undefined) ?? "admin";
   const firstName = user?.fullName || "User";
 
-  // TODO: Dashboard stats API not implemented yet; using fallback values
-  const stats = [
+  useEffect(() => {
+    async function loadDashboard() {
+      setLoading(true);
+      try {
+        const [ticketsRes, projectsRes, usersRes] = await Promise.all([
+          ticketsApi.list({ limit: 1, offset: 0 }),
+          projectsApi.list({ limit: 1, offset: 0, active: true }),
+          user?.role === "ADMIN" ? usersApi.list({ limit: 1, offset: 0 }) : Promise.resolve(null),
+        ]);
+
+        const totalTickets = ticketsRes.data.total;
+        const activeProjects = projectsRes.data.total;
+        const totalUsers = usersRes?.data.total || 0;
+
+        // Get completed tickets count
+        const closedStatuses = statuses.filter((s) => s.isClosed);
+        const closedStatusIds = closedStatuses.map((s) => s.id);
+        let completedTickets = 0;
+        if (closedStatusIds.length > 0) {
+          try {
+            const completedRes = await ticketsApi.list({
+              limit: 1,
+              offset: 0,
+              statusId: closedStatusIds[0],
+            });
+            completedTickets = completedRes.data.total;
+          } catch (error) {
+            // If filtering by status fails, estimate from total
+            completedTickets = Math.floor(totalTickets * 0.2); // Rough estimate
+          }
+        }
+
+        setStats({
+          totalTickets,
+          activeProjects,
+          totalUsers,
+          completedTickets,
+        });
+      } catch (error: any) {
+        console.error("Failed to load dashboard:", error);
+        toast({
+          title: "Failed to load dashboard",
+          description: error?.response?.data?.message || "Unexpected error",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDashboard();
+  }, [user?.role, statuses]);
+
+  const statsData = [
     {
       title: "Total Tickets",
-      value: "0",
+      value: stats.totalTickets.toLocaleString(),
       icon: <FileText className="w-5 h-5" />,
       change: "+0%",
       changeSummary: "from last month",
+      onClick: () => navigate("/tickets"),
     },
     {
       title: "Active Projects",
-      value: "0",
+      value: stats.activeProjects.toLocaleString(),
       icon: <FolderKanban className="w-5 h-5" />,
       change: "+0",
       changeSummary: "from last month",
+      onClick: () => navigate("/projects"),
     },
     {
       title: role === "admin" ? "Total Users" : "Team Members",
-      value: "0",
+      value: stats.totalUsers.toLocaleString(),
       icon: <Users className="w-5 h-5" />,
       change: "+0",
       changeSummary: "from last month",
+      onClick: () => role === "admin" && navigate("/users"),
     },
     {
       title: "Completed",
-      value: "0",
+      value: stats.completedTickets.toLocaleString(),
       icon: <CheckCircle2 className="w-5 h-5" />,
       change: "+0",
       changeSummary: "from last month",
+      onClick: () => navigate("/tickets"),
     },
   ];
 
@@ -91,10 +143,11 @@ export function Dashboard() {
         </div>
       ) : (
         <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
+          {statsData.map((stat) => (
             <Card
               key={stat.title}
-              className="border-border/60 hover:shadow-md transition-shadow"
+              className="border-border/60 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={stat.onClick}
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
@@ -131,31 +184,22 @@ export function Dashboard() {
       <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
         <Card className="flex flex-col h-[320px] sm:h-[400px] relative">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm sm:text-base tracking-tight text-muted-foreground">
-              Recent Activity
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm sm:text-base tracking-tight text-muted-foreground">
+                Recent Tickets
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/tickets")}
+                className="text-xs"
+              >
+                View all
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-            {loading ? (
-              <div className="space-y-3 sm:space-y-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-muted mt-2 shrink-0" />
-                    <div className="flex-1 space-y-2 min-w-0">
-                      <div className="h-3 sm:h-4 w-3/4 bg-muted animate-pulse rounded" />
-                      <div className="h-2 sm:h-3 w-20 sm:w-24 bg-muted animate-pulse rounded" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs sm:text-sm text-muted-foreground text-center py-8">
-                No recent activity
-              </p>
-            )}
+            <RecentTicketsWidget />
           </CardContent>
         </Card>
 

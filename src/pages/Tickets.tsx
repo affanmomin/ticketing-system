@@ -18,7 +18,20 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
 import { TicketCreateForm } from "@/components/forms/TicketCreateForm";
 import { TicketEditForm } from "@/components/forms/TicketEditForm";
@@ -32,13 +45,20 @@ import * as projectsApi from "@/api/projects";
 import * as clientsApi from "@/api/clients";
 import type { Ticket, Project, Client, TicketsListQuery } from "@/types/api";
 import { format } from "date-fns";
-import { Plus } from "lucide-react";
+import { Plus, X, Bookmark, BookmarkPlus } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useFilterPersistence, useSavedViews } from "@/hooks/useSavedViews";
+import { useAuthStore } from "@/store/auth";
+import * as usersApi from "@/api/users";
+import type { AuthUser } from "@/types/api";
 
 export function Tickets() {
   const { priorities, statuses } = useTaxonomy();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [users, setUsers] = useState<AuthUser[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<
     string | undefined
   >();
@@ -56,27 +76,41 @@ export function Tickets() {
   const pageSize = view === "board" ? 200 : 20;
   const [total, setTotal] = useState(0);
 
-  const [filters, setFilters] = useState({
-    search: "",
-    clientId: "all",
-    projectId: "all",
-    statusId: "all",
-    priorityId: "all",
+  const { saveFilters, loadFilters } = useFilterPersistence();
+  const { savedViews, saveView, deleteView, loadView } = useSavedViews();
+  const [filters, setFilters] = useState(() => {
+    const saved = loadFilters();
+    return (
+      saved || {
+        search: "",
+        clientId: "all",
+        projectId: "all",
+        statusId: "all",
+        priorityId: "all",
+      }
+    );
   });
+  const [saveViewOpen, setSaveViewOpen] = useState(false);
+  const [saveViewName, setSaveViewName] = useState("");
+  const { user } = useAuthStore();
 
   useEffect(() => {
     (async () => {
       try {
-        const [{ data: projectsRes }, { data: clientsRes }] = await Promise.all(
-          [
-            projectsApi.list({ limit: 200, offset: 0 }),
-            clientsApi.list({ limit: 200, offset: 0 }),
-          ]
-        );
+        const [
+          { data: projectsRes },
+          { data: clientsRes },
+          { data: usersRes },
+        ] = await Promise.all([
+          projectsApi.list({ limit: 200, offset: 0 }),
+          clientsApi.list({ limit: 200, offset: 0 }),
+          usersApi.list({ limit: 200, offset: 0 }),
+        ]);
         setProjects(projectsRes.data);
         setClients(clientsRes.data);
+        setUsers(usersRes.data);
       } catch (error) {
-        console.warn("Failed to load project/client filter data", error);
+        console.warn("Failed to load project/client/user filter data", error);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,6 +127,11 @@ export function Tickets() {
     filters.priorityId,
     filters.statusId,
   ]);
+
+  // Persist filters to localStorage
+  useEffect(() => {
+    saveFilters(filters);
+  }, [filters, saveFilters]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -195,6 +234,115 @@ export function Tickets() {
       });
     }
   }
+
+  async function handleUpdatePriority(ticketId: string, priorityId: string) {
+    const current = tickets.find((t) => t.id === ticketId);
+    if (!current || current.priorityId === priorityId) return;
+    const priorityName = priorities.find((p) => p.id === priorityId)?.name;
+    // Optimistic update
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === ticketId ? { ...t, priorityId, priorityName } : t
+      )
+    );
+    try {
+      await ticketsApi.update(ticketId, { priorityId });
+      toast({
+        title: "Ticket updated",
+        description: `Priority changed to ${priorityName ?? "new priority"}`,
+      });
+    } catch (error: any) {
+      // Revert on failure
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketId
+            ? {
+                ...t,
+                priorityId: current.priorityId,
+                priorityName: current.priorityName,
+              }
+            : t
+        )
+      );
+      const message = error?.response?.data?.message || "Please try again.";
+      toast({
+        title: "Could not update priority",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleUpdateAssignee(
+    ticketId: string,
+    assignedToUserId: string | null
+  ) {
+    const current = tickets.find((t) => t.id === ticketId);
+    if (!current || current.assignedToUserId === assignedToUserId) return;
+    // Optimistic update
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === ticketId
+          ? { ...t, assignedToUserId: assignedToUserId || null }
+          : t
+      )
+    );
+    try {
+      await ticketsApi.update(ticketId, {
+        assignedToUserId: assignedToUserId || null,
+      });
+      const assigneeName = assignedToUserId
+        ? users.find((u) => u.id === assignedToUserId)?.fullName ||
+          users.find((u) => u.id === assignedToUserId)?.email ||
+          "User"
+        : "Unassigned";
+      toast({
+        title: "Ticket updated",
+        description: `Assigned to ${assigneeName}`,
+      });
+    } catch (error: any) {
+      // Revert on failure
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketId
+            ? { ...t, assignedToUserId: current.assignedToUserId }
+            : t
+        )
+      );
+      const message = error?.response?.data?.message || "Please try again.";
+      toast({
+        title: "Could not update assignee",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  }
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: "n",
+      handler: () => {
+        if (!openCreate && !openEdit) {
+          setOpenCreate(true);
+        }
+      },
+      description: "Create new ticket",
+    },
+    {
+      key: "Escape",
+      handler: () => {
+        if (openEdit) {
+          setOpenEdit(false);
+          setSelectedTicketId(undefined);
+        }
+        if (openCreate) {
+          setOpenCreate(false);
+        }
+      },
+      description: "Close dialog",
+    },
+  ]);
 
   return (
     <div className="space-y-6">
@@ -346,6 +494,300 @@ export function Tickets() {
               </Select>
             </div>
           </CardTitle>
+          {/* Quick Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Quick filters:
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilters({
+                  search: "",
+                  clientId: "all",
+                  projectId: "all",
+                  statusId: "all",
+                  priorityId: "all",
+                  assignedToUserId: user?.id || "all",
+                });
+                setPage(0);
+              }}
+              className="h-7 text-xs"
+            >
+              My Tickets
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilters({
+                  search: "",
+                  clientId: "all",
+                  projectId: "all",
+                  statusId: "all",
+                  priorityId: "all",
+                  assignedToUserId: "unassigned",
+                });
+                setPage(0);
+              }}
+              className="h-7 text-xs"
+            >
+              Unassigned
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const highPriority = priorities.find((p) =>
+                  p.name.toLowerCase().includes("high")
+                );
+                setFilters({
+                  search: "",
+                  clientId: "all",
+                  projectId: "all",
+                  statusId: "all",
+                  priorityId: highPriority?.id || "all",
+                });
+                setPage(0);
+              }}
+              className="h-7 text-xs"
+            >
+              High Priority
+            </Button>
+            <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <BookmarkPlus className="mr-1 h-3 w-3" />
+                  Save View
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Save Filter View</DialogTitle>
+                  <DialogDescription>
+                    Save your current filter combination for quick access
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="view-name">View Name</Label>
+                    <Input
+                      id="view-name"
+                      value={saveViewName}
+                      onChange={(e) => setSaveViewName(e.target.value)}
+                      placeholder="e.g., My Active Tickets"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSaveViewOpen(false);
+                        setSaveViewName("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (saveViewName.trim()) {
+                          saveView(saveViewName.trim(), filters);
+                          toast({ title: "View saved" });
+                          setSaveViewOpen(false);
+                          setSaveViewName("");
+                        }
+                      }}
+                      disabled={!saveViewName.trim()}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            {savedViews.length > 0 && (
+              <Select
+                value=""
+                onValueChange={(value) => {
+                  const view = loadView(value);
+                  if (view) {
+                    setFilters(view.filters);
+                    setPage(0);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-7 w-auto text-xs border-0">
+                  <SelectValue placeholder="Saved views">
+                    <Bookmark className="mr-1 h-3 w-3" />
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {savedViews.map((view) => (
+                    <SelectItem key={view.id} value={view.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{view.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 ml-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteView(view.id);
+                            toast({ title: "View deleted" });
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          {/* Active Filter Chips */}
+          {(filters.search ||
+            filters.clientId !== "all" ||
+            filters.projectId !== "all" ||
+            filters.statusId !== "all" ||
+            filters.priorityId !== "all" ||
+            (filters as any).assignedToUserId) && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+              <span className="text-xs text-muted-foreground">
+                Active filters:
+              </span>
+              {filters.search && (
+                <Badge variant="secondary" className="text-xs">
+                  Search: {filters.search}
+                  <button
+                    onClick={() =>
+                      setFilters((prev) => ({ ...prev, search: "" }))
+                    }
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.clientId !== "all" && (
+                <Badge variant="secondary" className="text-xs">
+                  Client: {clients.find((c) => c.id === filters.clientId)?.name}
+                  <button
+                    onClick={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        clientId: "all",
+                        projectId: "all",
+                      }))
+                    }
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.projectId !== "all" && (
+                <Badge variant="secondary" className="text-xs">
+                  Project:{" "}
+                  {projects.find((p) => p.id === filters.projectId)?.name}
+                  <button
+                    onClick={() =>
+                      setFilters((prev) => ({ ...prev, projectId: "all" }))
+                    }
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.statusId !== "all" && (
+                <Badge variant="secondary" className="text-xs">
+                  Status:{" "}
+                  {statuses.find((s) => s.id === filters.statusId)?.name}
+                  <button
+                    onClick={() =>
+                      setFilters((prev) => ({ ...prev, statusId: "all" }))
+                    }
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.priorityId !== "all" && (
+                <Badge variant="secondary" className="text-xs">
+                  Priority:{" "}
+                  {priorities.find((p) => p.id === filters.priorityId)?.name}
+                  <button
+                    onClick={() =>
+                      setFilters((prev) => ({ ...prev, priorityId: "all" }))
+                    }
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {(filters as any).assignedToUserId &&
+                (filters as any).assignedToUserId !== "all" &&
+                (filters as any).assignedToUserId !== "unassigned" && (
+                  <Badge variant="secondary" className="text-xs">
+                    Assigned:{" "}
+                    {users.find(
+                      (u) => u.id === (filters as any).assignedToUserId
+                    )?.fullName ||
+                      users.find(
+                        (u) => u.id === (filters as any).assignedToUserId
+                      )?.email}
+                    <button
+                      onClick={() =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          assignedToUserId: undefined,
+                        }))
+                      }
+                      className="ml-1 hover:text-foreground"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+              {(filters as any).assignedToUserId === "unassigned" && (
+                <Badge variant="secondary" className="text-xs">
+                  Unassigned
+                  <button
+                    onClick={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        assignedToUserId: undefined,
+                      }))
+                    }
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFilters({
+                    search: "",
+                    clientId: "all",
+                    projectId: "all",
+                    statusId: "all",
+                    priorityId: "all",
+                  });
+                  setPage(0);
+                }}
+                className="h-6 text-xs"
+              >
+                Clear all
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0 sm:p-6">
           {view === "table" ? (
@@ -476,6 +918,7 @@ export function Tickets() {
                       <TableHead className="min-w-[200px]">Title</TableHead>
                       <TableHead className="min-w-[100px]">Status</TableHead>
                       <TableHead className="min-w-[100px]">Priority</TableHead>
+                      <TableHead className="min-w-[120px]">Assignee</TableHead>
                       <TableHead className="min-w-[150px]">Project</TableHead>
                       <TableHead className="min-w-[120px]">Client</TableHead>
                       <TableHead className="text-right min-w-[100px]">
@@ -487,15 +930,15 @@ export function Tickets() {
                     {listLoading ? (
                       Array.from({ length: 5 }).map((_, index) => (
                         <TableRow key={index}>
-                          <TableCell colSpan={7} className="p-0">
-                            <TableRowSkeleton columns={7} />
+                          <TableCell colSpan={8} className="p-0">
+                            <TableRowSkeleton columns={8} />
                           </TableCell>
                         </TableRow>
                       ))
                     ) : tickets.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           className="py-8 text-center text-sm text-muted-foreground"
                         >
                           No tickets found.
@@ -542,9 +985,69 @@ export function Tickets() {
                             </Select>
                           </TableCell>
                           <TableCell className="p-3 sm:p-4">
-                            <Badge className="text-xs">
-                              {ticket.priorityName || ticket.priorityId}
-                            </Badge>
+                            <Select
+                              value={ticket.priorityId}
+                              onValueChange={(priorityId) => {
+                                handleUpdatePriority(ticket.id, priorityId);
+                              }}
+                            >
+                              <SelectTrigger
+                                className="h-7 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <SelectValue>
+                                  {ticket.priorityName || ticket.priorityId}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {priorities.map((priority) => (
+                                  <SelectItem
+                                    key={priority.id}
+                                    value={priority.id}
+                                  >
+                                    {priority.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="p-3 sm:p-4">
+                            <Select
+                              value={ticket.assignedToUserId || "unassigned"}
+                              onValueChange={(value) => {
+                                handleUpdateAssignee(
+                                  ticket.id,
+                                  value === "unassigned" ? null : value
+                                );
+                              }}
+                            >
+                              <SelectTrigger
+                                className="h-7 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <SelectValue>
+                                  {ticket.assignedToUserId
+                                    ? users.find(
+                                        (u) => u.id === ticket.assignedToUserId
+                                      )?.fullName ||
+                                      users.find(
+                                        (u) => u.id === ticket.assignedToUserId
+                                      )?.email ||
+                                      "User"
+                                    : "Unassigned"}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unassigned">
+                                  Unassigned
+                                </SelectItem>
+                                {users.map((user) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    {user.fullName || user.email || user.id}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-4">
                             {ticket.projectName || ticket.projectId}
@@ -574,6 +1077,10 @@ export function Tickets() {
                 statuses={visibleStatuses}
                 loading={listLoading}
                 onCardClick={(id) => {
+                  setSelectedTicketId(id);
+                  setOpenEdit(true);
+                }}
+                onEditTicket={(id) => {
                   setSelectedTicketId(id);
                   setOpenEdit(true);
                 }}
@@ -615,28 +1122,38 @@ export function Tickets() {
       )}
 
       {selectedTicketId && (
-        <Dialog
+        <Sheet
           open={openEdit}
           onOpenChange={(open) => {
             setOpenEdit(open);
             if (!open) setSelectedTicketId(undefined);
           }}
         >
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <TicketEditForm
-              ticketId={selectedTicketId}
-              onSaved={() => {
-                setOpenEdit(false);
-                setSelectedTicketId(undefined);
-                void loadTickets();
-              }}
-              onCancel={() => {
-                setOpenEdit(false);
-                setSelectedTicketId(undefined);
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+          <SheetContent
+            side="right"
+            className="w-full sm:max-w-2xl lg:max-w-4xl overflow-y-auto p-0"
+          >
+            <div className="h-full flex flex-col">
+              <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+                <SheetTitle>Edit Ticket</SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto px-6 py-4">
+                <TicketEditForm
+                  ticketId={selectedTicketId}
+                  onSaved={() => {
+                    setOpenEdit(false);
+                    setSelectedTicketId(undefined);
+                    void loadTickets();
+                  }}
+                  onCancel={() => {
+                    setOpenEdit(false);
+                    setSelectedTicketId(undefined);
+                  }}
+                />
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   );
