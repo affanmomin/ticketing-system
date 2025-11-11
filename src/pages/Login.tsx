@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,6 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login, error, clearError } = useAuthStore();
 
@@ -88,7 +87,8 @@ export function Login() {
     try {
       setLoading(true);
       await login(email, password);
-      navigate("/dashboard", { replace: true });
+      // Navigation will be handled by the App component's routing logic
+      // which redirects authenticated users to their default route based on role
     } catch (err: any) {
       console.error("Login error:", err);
       const message = err?.response?.data?.message || "Login failed";
@@ -159,9 +159,9 @@ export function Login() {
               Demo Accounts:
             </p>
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>Admin: admin@acme.com / adminpassword</p>
-              <p>Employee: employee@example.com / password</p>
-              <p>Client: client@example.com / password</p>
+              <p>Admin: admin@demo.com / Admin123!</p>
+              <p>Employee: employee1@demo.com / Employee123!</p>
+              <p>Client: client1@demo.com / Client123!</p>
             </div>
           </div>
 

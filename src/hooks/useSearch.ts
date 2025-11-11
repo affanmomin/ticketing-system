@@ -101,7 +101,8 @@ export function useSearch(query: string) {
         type: "user",
         id: user.id,
         title: user.fullName || user.email || user.id,
-        subtitle: user.email !== user.fullName ? user.email : undefined,
+        subtitle:
+          user.email !== user.fullName ? user.email || undefined : undefined,
         url: `/users`,
       });
     });

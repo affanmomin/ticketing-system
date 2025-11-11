@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,8 @@ export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuthStore();
+  const isClient = user?.role === "CLIENT";
   const [project, setProject] = useState<ProjectViewModel | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -115,12 +118,18 @@ export function ProjectDetail() {
 
   async function bootstrap() {
     try {
-      const [clientsResponse, usersResponse] = await Promise.all([
-        clientsApi.list({ limit: 200, offset: 0 }),
-        usersApi.list({ limit: 200, offset: 0 }),
-      ]);
-      setClients(clientsResponse.data.data);
-      setUsers(usersResponse.data.data);
+      // Client users should not fetch clients or users lists
+      if (isClient) {
+        setClients([]);
+        setUsers([]);
+      } else {
+        const [clientsResponse, usersResponse] = await Promise.all([
+          clientsApi.list({ limit: 200, offset: 0 }),
+          usersApi.list({ limit: 200, offset: 0 }),
+        ]);
+        setClients(clientsResponse.data.data);
+        setUsers(usersResponse.data.data);
+      }
     } catch (error) {
       console.warn("Failed to load bootstrap data", error);
     } finally {

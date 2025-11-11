@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "@/store/auth";
 import {
   Plus,
   CalendarRange,
@@ -47,6 +48,8 @@ const PAGE_SIZE = 20;
 export function Projects() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuthStore();
+  const isClient = user?.role === "CLIENT";
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,6 +67,12 @@ export function Projects() {
   }, [clients]);
 
   async function loadClients() {
+    // Client users should not fetch the clients list
+    if (isClient) {
+      setClients([]);
+      return;
+    }
+
     try {
       const { data } = await clientsApi.list({ limit: 200, offset: 0 });
       setClients(data.data);
@@ -136,26 +145,29 @@ export function Projects() {
         title="Projects"
         description="Organize client work and manage delivery timelines"
         actions={
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Project
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Create Project</DialogTitle>
-              </DialogHeader>
-              <ProjectForm
-                onSuccess={() => {
-                  setCreateOpen(false);
-                  loadProjects();
-                }}
-                onCancel={() => setCreateOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
+          // Hide "New Project" button for CLIENT users
+          !isClient ? (
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Project
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Create Project</DialogTitle>
+                </DialogHeader>
+                <ProjectForm
+                  onSuccess={() => {
+                    setCreateOpen(false);
+                    loadProjects();
+                  }}
+                  onCancel={() => setCreateOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          ) : undefined
         }
       />
 
@@ -261,17 +273,20 @@ export function Projects() {
                           >
                             {project.active ? "Active" : "Inactive"}
                           </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditProject(project);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          {/* Hide Edit button for CLIENT users */}
+                          {!isClient && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditProject(project);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 text-xs text-muted-foreground">
@@ -302,24 +317,27 @@ export function Projects() {
                   <TableHead className="min-w-[150px]">Client</TableHead>
                   <TableHead className="min-w-[180px]">Timeline</TableHead>
                   <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="text-right min-w-[120px]">
-                    Actions
-                  </TableHead>
+                  {/* Hide Actions column for CLIENT users */}
+                  {!isClient && (
+                    <TableHead className="text-right min-w-[120px]">
+                      Actions
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={index}>
-                      <TableCell colSpan={5} className="p-0">
-                        <TableRowSkeleton columns={5} />
+                      <TableCell colSpan={isClient ? 4 : 5} className="p-0">
+                        <TableRowSkeleton columns={isClient ? 4 : 5} />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : filteredProjects.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={isClient ? 4 : 5}
                       className="py-8 text-center text-muted-foreground"
                     >
                       No projects found.
@@ -375,32 +393,35 @@ export function Projects() {
                             {project.active ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right p-3 sm:p-4">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs sm:text-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditProject(project);
-                              }}
-                            >
-                              <Pencil className="mr-2 h-3.5 w-3.5" />
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 text-xs sm:text-sm"
-                              onClick={() =>
-                                navigate(`/projects/${project.id}`)
-                              }
-                            >
-                              View
-                            </Button>
-                          </div>
-                        </TableCell>
+                        {/* Hide Actions for CLIENT users */}
+                        {!isClient && (
+                          <TableCell className="text-right p-3 sm:p-4">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs sm:text-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditProject(project);
+                                }}
+                              >
+                                <Pencil className="mr-2 h-3.5 w-3.5" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-xs sm:text-sm"
+                                onClick={() =>
+                                  navigate(`/projects/${project.id}`)
+                                }
+                              >
+                                View
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })

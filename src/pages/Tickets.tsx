@@ -97,24 +97,39 @@ export function Tickets() {
   useEffect(() => {
     (async () => {
       try {
-        const [
-          { data: projectsRes },
-          { data: clientsRes },
-          { data: usersRes },
-        ] = await Promise.all([
-          projectsApi.list({ limit: 200, offset: 0 }),
-          clientsApi.list({ limit: 200, offset: 0 }),
-          usersApi.list({ limit: 200, offset: 0 }),
-        ]);
-        setProjects(projectsRes.data);
-        setClients(clientsRes.data);
-        setUsers(usersRes.data);
+        const isClient = user?.role === "CLIENT";
+
+        // Client users should not fetch the clients or users list
+        if (isClient) {
+          const { data: projectsRes } = await projectsApi.list({
+            limit: 200,
+            offset: 0,
+          });
+          setProjects(projectsRes.data);
+          // Client users don't need the clients list - they only see their own data
+          setClients([]);
+          setUsers([]);
+        } else {
+          // Admin/Employee users fetch all data
+          const [
+            { data: projectsRes },
+            { data: clientsRes },
+            { data: usersRes },
+          ] = await Promise.all([
+            projectsApi.list({ limit: 200, offset: 0 }),
+            clientsApi.list({ limit: 200, offset: 0 }),
+            usersApi.list({ limit: 200, offset: 0 }),
+          ]);
+          setProjects(projectsRes.data);
+          setClients(clientsRes.data);
+          setUsers(usersRes.data);
+        }
       } catch (error) {
         console.warn("Failed to load project/client/user filter data", error);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => {
     void loadTickets();
@@ -406,29 +421,32 @@ export function Tickets() {
                 }}
                 className="w-full sm:col-span-2 lg:w-60"
               />
-              <Select
-                value={filters.clientId}
-                onValueChange={(value) => {
-                  setFilters((prev) => ({
-                    ...prev,
-                    clientId: value,
-                    projectId: "all",
-                  }));
-                  setPage(0);
-                }}
-              >
-                <SelectTrigger className="w-full lg:w-44">
-                  <SelectValue placeholder="Client" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All clients</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Hide client filter for CLIENT users - they only see their own tickets */}
+              {user?.role !== "CLIENT" && (
+                <Select
+                  value={filters.clientId}
+                  onValueChange={(value) => {
+                    setFilters((prev) => ({
+                      ...prev,
+                      clientId: value,
+                      projectId: "all",
+                    }));
+                    setPage(0);
+                  }}
+                >
+                  <SelectTrigger className="w-full lg:w-44">
+                    <SelectValue placeholder="Client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select
                 value={filters.projectId}
                 onValueChange={(value) => {
@@ -648,7 +666,7 @@ export function Tickets() {
           </div>
           {/* Active Filter Chips */}
           {(filters.search ||
-            filters.clientId !== "all" ||
+            (user?.role !== "CLIENT" && filters.clientId !== "all") ||
             filters.projectId !== "all" ||
             filters.statusId !== "all" ||
             filters.priorityId !== "all" ||
@@ -670,7 +688,8 @@ export function Tickets() {
                   </button>
                 </Badge>
               )}
-              {filters.clientId !== "all" && (
+              {/* Hide client filter badge for CLIENT users */}
+              {user?.role !== "CLIENT" && filters.clientId !== "all" && (
                 <Badge variant="secondary" className="text-xs">
                   Client: {clients.find((c) => c.id === filters.clientId)?.name}
                   <button

@@ -31,6 +31,7 @@ const navItems: NavItem[] = [
     title: "Dashboard",
     href: "/dashboard",
     icon: <LayoutDashboard className="w-5 h-5" />,
+    roles: ["ADMIN", "EMPLOYEE"],
   },
   {
     title: "Projects",
@@ -64,6 +65,7 @@ const navItems: NavItem[] = [
     title: "Settings",
     href: "/settings",
     icon: <Settings className="w-5 h-5" />,
+    roles: ["ADMIN", "EMPLOYEE"],
   },
 ];
 

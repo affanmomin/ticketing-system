@@ -13,6 +13,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Wizard } from "@/components/ui/wizard";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
+import { useAuthStore } from "@/store/auth";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import * as streamsApi from "@/api/streams";
@@ -49,6 +50,10 @@ export function TicketCreateForm({
   onSuccess,
   onCancel,
 }: TicketCreateFormProps = {}) {
+  const { user } = useAuthStore();
+  const isClient = user?.role === "CLIENT";
+  const userClientId = user?.clientId || null;
+
   const {
     priorities,
     statuses,
@@ -65,8 +70,11 @@ export function TicketCreateForm({
   const [saving, setSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
+  // For client users, use their own clientId
+  const effectiveClientId = isClient ? userClientId : clientId;
+
   const [form, setForm] = useState({
-    clientId: clientId ?? "",
+    clientId: effectiveClientId ?? "",
     projectId: projectId ?? "",
     streamId: "",
     subjectId: "",
@@ -78,6 +86,15 @@ export function TicketCreateForm({
   });
 
   useEffect(() => {
+    // Client users shouldn't fetch the clients list - they only have access to their own client
+    if (isClient) {
+      if (userClientId) {
+        setForm((prev) => ({ ...prev, clientId: userClientId }));
+      }
+      return;
+    }
+
+    // For admin/employee users, fetch the clients list
     (async () => {
       try {
         const { data } = await clientsApi.list({ limit: 200, offset: 0 });
@@ -93,7 +110,7 @@ export function TicketCreateForm({
         toast({ title: "Failed to load clients", variant: "destructive" });
       }
     })();
-  }, [clientId, toast]);
+  }, [clientId, isClient, userClientId, toast]);
 
   useEffect(() => {
     (async () => {
@@ -290,33 +307,36 @@ export function TicketCreateForm({
   const step1Content = (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="ticket-client">Client</Label>
-          <Select
-            value={form.clientId}
-            onValueChange={(value) =>
-              setForm((prev) => ({
-                ...prev,
-                clientId: value,
-                projectId: "",
-                streamId: "",
-                subjectId: "",
-              }))
-            }
-            disabled={!!clientId}
-          >
-            <SelectTrigger id="ticket-client">
-              <SelectValue placeholder="Select client" />
-            </SelectTrigger>
-            <SelectContent>
-              {clients.map((client) => (
-                <SelectItem key={client.id} value={client.id}>
-                  {client.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Hide client selector for CLIENT role users */}
+        {!isClient && (
+          <div className="space-y-2">
+            <Label htmlFor="ticket-client">Client</Label>
+            <Select
+              value={form.clientId}
+              onValueChange={(value) =>
+                setForm((prev) => ({
+                  ...prev,
+                  clientId: value,
+                  projectId: "",
+                  streamId: "",
+                  subjectId: "",
+                }))
+              }
+              disabled={!!clientId}
+            >
+              <SelectTrigger id="ticket-client">
+                <SelectValue placeholder="Select client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="ticket-project">Project</Label>
