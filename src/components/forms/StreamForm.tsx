@@ -52,14 +52,7 @@ export function StreamForm({
     if (!formState.name.trim() || !formState.project) return;
     setFormState((prev) => ({ ...prev, saving: true }));
     try {
-      // Note: streams are created per client, not per project
-      // This form would need client ID. For now, we'll need to fetch project to get clientId
-      const project = projects.find((p) => p.id === formState.project);
-      if (!project) throw new Error("Project not found");
-
-      // In a real scenario, get the project details to extract clientId
-      // For now, this is a placeholder - the backend needs to be consulted for proper flow
-      await streamsApi.createForClient(project.id, {
+      await streamsApi.createForProject(formState.project, {
         name: formState.name,
         description: "",
       });

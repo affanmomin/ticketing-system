@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -32,7 +32,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { TableRowSkeleton } from "@/components/ui/skeleton";
 import { TicketCreateForm } from "@/components/forms/TicketCreateForm";
 import { TicketEditForm } from "@/components/forms/TicketEditForm";
 import { PageHeader } from "@/components/PageHeader";
@@ -55,6 +54,11 @@ import type { AuthUser } from "@/types/api";
 
 export function Tickets() {
   const { priorities, statuses } = useTaxonomy();
+  const { user } = useAuthStore();
+  const { saveFilters, loadFilters } = useFilterPersistence();
+  const { savedViews, saveView, deleteView, loadView } = useSavedViews();
+
+  // State
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -66,6 +70,7 @@ export function Tickets() {
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [view, setView] = useState<"table" | "board">(() => {
     const saved =
       typeof window !== "undefined"
@@ -73,11 +78,6 @@ export function Tickets() {
         : null;
     return saved === "board" ? "board" : "table";
   });
-  const pageSize = view === "board" ? 200 : 20;
-  const [total, setTotal] = useState(0);
-
-  const { saveFilters, loadFilters } = useFilterPersistence();
-  const { savedViews, saveView, deleteView, loadView } = useSavedViews();
   const [filters, setFilters] = useState(() => {
     const saved = loadFilters();
     return (
@@ -92,25 +92,33 @@ export function Tickets() {
   });
   const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [saveViewName, setSaveViewName] = useState("");
-  const { user } = useAuthStore();
 
+  // Refs for optimization
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevFiltersRef = useRef(filters);
+
+  // Memoized values
+  const pageSize = useMemo(() => (view === "board" ? 200 : 20), [view]);
+  const isClient = useMemo(() => user?.role === "CLIENT", [user?.role]);
+
+  // Load reference data (projects, clients, users) - Only once on mount
   useEffect(() => {
-    (async () => {
-      try {
-        const isClient = user?.role === "CLIENT";
+    let isMounted = true;
 
-        // Client users should not fetch the clients or users list
+    const loadReferenceData = async () => {
+      try {
         if (isClient) {
           const { data: projectsRes } = await projectsApi.list({
             limit: 200,
             offset: 0,
           });
-          setProjects(projectsRes.data);
-          // Client users don't need the clients list - they only see their own data
-          setClients([]);
-          setUsers([]);
+          if (isMounted) {
+            setProjects(projectsRes.data);
+            setClients([]);
+            setUsers([]);
+          }
         } else {
-          // Admin/Employee users fetch all data
           const [
             { data: projectsRes },
             { data: clientsRes },
@@ -120,47 +128,232 @@ export function Tickets() {
             clientsApi.list({ limit: 200, offset: 0 }),
             usersApi.list({ limit: 200, offset: 0 }),
           ]);
-          setProjects(projectsRes.data);
-          setClients(clientsRes.data);
-          setUsers(usersRes.data);
+          if (isMounted) {
+            setProjects(projectsRes.data);
+            setClients(clientsRes.data);
+            setUsers(usersRes.data);
+          }
         }
       } catch (error) {
-        console.warn("Failed to load project/client/user filter data", error);
+        console.warn("Failed to load reference data", error);
+      }
+    };
+
+    loadReferenceData();
+    return () => {
+      isMounted = false;
+    };
+  }, [isClient]);
+
+  // Single unified effect for all ticket loading triggers
+  useEffect(() => {
+    let isCurrent = true; // Flag to track if this effect instance is still current
+
+    const prev = prevFiltersRef.current;
+    const currentFilters = filters;
+
+    // Check what changed
+    const searchChanged = prev.search !== currentFilters.search;
+    const nonSearchFiltersChanged =
+      prev.clientId !== currentFilters.clientId ||
+      prev.projectId !== currentFilters.projectId ||
+      prev.statusId !== currentFilters.statusId ||
+      prev.priorityId !== currentFilters.priorityId;
+
+    // Update ref
+    prevFiltersRef.current = currentFilters;
+
+    // If only search changed, debounce it
+    if (searchChanged && !nonSearchFiltersChanged) {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      searchTimeoutRef.current = setTimeout(() => {
+        if (page !== 0) {
+          setPage(0);
+        } else {
+          if (!isCurrent) return; // Effect was cleaned up
+
+          // Cancel previous request
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+          }
+
+          const controller = new AbortController();
+          abortControllerRef.current = controller;
+
+          setListLoading(true);
+
+          (async () => {
+            try {
+              const query: TicketsListQuery = {
+                limit: pageSize,
+                offset: page * pageSize,
+              };
+              if (currentFilters.projectId !== "all")
+                query.projectId = currentFilters.projectId;
+              if (currentFilters.statusId !== "all")
+                query.statusId = currentFilters.statusId;
+              if (currentFilters.priorityId !== "all")
+                query.priorityId = currentFilters.priorityId;
+
+              const { data } = await ticketsApi.list(query);
+
+              // Check if this effect is still current and request wasn't aborted
+              if (!isCurrent || controller.signal.aborted) return;
+
+              setTotal(data.total);
+
+              // Client-side filtering for search and client
+              const filtered = data.data.filter((ticket) => {
+                const matchesSearch = currentFilters.search
+                  ? ticket.title
+                      .toLowerCase()
+                      .includes(currentFilters.search.toLowerCase())
+                  : true;
+                const matchesClient =
+                  currentFilters.clientId === "all"
+                    ? true
+                    : ticket.clientId === currentFilters.clientId;
+                return matchesSearch && matchesClient;
+              });
+
+              setTickets(filtered);
+            } catch (error: any) {
+              if (
+                !isCurrent ||
+                error.name === "AbortError" ||
+                controller.signal.aborted
+              ) {
+                return; // Request was cancelled, ignore error
+              }
+              toast({
+                title: "Failed to load tickets",
+                description:
+                  error?.response?.data?.message || "Unexpected error",
+                variant: "destructive",
+              });
+            } finally {
+              if (isCurrent && !controller.signal.aborted) {
+                setListLoading(false);
+              }
+            }
+          })();
+        }
+      }, 300);
+
+      return () => {
+        isCurrent = false;
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+        }
+      };
+    }
+
+    // For all other changes (filters, page, view), load immediately
+    if (!isCurrent) return; // Effect was cleaned up
+
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setListLoading(true);
+
+    (async () => {
+      try {
+        const query: TicketsListQuery = {
+          limit: pageSize,
+          offset: page * pageSize,
+        };
+        if (currentFilters.projectId !== "all")
+          query.projectId = currentFilters.projectId;
+        if (currentFilters.statusId !== "all")
+          query.statusId = currentFilters.statusId;
+        if (currentFilters.priorityId !== "all")
+          query.priorityId = currentFilters.priorityId;
+
+        const { data } = await ticketsApi.list(query);
+
+        // Check if this effect is still current and request wasn't aborted
+        if (!isCurrent || controller.signal.aborted) return;
+
+        setTotal(data.total);
+
+        // Client-side filtering for search and client
+        const filtered = data.data.filter((ticket) => {
+          const matchesSearch = currentFilters.search
+            ? ticket.title
+                .toLowerCase()
+                .includes(currentFilters.search.toLowerCase())
+            : true;
+          const matchesClient =
+            currentFilters.clientId === "all"
+              ? true
+              : ticket.clientId === currentFilters.clientId;
+          return matchesSearch && matchesClient;
+        });
+
+        setTickets(filtered);
+      } catch (error: any) {
+        if (
+          !isCurrent ||
+          error.name === "AbortError" ||
+          controller.signal.aborted
+        ) {
+          return; // Request was cancelled, ignore error
+        }
+        toast({
+          title: "Failed to load tickets",
+          description: error?.response?.data?.message || "Unexpected error",
+          variant: "destructive",
+        });
+      } finally {
+        if (isCurrent && !controller.signal.aborted) {
+          setListLoading(false);
+        }
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role]);
 
-  useEffect(() => {
-    void loadTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    page,
-    view,
-    filters.clientId,
-    filters.projectId,
-    filters.priorityId,
-    filters.statusId,
-  ]);
+    return () => {
+      isCurrent = false;
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [filters, page, view, pageSize, toast]);
 
-  // Persist filters to localStorage
-  useEffect(() => {
-    saveFilters(filters);
-  }, [filters, saveFilters]);
-
+  // Persist filters to localStorage (debounced)
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (page !== 0) {
-        setPage(0);
-      } else {
-        void loadTickets();
-      }
-    }, 250);
+      saveFilters(filters);
+    }, 500);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.search]);
+  }, [filters, saveFilters]);
 
-  async function loadTickets() {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Stable loadTickets function for manual calls (form success handlers, etc.)
+  const loadTickets = useCallback(async () => {
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setListLoading(true);
     try {
       const query: TicketsListQuery = {
@@ -172,9 +365,13 @@ export function Tickets() {
       if (filters.priorityId !== "all") query.priorityId = filters.priorityId;
 
       const { data } = await ticketsApi.list(query);
+
+      // Check if request was aborted
+      if (controller.signal.aborted) return;
+
       setTotal(data.total);
 
-      // API now returns tickets with all related data already populated
+      // Client-side filtering for search and client
       const filtered = data.data.filter((ticket) => {
         const matchesSearch = filters.search
           ? ticket.title.toLowerCase().includes(filters.search.toLowerCase())
@@ -188,17 +385,25 @@ export function Tickets() {
 
       setTickets(filtered);
     } catch (error: any) {
+      if (error.name === "AbortError" || controller.signal.aborted) {
+        return; // Request was cancelled, ignore error
+      }
       toast({
         title: "Failed to load tickets",
         description: error?.response?.data?.message || "Unexpected error",
         variant: "destructive",
       });
     } finally {
-      setListLoading(false);
+      if (!controller.signal.aborted) {
+        setListLoading(false);
+      }
     }
-  }
+  }, [page, pageSize, filters, toast]);
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(total / pageSize)),
+    [total, pageSize]
+  );
 
   const sortedStatuses = useMemo(() => {
     return [...statuses].sort((a, b) => a.sequence - b.sequence);
@@ -210,128 +415,163 @@ export function Tickets() {
       : sortedStatuses;
   }, [sortedStatuses, filters.statusId]);
 
-  async function handleMoveTicket(ticketId: string, toStatusId: string) {
-    const current = tickets.find((t) => t.id === ticketId);
-    if (!current || current.statusId === toStatusId) return;
-    const toStatusName = statuses.find((s) => s.id === toStatusId)?.name;
-    // Optimistic update
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? { ...t, statusId: toStatusId, statusName: toStatusName }
-          : t
-      )
-    );
-    try {
-      await ticketsApi.update(ticketId, { statusId: toStatusId });
-      toast({
-        title: "Ticket updated",
-        description: `Moved to ${toStatusName ?? "new status"}`,
-      });
-    } catch (error: any) {
-      // Revert on failure
-      setTickets((prev) =>
-        prev.map((t) =>
-          t.id === ticketId
-            ? {
-                ...t,
-                statusId: current.statusId,
-                statusName: current.statusName,
-              }
-            : t
-        )
-      );
-      const message = error?.response?.data?.message || "Please try again.";
-      toast({
-        title: "Could not move ticket",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  }
+  // Optimized handlers with useCallback
+  const handleMoveTicket = useCallback(
+    async (ticketId: string, toStatusId: string) => {
+      const current = tickets.find((t) => t.id === ticketId);
+      if (!current || current.statusId === toStatusId) return;
+      const toStatusName = statuses.find((s) => s.id === toStatusId)?.name;
 
-  async function handleUpdatePriority(ticketId: string, priorityId: string) {
-    const current = tickets.find((t) => t.id === ticketId);
-    if (!current || current.priorityId === priorityId) return;
-    const priorityName = priorities.find((p) => p.id === priorityId)?.name;
-    // Optimistic update
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId ? { ...t, priorityId, priorityName } : t
-      )
-    );
-    try {
-      await ticketsApi.update(ticketId, { priorityId });
-      toast({
-        title: "Ticket updated",
-        description: `Priority changed to ${priorityName ?? "new priority"}`,
-      });
-    } catch (error: any) {
-      // Revert on failure
+      // Optimistic update
       setTickets((prev) =>
         prev.map((t) =>
           t.id === ticketId
-            ? {
-                ...t,
-                priorityId: current.priorityId,
-                priorityName: current.priorityName,
-              }
+            ? { ...t, statusId: toStatusId, statusName: toStatusName }
             : t
         )
       );
-      const message = error?.response?.data?.message || "Please try again.";
-      toast({
-        title: "Could not update priority",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  }
 
-  async function handleUpdateAssignee(
-    ticketId: string,
-    assignedToUserId: string | null
-  ) {
-    const current = tickets.find((t) => t.id === ticketId);
-    if (!current || current.assignedToUserId === assignedToUserId) return;
-    // Optimistic update
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? { ...t, assignedToUserId: assignedToUserId || null }
-          : t
-      )
-    );
-    try {
-      await ticketsApi.update(ticketId, {
-        assignedToUserId: assignedToUserId || null,
-      });
-      const assigneeName = assignedToUserId
-        ? users.find((u) => u.id === assignedToUserId)?.fullName ||
-          users.find((u) => u.id === assignedToUserId)?.email ||
-          "User"
-        : "Unassigned";
-      toast({
-        title: "Ticket updated",
-        description: `Assigned to ${assigneeName}`,
-      });
-    } catch (error: any) {
-      // Revert on failure
+      try {
+        await ticketsApi.update(ticketId, { statusId: toStatusId });
+        toast({
+          title: "Ticket updated",
+          description: `Moved to ${toStatusName ?? "new status"}`,
+        });
+      } catch (error: any) {
+        // Revert on failure
+        setTickets((prev) =>
+          prev.map((t) =>
+            t.id === ticketId
+              ? {
+                  ...t,
+                  statusId: current.statusId,
+                  statusName: current.statusName,
+                }
+              : t
+          )
+        );
+        toast({
+          title: "Could not move ticket",
+          description: error?.response?.data?.message || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    [tickets, statuses, toast]
+  );
+
+  const handleUpdatePriority = useCallback(
+    async (ticketId: string, priorityId: string) => {
+      const current = tickets.find((t) => t.id === ticketId);
+      if (!current || current.priorityId === priorityId) return;
+      const priorityName = priorities.find((p) => p.id === priorityId)?.name;
+
+      // Optimistic update
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketId ? { ...t, priorityId, priorityName } : t
+        )
+      );
+
+      try {
+        await ticketsApi.update(ticketId, { priorityId });
+        toast({
+          title: "Ticket updated",
+          description: `Priority changed to ${priorityName ?? "new priority"}`,
+        });
+      } catch (error: any) {
+        // Revert on failure
+        setTickets((prev) =>
+          prev.map((t) =>
+            t.id === ticketId
+              ? {
+                  ...t,
+                  priorityId: current.priorityId,
+                  priorityName: current.priorityName,
+                }
+              : t
+          )
+        );
+        toast({
+          title: "Could not update priority",
+          description: error?.response?.data?.message || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    [tickets, priorities, toast]
+  );
+
+  const handleUpdateAssignee = useCallback(
+    async (ticketId: string, assignedToUserId: string | null) => {
+      const current = tickets.find((t) => t.id === ticketId);
+      if (!current || current.assignedToUserId === assignedToUserId) return;
+
+      // Optimistic update
       setTickets((prev) =>
         prev.map((t) =>
           t.id === ticketId
-            ? { ...t, assignedToUserId: current.assignedToUserId }
+            ? { ...t, assignedToUserId: assignedToUserId || null }
             : t
         )
       );
-      const message = error?.response?.data?.message || "Please try again.";
-      toast({
-        title: "Could not update assignee",
-        description: message,
-        variant: "destructive",
-      });
+
+      try {
+        await ticketsApi.update(ticketId, {
+          assignedToUserId: assignedToUserId || null,
+        });
+        const assigneeName = assignedToUserId
+          ? users.find((u) => u.id === assignedToUserId)?.fullName ||
+            users.find((u) => u.id === assignedToUserId)?.email ||
+            "User"
+          : "Unassigned";
+        toast({
+          title: "Ticket updated",
+          description: `Assigned to ${assigneeName}`,
+        });
+      } catch (error: any) {
+        // Revert on failure
+        setTickets((prev) =>
+          prev.map((t) =>
+            t.id === ticketId
+              ? { ...t, assignedToUserId: current.assignedToUserId }
+              : t
+          )
+        );
+        toast({
+          title: "Could not update assignee",
+          description: error?.response?.data?.message || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    [tickets, users, toast]
+  );
+
+  // Optimized filter update handlers
+  const updateFilters = useCallback((updates: Partial<typeof filters>) => {
+    setFilters((prev) => ({ ...prev, ...updates }));
+    setPage(0);
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setFilters({
+      search: "",
+      clientId: "all",
+      projectId: "all",
+      statusId: "all",
+      priorityId: "all",
+    });
+    setPage(0);
+  }, []);
+
+  const handleViewChange = useCallback((newView: "table" | "board") => {
+    setView(newView);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("tickets_view", newView);
     }
-  }
+    setPage(0);
+  }, []);
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -368,13 +608,9 @@ export function Tickets() {
           <div className="flex items-center gap-3">
             <Tabs
               value={view}
-              onValueChange={(val) => {
-                const next = val as "table" | "board";
-                setView(next);
-                if (typeof window !== "undefined")
-                  window.localStorage.setItem("tickets_view", next);
-                setPage(0);
-              }}
+              onValueChange={(val) =>
+                handleViewChange(val as "table" | "board")
+              }
             >
               <TabsList>
                 <TabsTrigger value="table">Table</TabsTrigger>
@@ -413,11 +649,7 @@ export function Tickets() {
                 placeholder="Search title…"
                 value={filters.search}
                 onChange={(event) => {
-                  setFilters((prev) => ({
-                    ...prev,
-                    search: event.target.value,
-                  }));
-                  setPage(0);
+                  updateFilters({ search: event.target.value });
                 }}
                 className="w-full sm:col-span-2 lg:w-60"
               />
@@ -426,12 +658,7 @@ export function Tickets() {
                 <Select
                   value={filters.clientId}
                   onValueChange={(value) => {
-                    setFilters((prev) => ({
-                      ...prev,
-                      clientId: value,
-                      projectId: "all",
-                    }));
-                    setPage(0);
+                    updateFilters({ clientId: value, projectId: "all" });
                   }}
                 >
                   <SelectTrigger className="w-full lg:w-44">
@@ -450,8 +677,7 @@ export function Tickets() {
               <Select
                 value={filters.projectId}
                 onValueChange={(value) => {
-                  setFilters((prev) => ({ ...prev, projectId: value }));
-                  setPage(0);
+                  updateFilters({ projectId: value });
                 }}
               >
                 <SelectTrigger className="w-full lg:w-44">
@@ -475,8 +701,7 @@ export function Tickets() {
               <Select
                 value={filters.statusId}
                 onValueChange={(value) => {
-                  setFilters((prev) => ({ ...prev, statusId: value }));
-                  setPage(0);
+                  updateFilters({ statusId: value });
                 }}
               >
                 <SelectTrigger className="w-full lg:w-40">
@@ -494,8 +719,7 @@ export function Tickets() {
               <Select
                 value={filters.priorityId}
                 onValueChange={(value) => {
-                  setFilters((prev) => ({ ...prev, priorityId: value }));
-                  setPage(0);
+                  updateFilters({ priorityId: value });
                 }}
               >
                 <SelectTrigger className="w-full lg:w-40">
@@ -521,15 +745,11 @@ export function Tickets() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setFilters({
-                  search: "",
-                  clientId: "all",
-                  projectId: "all",
-                  statusId: "all",
-                  priorityId: "all",
+                resetFilters();
+                setFilters((prev) => ({
+                  ...prev,
                   assignedToUserId: user?.id || "all",
-                });
-                setPage(0);
+                }));
               }}
               className="h-7 text-xs"
             >
@@ -539,15 +759,11 @@ export function Tickets() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setFilters({
-                  search: "",
-                  clientId: "all",
-                  projectId: "all",
-                  statusId: "all",
-                  priorityId: "all",
+                resetFilters();
+                setFilters((prev) => ({
+                  ...prev,
                   assignedToUserId: "unassigned",
-                });
-                setPage(0);
+                }));
               }}
               className="h-7 text-xs"
             >
@@ -560,14 +776,11 @@ export function Tickets() {
                 const highPriority = priorities.find((p) =>
                   p.name.toLowerCase().includes("high")
                 );
-                setFilters({
-                  search: "",
-                  clientId: "all",
-                  projectId: "all",
-                  statusId: "all",
+                resetFilters();
+                setFilters((prev) => ({
+                  ...prev,
                   priorityId: highPriority?.id || "all",
-                });
-                setPage(0);
+                }));
               }}
               className="h-7 text-xs"
             >
@@ -679,9 +892,7 @@ export function Tickets() {
                 <Badge variant="secondary" className="text-xs">
                   Search: {filters.search}
                   <button
-                    onClick={() =>
-                      setFilters((prev) => ({ ...prev, search: "" }))
-                    }
+                    onClick={() => updateFilters({ search: "" })}
                     className="ml-1 hover:text-foreground"
                   >
                     <X className="h-3 w-3" />
@@ -694,11 +905,7 @@ export function Tickets() {
                   Client: {clients.find((c) => c.id === filters.clientId)?.name}
                   <button
                     onClick={() =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        clientId: "all",
-                        projectId: "all",
-                      }))
+                      updateFilters({ clientId: "all", projectId: "all" })
                     }
                     className="ml-1 hover:text-foreground"
                   >
@@ -711,9 +918,7 @@ export function Tickets() {
                   Project:{" "}
                   {projects.find((p) => p.id === filters.projectId)?.name}
                   <button
-                    onClick={() =>
-                      setFilters((prev) => ({ ...prev, projectId: "all" }))
-                    }
+                    onClick={() => updateFilters({ projectId: "all" })}
                     className="ml-1 hover:text-foreground"
                   >
                     <X className="h-3 w-3" />
@@ -725,9 +930,7 @@ export function Tickets() {
                   Status:{" "}
                   {statuses.find((s) => s.id === filters.statusId)?.name}
                   <button
-                    onClick={() =>
-                      setFilters((prev) => ({ ...prev, statusId: "all" }))
-                    }
+                    onClick={() => updateFilters({ statusId: "all" })}
                     className="ml-1 hover:text-foreground"
                   >
                     <X className="h-3 w-3" />
@@ -739,9 +942,7 @@ export function Tickets() {
                   Priority:{" "}
                   {priorities.find((p) => p.id === filters.priorityId)?.name}
                   <button
-                    onClick={() =>
-                      setFilters((prev) => ({ ...prev, priorityId: "all" }))
-                    }
+                    onClick={() => updateFilters({ priorityId: "all" })}
                     className="ml-1 hover:text-foreground"
                   >
                     <X className="h-3 w-3" />
@@ -760,12 +961,10 @@ export function Tickets() {
                         (u) => u.id === (filters as any).assignedToUserId
                       )?.email}
                     <button
-                      onClick={() =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          assignedToUserId: undefined,
-                        }))
-                      }
+                      onClick={() => {
+                        const { assignedToUserId, ...rest } = filters as any;
+                        setFilters(rest);
+                      }}
                       className="ml-1 hover:text-foreground"
                     >
                       <X className="h-3 w-3" />
@@ -776,12 +975,10 @@ export function Tickets() {
                 <Badge variant="secondary" className="text-xs">
                   Unassigned
                   <button
-                    onClick={() =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        assignedToUserId: undefined,
-                      }))
-                    }
+                    onClick={() => {
+                      const { assignedToUserId, ...rest } = filters as any;
+                      setFilters(rest);
+                    }}
                     className="ml-1 hover:text-foreground"
                   >
                     <X className="h-3 w-3" />
@@ -791,16 +988,7 @@ export function Tickets() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setFilters({
-                    search: "",
-                    clientId: "all",
-                    projectId: "all",
-                    statusId: "all",
-                    priorityId: "all",
-                  });
-                  setPage(0);
-                }}
+                onClick={resetFilters}
                 className="h-6 text-xs"
               >
                 Clear all
@@ -818,15 +1006,26 @@ export function Tickets() {
                     <Card key={index} className="overflow-hidden">
                       <CardContent className="p-4">
                         <div className="space-y-3">
-                          <div className="h-4 bg-muted rounded w-1/3 animate-pulse" />
-                          <div className="h-5 bg-muted rounded w-full animate-pulse" />
-                          <div className="flex gap-2">
-                            <div className="h-5 bg-muted rounded w-16 animate-pulse" />
-                            <div className="h-5 bg-muted rounded w-16 animate-pulse" />
+                          {/* Ticket ID skeleton */}
+                          <div className="h-3 bg-muted rounded w-20 animate-pulse" />
+
+                          {/* Title skeleton */}
+                          <div className="space-y-1.5">
+                            <div className="h-4 bg-muted rounded w-full animate-pulse" />
+                            <div className="h-4 bg-muted rounded w-4/5 animate-pulse" />
                           </div>
-                          <div className="space-y-2">
-                            <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
-                            <div className="h-4 bg-muted rounded w-2/3 animate-pulse" />
+
+                          {/* Status and Priority badges skeleton */}
+                          <div className="flex gap-2">
+                            <div className="h-6 bg-muted rounded w-20 animate-pulse" />
+                            <div className="h-6 bg-muted rounded w-16 animate-pulse" />
+                          </div>
+
+                          {/* Project, Client, Date info skeleton */}
+                          <div className="space-y-1.5">
+                            <div className="h-3 bg-muted rounded w-3/4 animate-pulse" />
+                            <div className="h-3 bg-muted rounded w-2/3 animate-pulse" />
+                            <div className="h-3 bg-muted rounded w-1/2 animate-pulse" />
                           </div>
                         </div>
                       </CardContent>
@@ -947,10 +1146,42 @@ export function Tickets() {
                   </TableHeader>
                   <TableBody>
                     {listLoading ? (
-                      Array.from({ length: 5 }).map((_, index) => (
+                      Array.from({ length: 8 }).map((_, index) => (
                         <TableRow key={index}>
-                          <TableCell colSpan={8} className="p-0">
-                            <TableRowSkeleton columns={8} />
+                          {/* Ticket ID */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-3 bg-muted rounded w-16 animate-pulse" />
+                          </TableCell>
+                          {/* Title */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="space-y-1.5">
+                              <div className="h-4 bg-muted rounded w-full animate-pulse" />
+                              <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                            </div>
+                          </TableCell>
+                          {/* Status */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-7 bg-muted rounded w-20 animate-pulse" />
+                          </TableCell>
+                          {/* Priority */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-7 bg-muted rounded w-20 animate-pulse" />
+                          </TableCell>
+                          {/* Assignee */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-7 bg-muted rounded w-24 animate-pulse" />
+                          </TableCell>
+                          {/* Project */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-4 bg-muted rounded w-32 animate-pulse" />
+                          </TableCell>
+                          {/* Client */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-4 bg-muted rounded w-28 animate-pulse" />
+                          </TableCell>
+                          {/* Updated */}
+                          <TableCell className="p-3 sm:p-4 text-right">
+                            <div className="h-3 bg-muted rounded w-20 ml-auto animate-pulse" />
                           </TableCell>
                         </TableRow>
                       ))

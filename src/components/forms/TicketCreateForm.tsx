@@ -127,23 +127,36 @@ export function TicketCreateForm({
     if (!form.clientId) return;
     (async () => {
       try {
-        const [projectsRes, streamsRes, subjectsRes] = await Promise.all([
-          projectsApi.list({ clientId: form.clientId, limit: 200, offset: 0 }),
-          streamsApi.listForClient(form.clientId, { limit: 200, offset: 0 }),
-          subjectsApi.listForClient(form.clientId, { limit: 200, offset: 0 }),
-        ]);
-
+        const projectsRes = await projectsApi.list({ clientId: form.clientId, limit: 200, offset: 0 });
         const projectItems = projectsRes.data.data;
-        const streamItems = streamsRes.data.data;
-        const subjectItems = subjectsRes.data.data;
-
         setProjects(projectItems);
-        setStreams(streamItems);
-        setSubjects(subjectItems);
 
         if (!projectId && projectItems.length) {
           setForm((prev) => ({ ...prev, projectId: projectItems[0].id }));
         }
+      } catch (error) {
+        toast({
+          title: "Failed to load projects",
+          variant: "destructive",
+        });
+      }
+    })();
+  }, [form.clientId, projectId, toast]);
+
+  useEffect(() => {
+    if (!form.projectId) return;
+    (async () => {
+      try {
+        const [streamsRes, subjectsRes] = await Promise.all([
+          streamsApi.listForProject(form.projectId, { limit: 200, offset: 0 }),
+          subjectsApi.listForProject(form.projectId, { limit: 200, offset: 0 }),
+        ]);
+
+        const streamItems = streamsRes.data.data;
+        const subjectItems = subjectsRes.data.data;
+
+        setStreams(streamItems);
+        setSubjects(subjectItems);
 
         if (streamItems.length) {
           setForm((prev) => ({ ...prev, streamId: streamItems[0].id }));
@@ -158,12 +171,12 @@ export function TicketCreateForm({
         }
       } catch (error) {
         toast({
-          title: "Failed to load project context",
+          title: "Failed to load streams and subjects",
           variant: "destructive",
         });
       }
     })();
-  }, [form.clientId, projectId, toast]);
+  }, [form.projectId, toast]);
 
   useEffect(() => {
     if (!form.projectId) return;
@@ -175,6 +188,7 @@ export function TicketCreateForm({
         console.warn("Failed to load project members", error);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.projectId]);
 
   useEffect(() => {

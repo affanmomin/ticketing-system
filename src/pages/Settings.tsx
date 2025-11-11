@@ -32,7 +32,7 @@ export function Settings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" defaultValue={user.id} />
+            <Input id="name" defaultValue={user.fullName || ""} />
           </div>
 
           <div className="space-y-2">
@@ -40,7 +40,7 @@ export function Settings() {
             <Input
               id="email"
               type="email"
-              defaultValue={`${user.id}@example.com`}
+              defaultValue={user.email || ""}
               disabled
             />
           </div>

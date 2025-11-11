@@ -18,18 +18,18 @@ export interface StreamUpdateRequest {
   active?: boolean;
 }
 
-export const listForClient = (
-  clientId: string,
+export const listForProject = (
+  projectId: string,
   params: ListStreamsQuery = {}
 ) =>
-  api.get<PaginatedResponse<Stream>>(`/clients/${clientId}/streams`, {
+  api.get<PaginatedResponse<Stream>>(`/projects/${projectId}/streams`, {
     params,
   });
 
-export const createForClient = (
-  clientId: string,
+export const createForProject = (
+  projectId: string,
   payload: StreamCreateRequest
-) => api.post<Stream>(`/clients/${clientId}/streams`, payload);
+) => api.post<Stream>(`/projects/${projectId}/streams`, payload);
 
 export const update = (id: string, payload: StreamUpdateRequest) =>
-  api.post<Stream>(`/streams/${id}`, payload);
+  api.patch<Stream>(`/streams/${id}`, payload);

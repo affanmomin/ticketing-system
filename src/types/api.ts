@@ -6,10 +6,13 @@ export interface AuthUser {
   id: string;
   organizationId: string;
   role: UserRole;
+  userType?: UserRole; // API uses userType instead of role in list responses
   clientId: string | null;
   fullName?: string | null;
   email?: string | null;
   isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LoginRequest {
@@ -72,7 +75,7 @@ export interface ProjectMember {
 
 export interface Stream {
   id: string;
-  clientId: string;
+  projectId: string;
   name: string;
   description: string | null;
   active: boolean;
@@ -82,7 +85,7 @@ export interface Stream {
 
 export interface Subject {
   id: string;
-  clientId: string;
+  projectId: string;
   name: string;
   description: string | null;
   active: boolean;

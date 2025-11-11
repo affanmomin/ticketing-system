@@ -253,7 +253,7 @@ export function Users() {
                             variant="secondary"
                             className="uppercase text-xs shrink-0"
                           >
-                            {user.role}
+                            {user.userType || user.role}
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground truncate">
@@ -335,11 +335,7 @@ export function Users() {
               <TableBody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, index) => (
-                    <TableRow key={index}>
-                      <TableCell colSpan={5} className="p-0">
-                        <TableRowSkeleton columns={5} />
-                      </TableCell>
-                    </TableRow>
+                    <TableRowSkeleton key={index} columns={5} />
                   ))
                 ) : filteredUsers.length === 0 ? (
                   <TableRow>
@@ -365,7 +361,7 @@ export function Users() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="uppercase">
-                          {user.role}
+                          {user.userType || user.role}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">

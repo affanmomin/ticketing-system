@@ -120,11 +120,11 @@ export function TicketEditForm({
         );
         const [streamsRes, subjectsRes, membersRes, usersRes] =
           await Promise.all([
-            streamsApi.listForClient(projectData.clientId, {
+            streamsApi.listForProject(ticketData.projectId, {
               limit: 200,
               offset: 0,
             }),
-            subjectsApi.listForClient(projectData.clientId, {
+            subjectsApi.listForProject(ticketData.projectId, {
               limit: 200,
               offset: 0,
             }),
@@ -146,7 +146,7 @@ export function TicketEditForm({
         ) {
           streamList.push({
             id: ticketData.streamId,
-            clientId: projectData.clientId,
+            projectId: ticketData.projectId,
             name: "Current stream",
             description: null,
             active: true,
@@ -168,7 +168,7 @@ export function TicketEditForm({
         ) {
           subjectList.push({
             id: ticketData.subjectId,
-            clientId: projectData.clientId,
+            projectId: ticketData.projectId,
             name: "Current subject",
             description: null,
             active: true,

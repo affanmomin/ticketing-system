@@ -18,18 +18,18 @@ export interface SubjectUpdateRequest {
   active?: boolean;
 }
 
-export const listForClient = (
-  clientId: string,
+export const listForProject = (
+  projectId: string,
   params: ListSubjectsQuery = {}
 ) =>
-  api.get<PaginatedResponse<Subject>>(`/clients/${clientId}/subjects`, {
+  api.get<PaginatedResponse<Subject>>(`/projects/${projectId}/subjects`, {
     params,
   });
 
-export const createForClient = (
-  clientId: string,
+export const createForProject = (
+  projectId: string,
   payload: SubjectCreateRequest
-) => api.post<Subject>(`/clients/${clientId}/subjects`, payload);
+) => api.post<Subject>(`/projects/${projectId}/subjects`, payload);
 
 export const update = (id: string, payload: SubjectUpdateRequest) =>
-  api.post<Subject>(`/subjects/${id}`, payload);
+  api.patch<Subject>(`/subjects/${id}`, payload);

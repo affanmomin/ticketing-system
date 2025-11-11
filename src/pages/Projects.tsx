@@ -328,11 +328,7 @@ export function Projects() {
               <TableBody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, index) => (
-                    <TableRow key={index}>
-                      <TableCell colSpan={isClient ? 4 : 5} className="p-0">
-                        <TableRowSkeleton columns={isClient ? 4 : 5} />
-                      </TableCell>
-                    </TableRow>
+                    <TableRowSkeleton key={index} columns={isClient ? 4 : 5} />
                   ))
                 ) : filteredProjects.length === 0 ? (
                   <TableRow>

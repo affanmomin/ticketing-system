@@ -55,12 +55,12 @@ const navItems: NavItem[] = [
     icon: <Users className="w-5 h-5" />,
     roles: ["ADMIN"],
   },
-  {
-    title: "Tags",
-    href: "/tags",
-    icon: <Tag className="w-5 h-5" />,
-    roles: ["ADMIN"],
-  },
+  // {
+  //   title: "Tags",
+  //   href: "/tags",
+  //   icon: <Tag className="w-5 h-5" />,
+  //   roles: ["ADMIN"],
+  // },
   {
     title: "Settings",
     href: "/settings",
