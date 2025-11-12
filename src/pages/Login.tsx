@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/hooks/use-toast";
 
@@ -107,11 +106,13 @@ export function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-2">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <FileText className="w-7 h-7 text-primary-foreground" />
-            </div>
+            <img
+              src="/saait-logo.jpg"
+              alt="SAAIT Logo"
+              className="w-20 h-20 rounded-full object-cover"
+            />
           </div>
-          <CardTitle className="text-2xl">Welcome to Ticketly</CardTitle>
+          <CardTitle className="text-2xl">Welcome to SAAIT Ticketly</CardTitle>
           <CardDescription>Sign in to your account to continue</CardDescription>
         </CardHeader>
         <CardContent>

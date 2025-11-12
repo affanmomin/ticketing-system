@@ -588,24 +588,26 @@ export function TicketCreateForm({
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1.5">
+    <div className="h-full flex flex-col">
+      <div className="flex-shrink-0 space-y-1.5 pb-4">
         <h2 className="text-xl font-semibold">Create ticket</h2>
         <p className="text-sm text-muted-foreground">
           Tickets require a client stream and subject to keep work organized.
         </p>
       </div>
 
-      <Wizard
-        steps={steps}
-        currentStep={currentStep}
-        onStepChange={setCurrentStep}
-        onFinish={handleSubmit}
-        canProceed={canProceed}
-        isLoading={saving}
-      />
+      <div className="flex-1 overflow-y-auto pr-2">
+        <Wizard
+          steps={steps}
+          currentStep={currentStep}
+          onStepChange={setCurrentStep}
+          onFinish={handleSubmit}
+          canProceed={canProceed}
+          isLoading={saving}
+        />
+      </div>
 
-      <div className="flex justify-end">
+      <div className="flex-shrink-0 flex justify-end pt-4 border-t mt-4">
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>

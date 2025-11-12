@@ -52,9 +52,9 @@ export function Wizard({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full">
       {/* Progress Indicator */}
-      <div className="space-y-2">
+      <div className="flex-shrink-0 space-y-2 pb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">
@@ -85,10 +85,10 @@ export function Wizard({
       </div>
 
       {/* Step Content */}
-      <div className="min-h-[400px]">{currentStepData.component}</div>
+      <div className="flex-1 overflow-y-auto pr-2 pb-6">{currentStepData.component}</div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-4 border-t">
+      <div className="flex-shrink-0 flex items-center justify-between pt-4 border-t">
         <Button
           variant="outline"
           onClick={handlePrevious}

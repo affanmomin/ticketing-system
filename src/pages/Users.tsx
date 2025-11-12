@@ -163,7 +163,7 @@ export function Users() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Create User</DialogTitle>
+                {/* <DialogTitle>Create User</DialogTitle> */}
               </DialogHeader>
               <InviteUserForm
                 onSuccess={() => {

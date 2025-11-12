@@ -313,11 +313,11 @@ export function Clients() {
                             </DialogTrigger>
                             <DialogContent className="max-w-3xl">
                               <DialogHeader>
-                                <DialogTitle>Edit Client</DialogTitle>
-                                <DialogDescription>
+                                {/* <DialogTitle>Edit Client</DialogTitle> */}
+                                {/* <DialogDescription>
                                   Update general contact information and
                                   activation state.
-                                </DialogDescription>
+                                </DialogDescription> */}
                               </DialogHeader>
                               <ClientEditForm
                                 client={client}
