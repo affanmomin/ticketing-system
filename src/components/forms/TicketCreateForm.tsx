@@ -149,9 +149,9 @@ export function TicketCreateForm({
     if (!form.projectId) return;
     (async () => {
       try {
-        const subjectsRes = await subjectsApi.listForProject(form.projectId, { 
-          limit: 200, 
-          offset: 0 
+        const subjectsRes = await subjectsApi.listForProject(form.projectId, {
+          limit: 200,
+          offset: 0,
         });
 
         const subjectItems = subjectsRes.data.data;
@@ -590,8 +590,7 @@ export function TicketCreateForm({
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">Create ticket</h2>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-s mt-3 text-muted-foreground">
           Tickets require a client stream and subject to keep work organized.
         </p>
       </div>

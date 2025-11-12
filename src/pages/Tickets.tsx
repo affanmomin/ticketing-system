@@ -43,7 +43,13 @@ import { TicketsBoard } from "@/components/TicketsBoard";
 import * as ticketsApi from "@/api/tickets";
 import * as projectsApi from "@/api/projects";
 import * as clientsApi from "@/api/clients";
-import type { Ticket, Project, Client, TicketsListQuery } from "@/types/api";
+import type {
+  Ticket,
+  Project,
+  Client,
+  TicketsListQuery,
+  ProjectMember,
+} from "@/types/api";
 import { format } from "date-fns";
 import { Plus, X, Bookmark, BookmarkPlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
@@ -65,6 +71,9 @@ export function Tickets() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
+  const [projectMembers, setProjectMembers] = useState<
+    Map<string, ProjectMember[]>
+  >(new Map());
   const [selectedTicketId, setSelectedTicketId] = useState<
     string | undefined
   >();
@@ -99,6 +108,7 @@ export function Tickets() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevFiltersRef = useRef(filters);
+  const loadedProjectIdsRef = useRef<Set<string>>(new Set());
 
   // Memoized values
   const pageSize = useMemo(() => (view === "board" ? 200 : 20), [view]);
@@ -156,6 +166,71 @@ export function Tickets() {
       isMounted = false;
     };
   }, [isClient]);
+
+  // Load project members for tickets in current view
+  useEffect(() => {
+    if (tickets.length === 0) return;
+
+    const loadProjectMembers = async () => {
+      // Get unique project IDs from tickets
+      const uniqueProjectIds = Array.from(
+        new Set(tickets.map((t) => t.projectId))
+      );
+
+      // Filter out projects we already have members for
+      const projectsToLoad = uniqueProjectIds.filter(
+        (projectId) => !loadedProjectIdsRef.current.has(projectId)
+      );
+
+      if (projectsToLoad.length === 0) return;
+
+      // Mark projects as loading to prevent duplicate requests
+      projectsToLoad.forEach((projectId) => {
+        loadedProjectIdsRef.current.add(projectId);
+      });
+
+      try {
+        // Load members for all projects in parallel
+        const memberPromises = projectsToLoad.map(async (projectId) => {
+          try {
+            const membersRes = await projectsApi.listMembers(projectId);
+            // Handle both direct array response and AxiosResponse wrapper
+            const members = Array.isArray(membersRes)
+              ? membersRes
+              : Array.isArray(membersRes.data)
+                ? membersRes.data
+                : [];
+            return { projectId, members };
+          } catch (error) {
+            console.warn(
+              `Failed to load members for project ${projectId}`,
+              error
+            );
+            return { projectId, members: [] };
+          }
+        });
+
+        const results = await Promise.all(memberPromises);
+
+        // Update the map with new members
+        setProjectMembers((prev) => {
+          const newMap = new Map(prev);
+          results.forEach(({ projectId, members }) => {
+            newMap.set(projectId, members);
+          });
+          return newMap;
+        });
+      } catch (error) {
+        console.warn("Failed to load project members", error);
+        // Remove failed projects from loaded set so they can be retried
+        projectsToLoad.forEach((projectId) => {
+          loadedProjectIdsRef.current.delete(projectId);
+        });
+      }
+    };
+
+    loadProjectMembers();
+  }, [tickets]);
 
   // Single unified effect for all ticket loading triggers
   useEffect(() => {
@@ -427,6 +502,19 @@ export function Tickets() {
       : sortedStatuses;
   }, [sortedStatuses, filters.statusId]);
 
+  // Helper function to get assignable users for a ticket's project
+  const getAssignableUsersForTicket = useCallback(
+    (ticket: Ticket): AuthUser[] => {
+      const members = projectMembers.get(ticket.projectId) || [];
+      const assignableMemberIds = members
+        .filter((m) => m.canBeAssigned)
+        .map((m) => m.userId);
+
+      return users.filter((u) => assignableMemberIds.includes(u.id));
+    },
+    [projectMembers, users]
+  );
+
   // Optimized handlers with useCallback
   const handleMoveTicket = useCallback(
     async (ticketId: string, toStatusId: string) => {
@@ -551,7 +639,7 @@ export function Tickets() {
               : t
           )
         );
-        
+
         // Check if it's an auth error
         const status = error?.response?.status;
         if (status === 401 || status === 403) {
@@ -1252,7 +1340,9 @@ export function Tickets() {
                                   {ticket.statusName || ticket.statusId}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent onClick={(e) => e.stopPropagation()}>
+                              <SelectContent
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 {sortedStatuses.map((status) => (
                                   <SelectItem key={status.id} value={status.id}>
                                     {status.name}
@@ -1276,7 +1366,9 @@ export function Tickets() {
                                   {ticket.priorityName || ticket.priorityId}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent onClick={(e) => e.stopPropagation()}>
+                              <SelectContent
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 {priorities.map((priority) => (
                                   <SelectItem
                                     key={priority.id}
@@ -1298,7 +1390,10 @@ export function Tickets() {
                                     value === "unassigned" ? null : value
                                   );
                                 } catch (err) {
-                                  console.error("Error updating assignee:", err);
+                                  console.error(
+                                    "Error updating assignee:",
+                                    err
+                                  );
                                 }
                               }}
                             >
@@ -1308,25 +1403,44 @@ export function Tickets() {
                               >
                                 <SelectValue>
                                   {ticket.assignedToUserId
-                                    ? users.find(
-                                        (u) => u.id === ticket.assignedToUserId
-                                      )?.fullName ||
-                                      users.find(
-                                        (u) => u.id === ticket.assignedToUserId
-                                      )?.email ||
-                                      "User"
+                                    ? (() => {
+                                        const assignableUsers =
+                                          getAssignableUsersForTicket(ticket);
+                                        const assignedUser =
+                                          assignableUsers.find(
+                                            (u) =>
+                                              u.id === ticket.assignedToUserId
+                                          );
+                                        return (
+                                          assignedUser?.fullName ||
+                                          assignedUser?.email ||
+                                          users.find(
+                                            (u) =>
+                                              u.id === ticket.assignedToUserId
+                                          )?.fullName ||
+                                          users.find(
+                                            (u) =>
+                                              u.id === ticket.assignedToUserId
+                                          )?.email ||
+                                          "User"
+                                        );
+                                      })()
                                     : "Unassigned"}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent onClick={(e) => e.stopPropagation()}>
+                              <SelectContent
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <SelectItem value="unassigned">
                                   Unassigned
                                 </SelectItem>
-                                {users.map((user) => (
-                                  <SelectItem key={user.id} value={user.id}>
-                                    {user.fullName || user.email || user.id}
-                                  </SelectItem>
-                                ))}
+                                {getAssignableUsersForTicket(ticket).map(
+                                  (user) => (
+                                    <SelectItem key={user.id} value={user.id}>
+                                      {user.fullName || user.email || user.id}
+                                    </SelectItem>
+                                  )
+                                )}
                               </SelectContent>
                             </Select>
                           </TableCell>
