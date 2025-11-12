@@ -890,7 +890,7 @@ export function ProjectDetail() {
           }
         }}
       >
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl [&>div]:p-6">
           <DialogHeader>
             <DialogTitle>Project Taxonomy · {project.name}</DialogTitle>
             <DialogDescription>
@@ -903,6 +903,7 @@ export function ProjectDetail() {
             onValueChange={(value) =>
               setActiveTab(value as "streams" | "subjects")
             }
+            className="mt-6"
           >
             <TabsList className="grid grid-cols-2">
               <TabsTrigger
