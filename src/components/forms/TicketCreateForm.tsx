@@ -379,35 +379,16 @@ export function TicketCreateForm({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="ticket-stream">Stream</Label>
-          <Select
-            value={form.streamId}
-            onValueChange={(value) =>
-              setForm((prev) => ({ ...prev, streamId: value }))
-            }
-            disabled={!form.clientId}
-          >
-            <SelectTrigger id="ticket-stream">
-              <SelectValue placeholder="Select stream" />
-            </SelectTrigger>
-            <SelectContent>
-              {streams.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">
-                  No streams found. Create streams in the client workspace
-                  first.
-                </div>
-              ) : (
-                streams.map((stream) => (
-                  <SelectItem key={stream.id} value={stream.id}>
-                    {stream.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-6">
+        <StreamSelector
+          projectId={form.projectId}
+          value={form.streamId}
+          onValueChange={(value) =>
+            setForm((prev) => ({ ...prev, streamId: value }))
+          }
+          disabled={!form.projectId}
+          required
+        />
 
         <div className="space-y-2">
           <Label htmlFor="ticket-subject">Subject</Label>
@@ -416,7 +397,7 @@ export function TicketCreateForm({
             onValueChange={(value) =>
               setForm((prev) => ({ ...prev, subjectId: value }))
             }
-            disabled={!form.clientId}
+            disabled={!form.projectId}
           >
             <SelectTrigger id="ticket-subject">
               <SelectValue placeholder="Select subject" />
