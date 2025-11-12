@@ -6,7 +6,6 @@ import {
   FolderKanban,
   FileText,
   Users,
-  Settings,
   Building2,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
@@ -60,12 +59,12 @@ const navItems: NavItem[] = [
   //   icon: <Tag className="w-5 h-5" />,
   //   roles: ["ADMIN"],
   // },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: <Settings className="w-5 h-5" />,
-    roles: ["ADMIN", "EMPLOYEE"],
-  },
+  // {
+  //   title: "Settings",
+  //   href: "/settings",
+  //   icon: <Settings className="w-5 h-5" />,
+  //   roles: ["ADMIN", "EMPLOYEE"],
+  // },
 ];
 
 export function Sidebar({
@@ -122,10 +121,10 @@ export function Sidebar({
           )}
         >
           <div className="flex items-center gap-3">
-            <img 
-              src="/saait-logo.jpg" 
-              alt="SAAIT Logo" 
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover shrink-0"
+            <img
+              src="/saait-logo.jpg"
+              alt="SAAIT Logo"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shrink-0"
             />
             {!renderCollapsed && (
               <div className="overflow-hidden">
@@ -133,7 +132,7 @@ export function Sidebar({
                   SAAIT
                 </h1>
                 <p className="text-xs text-muted-foreground truncate">
-                  Project Management
+                  Ticketing System
                 </p>
               </div>
             )}

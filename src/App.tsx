@@ -130,7 +130,16 @@ function ProtectedRoute({
 }
 
 function AppRoutes() {
-  const { user, token, isAuthenticated, loading, bootstrap } = useAuthStore();
+  const {
+    user,
+    token,
+    isAuthenticated,
+    loading,
+    postLoginLoading,
+    bootstrap,
+    setPostLoginLoading,
+  } = useAuthStore();
+
   useEffect(() => {
     if (token && !user) {
       bootstrap().catch(() => {
@@ -139,7 +148,18 @@ function AppRoutes() {
     }
   }, [token, user, bootstrap]);
 
-  if (loading) {
+  // Handle 5-second post-login loading state
+  useEffect(() => {
+    if (postLoginLoading) {
+      const timer = setTimeout(() => {
+        setPostLoginLoading(false);
+      }, 3000); // 5 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [postLoginLoading, setPostLoginLoading]);
+
+  if (loading || postLoginLoading) {
     return <LoadingScreen />;
   }
 

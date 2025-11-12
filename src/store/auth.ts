@@ -8,6 +8,7 @@ type State = {
   organizationId?: string;
   isAuthenticated: boolean;
   loading: boolean;
+  postLoginLoading: boolean;
   error?: string;
 };
 
@@ -18,6 +19,7 @@ type Actions = {
   bootstrap: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
+  setPostLoginLoading: (loading: boolean) => void;
 };
 
 const TOKEN_STORAGE_KEY = "cc_token";
@@ -33,6 +35,7 @@ const initializer: StateCreator<State & Actions> = (set, get) => ({
     typeof window !== "undefined" && localStorage.getItem(TOKEN_STORAGE_KEY)
   ),
   loading: false,
+  postLoginLoading: false,
   error: undefined,
 
   setToken: (token?: string) => {
@@ -59,12 +62,13 @@ const initializer: StateCreator<State & Actions> = (set, get) => ({
       const { data } = await authApi.login(payload);
       get().setToken(data.accessToken);
       await get().bootstrap();
+      // Set post-login loading state - will be cleared after 5 seconds in App.tsx
+      set({ loading: false, postLoginLoading: true });
     } catch (error: any) {
       const message = error?.response?.data?.message || "Authentication failed";
-      set({ error: message, loading: false });
+      set({ error: message, loading: false, postLoginLoading: false });
       throw error;
     }
-    set({ loading: false });
   },
 
   bootstrap: async () => {
@@ -129,8 +133,13 @@ const initializer: StateCreator<State & Actions> = (set, get) => ({
       organizationId: undefined,
       isAuthenticated: false,
       loading: false,
+      postLoginLoading: false,
       error: undefined,
     });
+  },
+
+  setPostLoginLoading: (loading: boolean) => {
+    set({ postLoginLoading: loading });
   },
 });
 
