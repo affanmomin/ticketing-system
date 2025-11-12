@@ -179,11 +179,11 @@ export function Users() {
 
       <Card>
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <CardTitle className="flex items-center gap-2 text-muted-foreground">
+          <CardTitle className="flex items-center gap-2 text-muted-foreground whitespace-nowrap">
             <UsersIcon className="h-4 w-4" />
             Workspace Users
           </CardTitle>
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end md:w-auto">
             <Select
               value={roleFilter}
               onValueChange={(value) => {
@@ -463,7 +463,7 @@ export function Users() {
       >
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Edit user details</DialogTitle>
+            {/* <DialogTitle>Edit user details</DialogTitle> */}
           </DialogHeader>
           {editingUser && (
             <UserEditForm

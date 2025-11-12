@@ -394,20 +394,20 @@ export function ProjectDetail() {
         }
         actions={
           <div className="flex gap-2">
-            <Button
+            {/* <Button
               variant="outline"
               onClick={() => openTaxonomyDialog("streams")}
             >
               <Layers className="mr-2 h-4 w-4" />
               Streams & Subjects
-            </Button>
+            </Button> */}
             <Dialog open={membershipDialog} onOpenChange={setMembershipDialog}>
-              <DialogTrigger asChild>
+              {/* <DialogTrigger asChild>
                 <Button variant="outline">
                   <Users className="mr-2 h-4 w-4" />
                   Manage Members
                 </Button>
-              </DialogTrigger>
+              </DialogTrigger> */}
               <DialogContent className="max-w-4xl">
                 <DialogHeader>
                   <DialogTitle>Project team</DialogTitle>
