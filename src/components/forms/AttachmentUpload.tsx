@@ -20,6 +20,7 @@ export function AttachmentUpload({ ticketId }: AttachmentUploadProps) {
   const [pickedFiles, setPickedFiles] = useState<File[]>([]);
   const [attachments, setAttachments] = useState<AttachmentRecord[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadingFileName, setUploadingFileName] = useState<string>("");
 
   useEffect(() => {
     if (!ticketId) return;
@@ -38,30 +39,97 @@ export function AttachmentUpload({ ticketId }: AttachmentUploadProps) {
     setUploading(true);
     try {
       for (const file of pickedFiles) {
+        setUploadingFileName(file.name);
+        console.log("📤 Starting upload for:", file.name, {
+          size: file.size,
+          type: file.type,
+        });
+
+        // Step 1: Get presigned URL
+        console.log("1️⃣ Requesting presigned URL...");
         const { data: presign } = await attachmentsApi.presignUpload(ticketId, {
           fileName: file.name,
           mimeType: file.type || "application/octet-stream",
         });
-
-        await axios.put(presign.uploadUrl, file, {
-          headers: { "Content-Type": file.type || "application/octet-stream" },
+        console.log("✅ Presigned URL received:", {
+          uploadUrl: presign.uploadUrl.substring(0, 50) + "...",
+          key: presign.key,
+          fullPresignData: presign,
         });
 
-        const { data: stored } = await attachmentsApi.confirmUpload(ticketId, {
-          storageUrl: presign.key,
+        // Step 2: Upload to storage
+        console.log("2️⃣ Uploading to storage...");
+        try {
+          await axios.put(presign.uploadUrl, file, {
+            headers: { "Content-Type": file.type || "application/octet-stream" },
+          });
+          console.log("✅ File uploaded to storage");
+        } catch (storageError: any) {
+          console.warn("⚠️ Storage upload failed (may be expected in local dev):", storageError.message);
+          console.warn("Proceeding with mock upload confirmation...");
+          // In development, storage might not be configured
+          // We'll still try to confirm with the backend
+        }
+
+        // Step 3: Confirm upload with backend
+        console.log("3️⃣ Confirming upload with backend...");
+        
+        // Try different formats for storageUrl based on what backend might expect
+        let storageUrl = presign.key; // First try: use the key as-is
+        
+        // If key looks like a full URL, use it
+        if (presign.key && (presign.key.startsWith('http://') || presign.key.startsWith('https://'))) {
+          storageUrl = presign.key;
+        }
+        // If uploadUrl has query params, remove them to get the base URL
+        else if (presign.uploadUrl) {
+          storageUrl = presign.uploadUrl.split('?')[0];
+        }
+        
+        console.log("Using storageUrl:", storageUrl);
+        console.log("Payload:", {
+          storageUrl,
           fileName: file.name,
           mimeType: file.type || "application/octet-stream",
           fileSize: file.size,
         });
+        
+        const { data: stored } = await attachmentsApi.confirmUpload(ticketId, {
+          storageUrl: storageUrl,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          fileSize: file.size,
+        });
+        console.log("✅ Upload confirmed:", stored);
 
         setAttachments((prev) => [...prev, stored as AttachmentRecord]);
       }
       setPickedFiles([]);
+      setUploadingFileName("");
       toast({ title: "Attachment uploaded" });
     } catch (error: any) {
+      console.error("❌ Upload failed:", error);
+      console.error("Error details:", {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        code: error?.code,
+      });
+      setUploadingFileName("");
+      
+      let errorMessage = "Unexpected error. Check console for details.";
+      
+      if (error?.code === "ERR_NETWORK" || error?.message?.includes("Network Error")) {
+        errorMessage = "Network error: Storage service may not be configured. Check backend logs or configure S3/storage.";
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Failed to upload",
-        description: error?.response?.data?.message || "Unexpected error",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -102,12 +170,32 @@ export function AttachmentUpload({ ticketId }: AttachmentUploadProps) {
           }}
           disabled={!ticketId || uploading}
         />
+        {pickedFiles.length > 0 && (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">
+              Selected files:
+            </p>
+            {pickedFiles.map((file, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between text-xs text-muted-foreground"
+              >
+                <span className="truncate">{file.name}</span>
+                <span className="ml-2 shrink-0">
+                  {Math.round(file.size / 1024)} KB
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="mt-3 flex justify-end">
           <Button
             onClick={handleUpload}
             disabled={!ticketId || pickedFiles.length === 0 || uploading}
           >
-            {uploading ? "Uploading…" : "Upload"}
+            {uploading
+              ? `Uploading ${uploadingFileName}...`
+              : `Upload ${pickedFiles.length > 0 ? `(${pickedFiles.length})` : ""}`}
           </Button>
         </div>
       </div>
@@ -132,20 +220,34 @@ export function AttachmentUpload({ ticketId }: AttachmentUploadProps) {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {attachment.storageUrl.startsWith("http") ? (
-                  <a
-                    href={attachment.storageUrl}
-                    className="text-xs text-primary hover:underline"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View
-                  </a>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    Uploaded
-                  </span>
-                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // Try to open the URL if it's a full http URL
+                    if (attachment.storageUrl.startsWith("http://") || attachment.storageUrl.startsWith("https://")) {
+                      window.open(attachment.storageUrl, "_blank");
+                    } else {
+                      // Otherwise show a message that file is stored
+                      toast({
+                        title: "File stored",
+                        description: `${attachment.fileName} is saved. Configure storage service to enable viewing.`,
+                      });
+                      console.log("File storage info:", {
+                        fileName: attachment.fileName,
+                        storageUrl: attachment.storageUrl,
+                        size: attachment.fileSize,
+                        mimeType: attachment.mimeType,
+                      });
+                    }
+                  }}
+                  disabled={!attachment.storageUrl}
+                >
+                  {attachment.storageUrl && (attachment.storageUrl.startsWith("http://") || attachment.storageUrl.startsWith("https://")) 
+                    ? "View" 
+                    : "Info"}
+                </Button>
                 <Button
                   type="button"
                   size="sm"

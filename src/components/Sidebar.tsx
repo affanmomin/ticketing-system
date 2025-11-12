@@ -123,13 +123,15 @@ export function Sidebar({
           )}
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
-              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-            </div>
+            <img 
+              src="/saait-logo.jpg" 
+              alt="SAAIT Logo" 
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover shrink-0"
+            />
             {!renderCollapsed && (
               <div className="overflow-hidden">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground truncate">
-                  Ticketly
+                  SAAIT
                 </h1>
                 <p className="text-xs text-muted-foreground truncate">
                   Project Management

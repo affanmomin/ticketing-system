@@ -624,14 +624,16 @@ export function Tickets() {
                   New ticket
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl">
-                <TicketCreateForm
-                  onSuccess={() => {
-                    setOpenCreate(false);
-                    void loadTickets();
-                  }}
-                  onCancel={() => setOpenCreate(false)}
-                />
+              <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
+                <div className="flex-1 overflow-y-auto px-6 pt-6">
+                  <TicketCreateForm
+                    onSuccess={() => {
+                      setOpenCreate(false);
+                      void loadTickets();
+                    }}
+                    onCancel={() => setOpenCreate(false)}
+                  />
+                </div>
               </DialogContent>
             </Dialog>
           </div>

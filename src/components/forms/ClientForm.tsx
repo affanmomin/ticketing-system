@@ -72,10 +72,10 @@ export function ClientForm({
   return (
     <div className="space-y-6">
       <div className="space-y-1.5">
-        <h2 className="text-xl font-semibold tracking-tight">Create Client</h2>
+        {/* <h2 className="text-xl font-semibold tracking-tight">Create Client</h2>
         <p className="text-sm text-muted-foreground">
           Register a new client organization for your workspace
-        </p>
+        </p> */}
       </div>
 
       <div className="h-px bg-border" />

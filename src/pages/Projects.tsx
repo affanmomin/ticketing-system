@@ -156,7 +156,7 @@ export function Projects() {
               </DialogTrigger>
               <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                  <DialogTitle>Create Project</DialogTitle>
+                  {/* <DialogTitle>Create Project</DialogTitle> */}
                 </DialogHeader>
                 <ProjectForm
                   onSuccess={() => {
@@ -457,7 +457,7 @@ export function Projects() {
       >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
+            {/* <DialogTitle>Edit Project</DialogTitle> */}
           </DialogHeader>
           {editProject && (
             <ProjectForm
