@@ -32,4 +32,4 @@ export const createForProject = (
 ) => api.post<Subject>(`/projects/${projectId}/subjects`, payload);
 
 export const update = (id: string, payload: SubjectUpdateRequest) =>
-  api.patch<Subject>(`/subjects/${id}`, payload);
+  api.post<Subject>(`/subjects/${id}`, payload);

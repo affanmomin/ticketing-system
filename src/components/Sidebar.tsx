@@ -6,9 +6,7 @@ import {
   FolderKanban,
   FileText,
   Users,
-  Settings,
   Building2,
-  Tag,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { UserAvatar } from "./UserAvatar";
@@ -61,12 +59,12 @@ const navItems: NavItem[] = [
   //   icon: <Tag className="w-5 h-5" />,
   //   roles: ["ADMIN"],
   // },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: <Settings className="w-5 h-5" />,
-    roles: ["ADMIN", "EMPLOYEE"],
-  },
+  // {
+  //   title: "Settings",
+  //   href: "/settings",
+  //   icon: <Settings className="w-5 h-5" />,
+  //   roles: ["ADMIN", "EMPLOYEE"],
+  // },
 ];
 
 export function Sidebar({
@@ -123,10 +121,10 @@ export function Sidebar({
           )}
         >
           <div className="flex items-center gap-3">
-            <img 
-              src="/saait-logo.jpg" 
-              alt="SAAIT Logo" 
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover shrink-0"
+            <img
+              src="/saait-logo.jpg"
+              alt="SAAIT Logo"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shrink-0"
             />
             {!renderCollapsed && (
               <div className="overflow-hidden">
@@ -134,7 +132,7 @@ export function Sidebar({
                   SAAIT
                 </h1>
                 <p className="text-xs text-muted-foreground truncate">
-                  Project Management
+                  Ticketing System
                 </p>
               </div>
             )}
@@ -154,48 +152,68 @@ export function Sidebar({
               location.pathname === item.href ||
               location.pathname.startsWith(item.href + "/");
 
-            return (
-              <Tooltip
-                key={item.href}
-                disableHoverableContent={!collapsed || isMobile}
-              >
-                <TooltipTrigger asChild>
-                  <Link
-                    to={item.href}
-                    className={cn(
-                      "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200",
-                      renderCollapsed
-                        ? "px-2 py-2.5 justify-center"
-                        : "px-3 py-2.5 sm:py-2",
-                      isActive
-                        ? "bg-accent text-accent-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:shadow-sm"
-                    )}
-                  >
-                    <span
+            // Only show tooltip when collapsed
+            if (renderCollapsed && !isMobile) {
+              return (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      to={item.href}
                       className={cn(
-                        "transition-colors shrink-0",
+                        "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200",
+                        "px-2 py-2.5 justify-center",
                         isActive
-                          ? "text-accent-foreground"
-                          : "text-muted-foreground group-hover:text-foreground"
+                          ? "bg-accent text-accent-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:shadow-sm"
                       )}
                     >
-                      {item.icon}
-                    </span>
-                    {!renderCollapsed && (
-                      <span className="truncate">{item.title}</span>
-                    )}
-                    {isActive && !renderCollapsed && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-primary" />
-                    )}
-                  </Link>
-                </TooltipTrigger>
-                {renderCollapsed && !isMobile && (
+                      <span
+                        className={cn(
+                          "transition-colors shrink-0",
+                          isActive
+                            ? "text-accent-foreground"
+                            : "text-muted-foreground group-hover:text-foreground"
+                        )}
+                      >
+                        {item.icon}
+                      </span>
+                    </Link>
+                  </TooltipTrigger>
                   <TooltipContent side="right" align="center">
                     {item.title}
                   </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            // Regular link without tooltip when expanded
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={cn(
+                  "group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200",
+                  "px-3 py-2.5 sm:py-2",
+                  isActive
+                    ? "bg-accent text-accent-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:shadow-sm"
                 )}
-              </Tooltip>
+              >
+                <span
+                  className={cn(
+                    "transition-colors shrink-0",
+                    isActive
+                      ? "text-accent-foreground"
+                      : "text-muted-foreground group-hover:text-foreground"
+                  )}
+                >
+                  {item.icon}
+                </span>
+                <span className="truncate">{item.title}</span>
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r bg-primary" />
+                )}
+              </Link>
             );
           })}
         </TooltipProvider>

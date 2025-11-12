@@ -20,6 +20,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -95,6 +105,7 @@ export function ProjectDetail() {
   const [streamForm, setStreamForm] = useState({
     name: "",
     description: "",
+    parentStreamId: "",
     saving: false,
   });
   const [subjectForm, setSubjectForm] = useState({
@@ -102,6 +113,10 @@ export function ProjectDetail() {
     description: "",
     saving: false,
   });
+  const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(
+    null
+  );
+  const [removingMember, setRemovingMember] = useState(false);
 
   const clientMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -227,9 +242,11 @@ export function ProjectDetail() {
 
   async function handleRemoveMember(member: ProjectMember) {
     if (!id) return;
+    setRemovingMember(true);
     try {
       await projectsApi.removeMember(id, member.userId);
       toast({ title: "Member removed" });
+      setMemberToRemove(null);
       await loadProject();
     } catch (error: any) {
       toast({
@@ -237,6 +254,8 @@ export function ProjectDetail() {
         description: error?.response?.data?.message || "Unexpected error",
         variant: "destructive",
       });
+    } finally {
+      setRemovingMember(false);
     }
   }
 
@@ -283,9 +302,15 @@ export function ProjectDetail() {
       await streamsApi.createForProject(id, {
         name: streamForm.name.trim(),
         description: streamForm.description.trim() || undefined,
+        parentStreamId: streamForm.parentStreamId || undefined,
       });
       toast({ title: "Stream created" });
-      setStreamForm({ name: "", description: "", saving: false });
+      setStreamForm({
+        name: "",
+        description: "",
+        parentStreamId: "",
+        saving: false,
+      });
       await fetchStreams(id);
     } catch (error: any) {
       toast({
@@ -321,7 +346,8 @@ export function ProjectDetail() {
   async function toggleStreamActive(stream: Stream, active: boolean) {
     if (!id) return;
     try {
-      await streamsApi.update(stream.id, { active });
+      await streamsApi.update(stream.id, { active: Boolean(active) });
+      toast({ title: "Stream updated" });
       await fetchStreams(id);
     } catch (error: any) {
       toast({
@@ -335,7 +361,8 @@ export function ProjectDetail() {
   async function toggleSubjectActive(subject: Subject, active: boolean) {
     if (!id) return;
     try {
-      await subjectsApi.update(subject.id, { active });
+      await subjectsApi.update(subject.id, { active: Boolean(active) });
+      toast({ title: "Subject updated" });
       await fetchSubjects(id);
     } catch (error: any) {
       toast({
@@ -511,7 +538,7 @@ export function ProjectDetail() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleRemoveMember(member)}
+                                  onClick={() => setMemberToRemove(member)}
                                 >
                                   <UserMinus className="mr-2 h-4 w-4" />
                                   Remove
@@ -606,6 +633,44 @@ export function ProjectDetail() {
                     </div>
                   </DialogContent>
                 </Dialog>
+
+                <AlertDialog
+                  open={memberToRemove !== null}
+                  onOpenChange={(open) => {
+                    if (!open) setMemberToRemove(null);
+                  }}
+                >
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remove member?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {memberToRemove &&
+                          `Are you sure you want to remove ${
+                            memberUserMap.get(memberToRemove.userId)
+                              ?.fullName ||
+                            memberUserMap.get(memberToRemove.userId)?.email ||
+                            "this member"
+                          } from the project? This action cannot be undone.`}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={removingMember}>
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          if (memberToRemove) {
+                            handleRemoveMember(memberToRemove);
+                          }
+                        }}
+                        disabled={removingMember}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {removingMember ? "Removing…" : "Remove"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </DialogContent>
             </Dialog>
           </div>
@@ -815,12 +880,17 @@ export function ProjectDetail() {
             setTaxonomyDialog(false);
             setStreams([]);
             setSubjects([]);
-            setStreamForm({ name: "", description: "", saving: false });
+            setStreamForm({
+              name: "",
+              description: "",
+              parentStreamId: "",
+              saving: false,
+            });
             setSubjectForm({ name: "", description: "", saving: false });
           }
         }}
       >
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl [&>div]:p-6">
           <DialogHeader>
             <DialogTitle>Project Taxonomy · {project.name}</DialogTitle>
             <DialogDescription>
@@ -833,6 +903,7 @@ export function ProjectDetail() {
             onValueChange={(value) =>
               setActiveTab(value as "streams" | "subjects")
             }
+            className="mt-6"
           >
             <TabsList className="grid grid-cols-2">
               <TabsTrigger
@@ -874,36 +945,65 @@ export function ProjectDetail() {
                         </p>
                       ) : (
                         <div className="space-y-4">
-                          {streams.map((stream) => (
-                            <div
-                              key={stream.id}
-                              className="flex items-start justify-between rounded-lg border p-4"
-                            >
-                              <div>
-                                <p className="font-medium">{stream.name}</p>
-                                {stream.description && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {stream.description}
-                                  </p>
-                                )}
+                          {streams.map((stream) => {
+                            const isParent = !stream.parentStreamId;
+                            const parentStream = stream.parentStreamId
+                              ? streams.find(
+                                  (s) => s.id === stream.parentStreamId
+                                )
+                              : null;
+
+                            return (
+                              <div
+                                key={stream.id}
+                                className={`flex items-start justify-between rounded-lg border p-4 ${
+                                  isParent
+                                    ? ""
+                                    : "ml-6 border-l-4 border-l-primary/30"
+                                }`}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    {!isParent && parentStream && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {parentStream.name} →
+                                      </span>
+                                    )}
+                                    <p className="font-medium">{stream.name}</p>
+                                  </div>
+                                  {stream.description && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {stream.description}
+                                    </p>
+                                  )}
+                                  {isParent && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Parent Stream (Level 1)
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={
+                                      stream.active !== false
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                  >
+                                    {stream.active !== false
+                                      ? "Active"
+                                      : "Inactive"}
+                                  </Badge>
+                                  <Switch
+                                    checked={stream.active !== false}
+                                    onCheckedChange={(checked) =>
+                                      toggleStreamActive(stream, checked)
+                                    }
+                                  />
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant={
-                                    stream.active ? "default" : "secondary"
-                                  }
-                                >
-                                  {stream.active ? "Active" : "Inactive"}
-                                </Badge>
-                                <Switch
-                                  checked={stream.active}
-                                  onCheckedChange={(checked) =>
-                                    toggleStreamActive(stream, checked)
-                                  }
-                                />
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </ScrollArea>
@@ -916,7 +1016,44 @@ export function ProjectDetail() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="stream-name">Name</Label>
+                      <Label htmlFor="stream-parent">
+                        Parent Stream (Optional)
+                      </Label>
+                      <Select
+                        value={streamForm.parentStreamId || "none"}
+                        onValueChange={(value) =>
+                          setStreamForm((prev) => ({
+                            ...prev,
+                            parentStreamId: value === "none" ? "" : value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger id="stream-parent">
+                          <SelectValue placeholder="None (Create Level 1 Stream)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            None (Create Level 1 Stream)
+                          </SelectItem>
+                          {streams
+                            .filter(
+                              (s) => !s.parentStreamId && s.active !== false
+                            )
+                            .map((stream) => (
+                              <SelectItem key={stream.id} value={stream.id}>
+                                {stream.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {streamForm.parentStreamId
+                          ? "This will create a Level 2 (child) stream under the selected parent"
+                          : "This will create a Level 1 (parent) stream"}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="stream-name">Name *</Label>
                       <Input
                         id="stream-name"
                         value={streamForm.name}
@@ -926,7 +1063,11 @@ export function ProjectDetail() {
                             name: event.target.value,
                           }))
                         }
-                        placeholder="Development"
+                        placeholder={
+                          streamForm.parentStreamId
+                            ? "UI Components, API Endpoints, etc."
+                            : "Frontend, Backend, Operations, etc."
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -992,13 +1133,17 @@ export function ProjectDetail() {
                               <div className="flex items-center gap-2">
                                 <Badge
                                   variant={
-                                    subject.active ? "default" : "secondary"
+                                    subject.active !== false
+                                      ? "default"
+                                      : "secondary"
                                   }
                                 >
-                                  {subject.active ? "Active" : "Inactive"}
+                                  {subject.active !== false
+                                    ? "Active"
+                                    : "Inactive"}
                                 </Badge>
                                 <Switch
-                                  checked={subject.active}
+                                  checked={subject.active !== false}
                                   onCheckedChange={(checked) =>
                                     toggleSubjectActive(subject, checked)
                                   }
