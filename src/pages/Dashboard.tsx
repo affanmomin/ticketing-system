@@ -60,7 +60,6 @@ export function Dashboard() {
       value: stats.totalTickets.toLocaleString(),
       icon: <FileText className="w-5 h-5" />,
       change: "+0%",
-      changeSummary: "from last month",
       onClick: () => navigate("/tickets"),
     },
     {
@@ -68,7 +67,6 @@ export function Dashboard() {
       value: stats.activeProjects.toLocaleString(),
       icon: <FolderKanban className="w-5 h-5" />,
       change: "+0",
-      changeSummary: "from last month",
       onClick: () => navigate("/projects"),
     },
     {
@@ -76,18 +74,23 @@ export function Dashboard() {
       value: stats.totalUsers.toLocaleString(),
       icon: <Users className="w-5 h-5" />,
       change: "+0",
-      changeSummary: "from last month",
       onClick: () => role === "admin" && navigate("/users"),
+      hideForEmployee: true,
     },
     {
       title: "Completed",
       value: stats.completedTickets.toLocaleString(),
       icon: <CheckCircle2 className="w-5 h-5" />,
       change: "+0",
-      changeSummary: "from last month",
       onClick: () => navigate("/tickets"),
     },
-  ];
+  ].filter((stat) => {
+    // Hide Team Members card for employees
+    if (role === "employee" && stat.hideForEmployee) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -98,7 +101,7 @@ export function Dashboard() {
 
       {loading ? (
         <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+          {Array.from({ length: role === "employee" ? 3 : 4 }).map((_, i) => (
             <Card key={i} className="border-border/60">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="h-3 sm:h-4 w-20 sm:w-24 bg-muted animate-pulse rounded" />
@@ -106,7 +109,6 @@ export function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="h-7 sm:h-8 w-12 sm:w-16 bg-muted animate-pulse rounded mb-2" />
-                <div className="h-3 w-28 sm:w-32 bg-muted animate-pulse rounded" />
               </CardContent>
             </Card>
           ))}
@@ -131,20 +133,6 @@ export function Dashboard() {
                 <div className="text-xl sm:text-2xl font-semibold text-foreground">
                   {stat.value}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  <span
-                    className={
-                      stat.change.startsWith("+") &&
-                      stat.change !== "+0" &&
-                      stat.change !== "+0%"
-                        ? "text-green-400"
-                        : "text-muted-foreground"
-                    }
-                  >
-                    {stat.change}
-                  </span>{" "}
-                  {stat.changeSummary}
-                </p>
               </CardContent>
             </Card>
           ))}
