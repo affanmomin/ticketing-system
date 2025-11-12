@@ -112,7 +112,7 @@ export function Login() {
               className="w-20 h-20 rounded-full object-cover"
             />
           </div>
-          <CardTitle className="text-2xl">Welcome to SAAIT Ticketly</CardTitle>
+          <CardTitle className="text-2xl">Welcome to SAAIT </CardTitle>
           <CardDescription>Sign in to your account to continue</CardDescription>
         </CardHeader>
         <CardContent>

@@ -93,6 +93,7 @@ export interface ProjectMember {
 export interface Stream {
   id: string;
   projectId: string;
+  parentStreamId: string | null;
   name: string;
   description: string | null;
   active: boolean;

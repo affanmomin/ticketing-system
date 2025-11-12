@@ -1,4 +1,4 @@
-# Ticketly - Setup Guide
+#  - Setup Guide
 
 ## Demo Accounts
 
