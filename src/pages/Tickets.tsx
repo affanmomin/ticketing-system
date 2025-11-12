@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -57,6 +58,7 @@ export function Tickets() {
   const { user } = useAuthStore();
   const { saveFilters, loadFilters } = useFilterPersistence();
   const { savedViews, saveView, deleteView, loadView } = useSavedViews();
+  const location = useLocation();
 
   // State
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -101,6 +103,16 @@ export function Tickets() {
   // Memoized values
   const pageSize = useMemo(() => (view === "board" ? 200 : 20), [view]);
   const isClient = useMemo(() => user?.role === "CLIENT", [user?.role]);
+
+  // Check if we should open the create dialog from navigation state
+  useEffect(() => {
+    const state = location.state as { openCreate?: boolean } | null;
+    if (state?.openCreate) {
+      setOpenCreate(true);
+      // Clear the state to prevent reopening on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   // Load reference data (projects, clients, users) - Only once on mount
   useEffect(() => {
@@ -530,6 +542,7 @@ export function Tickets() {
           description: `Assigned to ${assigneeName}`,
         });
       } catch (error: any) {
+        console.error("Failed to update assignee:", error);
         // Revert on failure
         setTickets((prev) =>
           prev.map((t) =>
@@ -538,11 +551,22 @@ export function Tickets() {
               : t
           )
         );
-        toast({
-          title: "Could not update assignee",
-          description: error?.response?.data?.message || "Please try again.",
-          variant: "destructive",
-        });
+        
+        // Check if it's an auth error
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          toast({
+            title: "Authentication error",
+            description: "Your session has expired. Please log in again.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Could not update assignee",
+            description: error?.response?.data?.message || "Please try again.",
+            variant: "destructive",
+          });
+        }
       }
     },
     [tickets, users, toast]
@@ -624,16 +648,14 @@ export function Tickets() {
                   New ticket
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
-                <div className="flex-1 overflow-y-auto px-6 pt-6">
-                  <TicketCreateForm
-                    onSuccess={() => {
-                      setOpenCreate(false);
-                      void loadTickets();
-                    }}
-                    onCancel={() => setOpenCreate(false)}
-                  />
-                </div>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <TicketCreateForm
+                  onSuccess={() => {
+                    setOpenCreate(false);
+                    void loadTickets();
+                  }}
+                  onCancel={() => setOpenCreate(false)}
+                />
               </DialogContent>
             </Dialog>
           </div>
@@ -1227,7 +1249,7 @@ export function Tickets() {
                                   {ticket.statusName || ticket.statusId}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent onClick={(e) => e.stopPropagation()}>
                                 {sortedStatuses.map((status) => (
                                   <SelectItem key={status.id} value={status.id}>
                                     {status.name}
@@ -1251,7 +1273,7 @@ export function Tickets() {
                                   {ticket.priorityName || ticket.priorityId}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent onClick={(e) => e.stopPropagation()}>
                                 {priorities.map((priority) => (
                                   <SelectItem
                                     key={priority.id}
@@ -1267,10 +1289,14 @@ export function Tickets() {
                             <Select
                               value={ticket.assignedToUserId || "unassigned"}
                               onValueChange={(value) => {
-                                handleUpdateAssignee(
-                                  ticket.id,
-                                  value === "unassigned" ? null : value
-                                );
+                                try {
+                                  handleUpdateAssignee(
+                                    ticket.id,
+                                    value === "unassigned" ? null : value
+                                  );
+                                } catch (err) {
+                                  console.error("Error updating assignee:", err);
+                                }
                               }}
                             >
                               <SelectTrigger
@@ -1289,7 +1315,7 @@ export function Tickets() {
                                     : "Unassigned"}
                                 </SelectValue>
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent onClick={(e) => e.stopPropagation()}>
                                 <SelectItem value="unassigned">
                                   Unassigned
                                 </SelectItem>
@@ -1383,26 +1409,24 @@ export function Tickets() {
         >
           <SheetContent
             side="right"
-            className="w-full sm:max-w-2xl lg:max-w-4xl overflow-y-auto p-0"
+            className="w-full sm:max-w-2xl lg:max-w-4xl overflow-y-auto"
           >
-            <div className="h-full flex flex-col">
-              <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-                <SheetTitle>Edit Ticket</SheetTitle>
-              </SheetHeader>
-              <div className="flex-1 overflow-y-auto px-6 py-4">
-                <TicketEditForm
-                  ticketId={selectedTicketId}
-                  onSaved={() => {
-                    setOpenEdit(false);
-                    setSelectedTicketId(undefined);
-                    void loadTickets();
-                  }}
-                  onCancel={() => {
-                    setOpenEdit(false);
-                    setSelectedTicketId(undefined);
-                  }}
-                />
-              </div>
+            <SheetHeader className="pb-4 border-b">
+              <SheetTitle>Edit Ticket</SheetTitle>
+            </SheetHeader>
+            <div className="py-4">
+              <TicketEditForm
+                ticketId={selectedTicketId}
+                onSaved={() => {
+                  setOpenEdit(false);
+                  setSelectedTicketId(undefined);
+                  void loadTickets();
+                }}
+                onCancel={() => {
+                  setOpenEdit(false);
+                  setSelectedTicketId(undefined);
+                }}
+              />
             </div>
           </SheetContent>
         </Sheet>
