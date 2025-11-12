@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Wizard } from "@/components/ui/wizard";
-import { StreamSelector } from "@/components/StreamSelector";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { useAuthStore } from "@/store/auth";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
+import * as streamsApi from "@/api/streams";
 import * as subjectsApi from "@/api/subjects";
 import * as projectsMembersApi from "@/api/projects";
 import * as ticketsApi from "@/api/tickets";
@@ -28,6 +28,7 @@ import type {
   Project,
   ProjectMember,
   Status,
+  Stream,
   Subject,
 } from "@/types/api";
 import * as usersApi from "@/api/users";
@@ -61,6 +62,7 @@ export function TicketCreateForm({
   } = useTaxonomy();
   const [clients, setClients] = useState<Option[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
@@ -165,6 +167,32 @@ export function TicketCreateForm({
       } catch (error) {
         toast({
           title: "Failed to load subjects",
+          variant: "destructive",
+        });
+      }
+    })();
+  }, [form.projectId, toast]);
+
+  useEffect(() => {
+    if (!form.projectId) return;
+    (async () => {
+      try {
+        const streamsRes = await streamsApi.listForProject(form.projectId, { 
+          limit: 200, 
+          offset: 0 
+        });
+
+        const streamItems = streamsRes.data.data;
+        setStreams(streamItems);
+
+        if (streamItems.length) {
+          setForm((prev) => ({ ...prev, streamId: streamItems[0].id }));
+        } else {
+          setForm((prev) => ({ ...prev, streamId: "" }));
+        }
+      } catch (error) {
+        toast({
+          title: "Failed to load streams",
           variant: "destructive",
         });
       }
