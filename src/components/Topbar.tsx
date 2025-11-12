@@ -26,7 +26,7 @@ interface TopbarProps {
   onOpenMobileMenu?: () => void;
 }
 
-export function Topbar({ title = "Dashboard", onOpenMobileMenu }: TopbarProps) {
+export function Topbar({ title = "", onOpenMobileMenu }: TopbarProps) {
   const { logout } = useAuthStore();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");

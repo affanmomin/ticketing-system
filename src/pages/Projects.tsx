@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import * as projectsApi from "@/api/projects";
 import * as clientsApi from "@/api/clients";
 import type { Project, Client } from "@/types/api";
+import { format } from "date-fns";
 
 const PAGE_SIZE = 20;
 
@@ -64,6 +65,16 @@ export function Projects() {
     clients.forEach((client) => map.set(client.id, client.name));
     return map;
   }, [clients]);
+
+  // Helper function to format dates properly
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return "?";
+    try {
+      return format(new Date(dateString), "MMM d, yyyy");
+    } catch {
+      return dateString;
+    }
+  };
 
   async function loadClients() {
     // Client users should not fetch the clients list
@@ -243,7 +254,7 @@ export function Projects() {
                     : "—";
                   const timeline =
                     project.startDate || project.endDate
-                      ? `${project.startDate ?? "?"} → ${project.endDate ?? "?"}`
+                      ? `${formatDate(project.startDate)} → ${formatDate(project.endDate)}`
                       : "—";
 
                   return (
@@ -345,7 +356,7 @@ export function Projects() {
                       : "—";
                     const timeline =
                       project.startDate || project.endDate
-                        ? `${project.startDate ?? "?"} → ${project.endDate ?? "?"}`
+                        ? `${formatDate(project.startDate)} → ${formatDate(project.endDate)}`
                         : "—";
 
                     return (

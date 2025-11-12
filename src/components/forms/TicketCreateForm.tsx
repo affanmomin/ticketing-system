@@ -312,8 +312,8 @@ export function TicketCreateForm({
 
   // Step 1: Basic Info
   const step1Content = (
-    <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2">
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
         {/* Hide client selector for CLIENT role users */}
         {!isClient && (
           <div className="space-y-2">
@@ -379,16 +379,35 @@ export function TicketCreateForm({
         </div>
       </div>
 
-      <div className="space-y-6">
-        <StreamSelector
-          projectId={form.projectId}
-          value={form.streamId}
-          onValueChange={(value) =>
-            setForm((prev) => ({ ...prev, streamId: value }))
-          }
-          disabled={!form.projectId}
-          required
-        />
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="ticket-stream">Stream</Label>
+          <Select
+            value={form.streamId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, streamId: value }))
+            }
+            disabled={!form.clientId}
+          >
+            <SelectTrigger id="ticket-stream">
+              <SelectValue placeholder="Select stream" />
+            </SelectTrigger>
+            <SelectContent>
+              {streams.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">
+                  No streams found. Create streams in the client workspace
+                  first.
+                </div>
+              ) : (
+                streams.map((stream) => (
+                  <SelectItem key={stream.id} value={stream.id}>
+                    {stream.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="ticket-subject">Subject</Label>
@@ -424,7 +443,7 @@ export function TicketCreateForm({
 
   // Step 2: Ticket Details
   const step2Content = (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="ticket-title">Title</Label>
         <Input
@@ -450,7 +469,7 @@ export function TicketCreateForm({
             }))
           }
           placeholder="Describe the issue or request in detail. Markdown is supported."
-          className="min-h-[200px] resize-none"
+          className="min-h-[120px] resize-none"
         />
         <p className="text-xs text-muted-foreground">
           Markdown formatting is supported
@@ -461,8 +480,8 @@ export function TicketCreateForm({
 
   // Step 3: Metadata
   const step3Content = (
-    <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2">
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="ticket-priority">Priority</Label>
           <Select
@@ -508,7 +527,7 @@ export function TicketCreateForm({
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="ticket-assignee">Assignee (optional)</Label>
           <Select
@@ -588,26 +607,24 @@ export function TicketCreateForm({
   ];
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-shrink-0 space-y-1.5 pb-4">
-        <h2 className="text-xl font-semibold">Create ticket</h2>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold">Create ticket</h2>
+        <p className="text-xs text-muted-foreground">
           Tickets require a client stream and subject to keep work organized.
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2">
-        <Wizard
-          steps={steps}
-          currentStep={currentStep}
-          onStepChange={setCurrentStep}
-          onFinish={handleSubmit}
-          canProceed={canProceed}
-          isLoading={saving}
-        />
-      </div>
+      <Wizard
+        steps={steps}
+        currentStep={currentStep}
+        onStepChange={setCurrentStep}
+        onFinish={handleSubmit}
+        canProceed={canProceed}
+        isLoading={saving}
+      />
 
-      <div className="flex-shrink-0 flex justify-end pt-4 border-t mt-4">
+      <div className="flex justify-end pt-2">
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>

@@ -52,16 +52,16 @@ export function Wizard({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="space-y-4">
       {/* Progress Indicator */}
-      <div className="flex-shrink-0 space-y-2 pb-6">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               Step {currentStep + 1} of {steps.length}
             </span>
-            <span className="text-sm text-muted-foreground">·</span>
-            <span className="text-sm font-medium text-foreground">
+            <span className="text-xs text-muted-foreground">·</span>
+            <span className="text-xs font-medium text-foreground">
               {currentStepData.title}
             </span>
           </div>
@@ -78,26 +78,27 @@ export function Wizard({
           ))}
         </div>
         {currentStepData.description && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {currentStepData.description}
           </p>
         )}
       </div>
 
       {/* Step Content */}
-      <div className="flex-1 overflow-y-auto pr-2 pb-6">{currentStepData.component}</div>
+      <div>{currentStepData.component}</div>
 
       {/* Navigation */}
-      <div className="flex-shrink-0 flex items-center justify-between pt-4 border-t">
+      <div className="flex items-center justify-between pt-3 border-t">
         <Button
           variant="outline"
+          size="sm"
           onClick={handlePrevious}
           disabled={isFirstStep || isLoading}
         >
           <ChevronLeft className="mr-2 h-4 w-4" />
           Previous
         </Button>
-        <Button onClick={handleNext} disabled={!canProceed || isLoading}>
+        <Button size="sm" onClick={handleNext} disabled={!canProceed || isLoading}>
           {isLoading ? (
             "Processing..."
           ) : isLastStep ? (

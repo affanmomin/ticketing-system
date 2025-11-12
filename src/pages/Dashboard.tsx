@@ -184,7 +184,7 @@ export function Dashboard() {
               <Button
                 variant="outline"
                 className="w-full justify-start h-10 sm:h-11"
-                onClick={() => navigate("/tickets/new")}
+                onClick={() => navigate("/tickets", { state: { openCreate: true } })}
               >
                 <FileText className="w-4 h-4 mr-2 shrink-0" />
                 <span className="truncate">Create New Ticket</span>
