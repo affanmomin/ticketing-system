@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Wizard } from "@/components/ui/wizard";
+import { StreamSelector } from "@/components/StreamSelector";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { useAuthStore } from "@/store/auth";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
-import * as streamsApi from "@/api/streams";
 import * as subjectsApi from "@/api/subjects";
 import * as projectsMembersApi from "@/api/projects";
 import * as ticketsApi from "@/api/tickets";
@@ -28,7 +28,6 @@ import type {
   Project,
   ProjectMember,
   Status,
-  Stream,
   Subject,
 } from "@/types/api";
 import * as usersApi from "@/api/users";
@@ -62,7 +61,6 @@ export function TicketCreateForm({
   } = useTaxonomy();
   const [clients, setClients] = useState<Option[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [streams, setStreams] = useState<Stream[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
@@ -127,7 +125,11 @@ export function TicketCreateForm({
     if (!form.clientId) return;
     (async () => {
       try {
-        const projectsRes = await projectsApi.list({ clientId: form.clientId, limit: 200, offset: 0 });
+        const projectsRes = await projectsApi.list({
+          clientId: form.clientId,
+          limit: 200,
+          offset: 0,
+        });
         const projectItems = projectsRes.data.data;
         setProjects(projectItems);
 
@@ -147,22 +149,13 @@ export function TicketCreateForm({
     if (!form.projectId) return;
     (async () => {
       try {
-        const [streamsRes, subjectsRes] = await Promise.all([
-          streamsApi.listForProject(form.projectId, { limit: 200, offset: 0 }),
-          subjectsApi.listForProject(form.projectId, { limit: 200, offset: 0 }),
-        ]);
+        const subjectsRes = await subjectsApi.listForProject(form.projectId, { 
+          limit: 200, 
+          offset: 0 
+        });
 
-        const streamItems = streamsRes.data.data;
         const subjectItems = subjectsRes.data.data;
-
-        setStreams(streamItems);
         setSubjects(subjectItems);
-
-        if (streamItems.length) {
-          setForm((prev) => ({ ...prev, streamId: streamItems[0].id }));
-        } else {
-          setForm((prev) => ({ ...prev, streamId: "" }));
-        }
 
         if (subjectItems.length) {
           setForm((prev) => ({ ...prev, subjectId: subjectItems[0].id }));
@@ -171,7 +164,7 @@ export function TicketCreateForm({
         }
       } catch (error) {
         toast({
-          title: "Failed to load streams and subjects",
+          title: "Failed to load subjects",
           variant: "destructive",
         });
       }
@@ -386,35 +379,16 @@ export function TicketCreateForm({
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="ticket-stream">Stream</Label>
-          <Select
-            value={form.streamId}
-            onValueChange={(value) =>
-              setForm((prev) => ({ ...prev, streamId: value }))
-            }
-            disabled={!form.clientId}
-          >
-            <SelectTrigger id="ticket-stream">
-              <SelectValue placeholder="Select stream" />
-            </SelectTrigger>
-            <SelectContent>
-              {streams.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">
-                  No streams found. Create streams in the client workspace
-                  first.
-                </div>
-              ) : (
-                streams.map((stream) => (
-                  <SelectItem key={stream.id} value={stream.id}>
-                    {stream.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-6">
+        <StreamSelector
+          projectId={form.projectId}
+          value={form.streamId}
+          onValueChange={(value) =>
+            setForm((prev) => ({ ...prev, streamId: value }))
+          }
+          disabled={!form.projectId}
+          required
+        />
 
         <div className="space-y-2">
           <Label htmlFor="ticket-subject">Subject</Label>
@@ -431,7 +405,7 @@ export function TicketCreateForm({
             <SelectContent>
               {subjects.length === 0 ? (
                 <div className="p-2 text-sm text-muted-foreground">
-                  No subjects found. Create subjects in the client workspace
+                  No subjects found. Create subjects in the project workspace
                   first.
                 </div>
               ) : (
@@ -596,7 +570,7 @@ export function TicketCreateForm({
     {
       id: "basic-info",
       title: "Basic Information",
-      description: "Select client, project, stream, and subject",
+      description: "Select client, project, stream category/type, and subject",
       component: step1Content,
     },
     {

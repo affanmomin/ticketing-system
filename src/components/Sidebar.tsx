@@ -8,7 +8,6 @@ import {
   Users,
   Settings,
   Building2,
-  Tag,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { UserAvatar } from "./UserAvatar";

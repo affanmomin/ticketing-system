@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/collapsible";
 import { CommentForm } from "@/components/forms/CommentForm";
 import { CommentsList } from "@/components/CommentsList";
+import { StreamSelector } from "@/components/StreamSelector";
 import AttachmentUpload from "@/components/forms/AttachmentUpload";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { toast } from "@/hooks/use-toast";
@@ -32,7 +33,6 @@ import {
   CheckCircle2,
   Clock,
   Building2,
-  Layers,
   FolderOpen,
   Loader2,
   MessageSquare,
@@ -44,14 +44,12 @@ import {
 } from "lucide-react";
 import * as ticketsApi from "@/api/tickets";
 import * as projectsApi from "@/api/projects";
-import * as streamsApi from "@/api/streams";
 import * as subjectsApi from "@/api/subjects";
 import * as usersApi from "@/api/users";
 import type {
   AuthUser,
   Project,
   ProjectMember,
-  Stream,
   Subject,
   Ticket,
   TicketUpdateRequest,
@@ -92,7 +90,6 @@ export function TicketEditForm({
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
-  const [streams, setStreams] = useState<Stream[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [form, setForm] = useState<FormState>({
     title: "",
@@ -118,12 +115,8 @@ export function TicketEditForm({
         const { data: projectData } = await projectsApi.get(
           ticketData.projectId
         );
-        const [streamsRes, subjectsRes, membersRes, usersRes] =
+        const [subjectsRes, membersRes, usersRes] =
           await Promise.all([
-            streamsApi.listForProject(ticketData.projectId, {
-              limit: 200,
-              offset: 0,
-            }),
             subjectsApi.listForProject(ticketData.projectId, {
               limit: 200,
               offset: 0,
@@ -134,27 +127,6 @@ export function TicketEditForm({
 
         setTicket(ticketData);
         setProject(projectData);
-        const streamList =
-          (streamsRes as any).data?.data && (streamsRes as any).data.data.length
-            ? (streamsRes as any).data.data
-            : [];
-        if (
-          ticketData.streamId &&
-          !streamList.find(
-            (stream: Stream) => stream.id === ticketData.streamId
-          )
-        ) {
-          streamList.push({
-            id: ticketData.streamId,
-            projectId: ticketData.projectId,
-            name: "Current stream",
-            description: null,
-            active: true,
-            createdAt: ticketData.createdAt,
-            updatedAt: ticketData.updatedAt,
-          } as Stream);
-        }
-        setStreams(streamList);
         const subjectList =
           (subjectsRes as any).data?.data &&
           (subjectsRes as any).data.data.length
@@ -507,30 +479,14 @@ export function TicketEditForm({
 
                   {/* Stream */}
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="edit-ticket-stream"
-                      className="text-sm font-medium flex items-center gap-2"
-                    >
-                      <Layers className="h-4 w-4 text-muted-foreground" />
-                      Stream
-                    </Label>
-                    <Select
+                    <StreamSelector
+                      projectId={ticket?.projectId || ""}
                       value={form.streamId}
                       onValueChange={(value) =>
                         setForm((prev) => ({ ...prev, streamId: value }))
                       }
-                    >
-                      <SelectTrigger id="edit-ticket-stream" className="w-full">
-                        <SelectValue placeholder="Select stream" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {streams.map((stream) => (
-                          <SelectItem key={stream.id} value={stream.id}>
-                            {stream.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      required
+                    />
                   </div>
 
                   {/* Subject */}
