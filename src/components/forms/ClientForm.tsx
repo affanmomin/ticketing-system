@@ -124,13 +124,19 @@ export function ClientForm({
             </Label>
             <Input
               id="client-phone"
-              placeholder="+1 (555) 123-4567"
+              type="tel"
+              placeholder="1234567890"
               value={formState.phone}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, phone: event.target.value }))
-              }
+              onChange={(event) => {
+                const value = event.target.value.replace(/\D/g, '').slice(0, 10);
+                setFormState((prev) => ({ ...prev, phone: value }));
+              }}
+              maxLength={10}
               className="h-10"
             />
+            <p className="text-xs text-muted-foreground">
+              Enter 10 digit phone number (digits only)
+            </p>
           </div>
 
           <div className="space-y-2">

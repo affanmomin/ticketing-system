@@ -138,13 +138,19 @@ export function ClientEditForm({
             </Label>
             <Input
               id="edit-client-phone"
+              type="tel"
               value={formState.phone}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, phone: event.target.value }))
-              }
-              placeholder="+1 (555) 123-4567"
+              onChange={(event) => {
+                const value = event.target.value.replace(/\D/g, '').slice(0, 10);
+                setFormState((prev) => ({ ...prev, phone: value }));
+              }}
+              placeholder=""
+              maxLength={10}
               className="h-10"
             />
+            <p className="text-xs text-muted-foreground">
+              Enter 10 digit phone number
+            </p>
           </div>
 
           <div className="space-y-2">

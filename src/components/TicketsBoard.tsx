@@ -74,6 +74,16 @@ export function TicketsBoard({
     const toStatusId = String(over.id);
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket || ticket.statusId === toStatusId) return;
+    
+    // Find the current status
+    const currentStatus = statuses.find((s) => s.id === ticket.statusId);
+    
+    // Only prevent moving tickets that are specifically in "Closed" status
+    // Check if the status name contains "closed" (case insensitive)
+    if (currentStatus?.name.toLowerCase().includes("closed")) {
+      return;
+    }
+    
     onMoveTicket?.(ticketId, toStatusId);
   }
 
@@ -113,57 +123,64 @@ export function TicketsBoard({
             loading={loading}
           >
             <div className="space-y-2">
-              {ticketsByStatus.get(status.id)?.map((t) => (
-                <DraggableCard
-                  key={t.id}
-                  id={t.id}
-                  ticket={t}
-                  onClick={() => onCardClick?.(t.id)}
-                  onEdit={() => onEditTicket?.(t.id)}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {t.id.substring(0, 8)}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {t.priorityName && (
-                        <Badge variant="secondary" className="h-5 px-2 text-xs">
-                          {t.priorityName}
-                        </Badge>
-                      )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => onEditTicket?.(t.id)}
-                          >
-                            Edit Ticket
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onCardClick?.(t.id)}>
-                            View Details
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+              {ticketsByStatus.get(status.id)?.map((t) => {
+                const currentStatus = statuses.find((s) => s.id === t.statusId);
+                // Only lock tickets that are specifically in "Closed" status
+                const isClosedTicket = currentStatus?.name.toLowerCase().includes("closed") || false;
+                
+                return (
+                  <DraggableCard
+                    key={t.id}
+                    id={t.id}
+                    ticket={t}
+                    onClick={() => onCardClick?.(t.id)}
+                    onEdit={() => onEditTicket?.(t.id)}
+                    isLocked={isClosedTicket}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {t.id.substring(0, 8)}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {t.priorityName && (
+                          <Badge variant="secondary" className="h-5 px-2 text-xs">
+                            {t.priorityName}
+                          </Badge>
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => onEditTicket?.(t.id)}
+                            >
+                              Edit Ticket
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onCardClick?.(t.id)}>
+                              View Details
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-sm font-medium text-foreground mb-1 line-clamp-2">
-                    {t.title}
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {t.projectName ?? t.projectId}
-                    {t.clientName ? ` • ${t.clientName}` : ""}
-                  </div>
-                </DraggableCard>
-              ))}
+                    <div className="text-sm font-medium text-foreground mb-1 line-clamp-2">
+                      {t.title}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {t.projectName ?? t.projectId}
+                      {t.clientName ? ` • ${t.clientName}` : ""}
+                    </div>
+                  </DraggableCard>
+                );
+              })}
             </div>
           </Column>
         ))}
@@ -300,16 +317,21 @@ function DraggableCard({
   ticket,
   onClick,
   onEdit,
+  isLocked = false,
   children,
 }: {
   id: string;
   ticket: TicketListItem;
   onClick?: () => void;
   onEdit?: () => void;
+  isLocked?: boolean;
   children: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id });
+    useDraggable({ 
+      id,
+      disabled: isLocked, // Disable dragging for locked (closed) tickets
+    });
   const style: React.CSSProperties = transform
     ? {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
@@ -328,13 +350,16 @@ function DraggableCard({
           ref={setNodeRef}
           style={style}
           className={cn(
-            "cursor-grab select-none p-2 sm:p-3 active:cursor-grabbing transition-all duration-200 will-change-transform bg-card/80 backdrop-blur-sm border-border/60",
+            "select-none p-2 sm:p-3 transition-all duration-200 will-change-transform bg-card/80 backdrop-blur-sm border-border/60",
+            isLocked 
+              ? "cursor-default opacity-75" 
+              : "cursor-grab active:cursor-grabbing",
             isDragging
               ? "z-50 shadow-2xl scale-[1.02] ring-2 ring-primary/20"
               : "hover:shadow-md hover:border-border hover:-translate-y-0.5"
           )}
           onClick={handleClick}
-          {...listeners}
+          {...(isLocked ? {} : listeners)}
           {...attributes}
         >
           {children}
