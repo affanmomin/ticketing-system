@@ -166,12 +166,12 @@ export function Login() {
           <div className="mt-6 pt-6 border-t border-border text-center">
             <p className="text-sm text-muted-foreground">
               Don't have an organization?{" "}
-              <a
-                href="/signup"
+              <Link
+                to="/signup"
                 className="text-primary hover:underline font-medium"
               >
                 Create one
-              </a>
+              </Link>
             </p>
           </div>
         </CardContent>
