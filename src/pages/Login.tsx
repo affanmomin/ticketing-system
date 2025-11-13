@@ -163,17 +163,6 @@ export function Login() {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 rounded-lg bg-muted/50 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground">
-              Demo Accounts:
-            </p>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>Admin: admin@demo.com / Admin123!</p>
-              <p>Employee: employee1@demo.com / Employee123!</p>
-              <p>Client: client1@demo.com / Client123!</p>
-            </div>
-          </div>
-
           <div className="mt-6 pt-6 border-t border-border text-center">
             <p className="text-sm text-muted-foreground">
               Don't have an organization?{" "}
