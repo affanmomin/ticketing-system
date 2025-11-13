@@ -8,6 +8,11 @@ import {
   Search,
   Building2,
   Pencil,
+  Users,
+  UserPlus,
+  UserMinus,
+  Layers,
+  ListPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,10 +28,25 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -34,13 +54,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
 import ProjectForm from "@/components/forms/ProjectForm";
 import { PageHeader } from "@/components/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import * as projectsApi from "@/api/projects";
 import * as clientsApi from "@/api/clients";
-import type { Project, Client } from "@/types/api";
+import * as usersApi from "@/api/users";
+import * as streamsApi from "@/api/streams";
+import * as subjectsApi from "@/api/subjects";
+import type {
+  Project,
+  Client,
+  AuthUser,
+  ProjectMember,
+  ProjectMemberRole,
+  Stream,
+  Subject,
+} from "@/types/api";
 import { format } from "date-fns";
 
 const PAGE_SIZE = 20;
@@ -50,6 +84,7 @@ export function Projects() {
   const { toast } = useToast();
   const { user } = useAuthStore();
   const isClient = user?.role === "CLIENT";
+  const isEmployee = user?.role === "EMPLOYEE";
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,12 +94,54 @@ export function Projects() {
   const [clientFilter, setClientFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [membershipDialog, setMembershipDialog] = useState(false);
+  const [taxonomyDialog, setTaxonomyDialog] = useState(false);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [addDialog, setAddDialog] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [memberRole, setMemberRole] = useState<ProjectMemberRole>("MEMBER");
+  const [canRaise, setCanRaise] = useState(true);
+  const [canBeAssigned, setCanBeAssigned] = useState(true);
+  const [savingMember, setSavingMember] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(
+    null
+  );
+  const [removingMember, setRemovingMember] = useState(false);
+  const [activeTab, setActiveTab] = useState<"streams" | "subjects">("streams");
+  const [streams, setStreams] = useState<Stream[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [streamsLoading, setStreamsLoading] = useState(false);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  const [streamForm, setStreamForm] = useState({
+    name: "",
+    description: "",
+    parentStreamId: "",
+    saving: false,
+  });
+  const [subjectForm, setSubjectForm] = useState({
+    name: "",
+    description: "",
+    saving: false,
+  });
 
   const clientMap = useMemo(() => {
     const map = new Map<string, string>();
     clients.forEach((client) => map.set(client.id, client.name));
     return map;
   }, [clients]);
+
+  const memberUserMap = useMemo(() => {
+    const map = new Map<string, AuthUser>();
+    users.forEach((user) => map.set(user.id, user));
+    return map;
+  }, [users]);
+
+  const availableUsers = useMemo(() => {
+    const memberIds = new Set(members.map((member) => member.userId));
+    return users.filter((user) => !memberIds.has(user.id));
+  }, [users, members]);
 
   // Helper function to format dates properly
   const formatDate = (dateString: string | null | undefined): string => {
@@ -88,6 +165,230 @@ export function Projects() {
       setClients(data.data);
     } catch (error) {
       console.warn("Failed to load clients", error);
+    }
+  }
+
+  async function loadUsers() {
+    // Client users should not fetch users list
+    if (isClient) {
+      setUsers([]);
+      return;
+    }
+
+    try {
+      const { data } = await usersApi.list({ limit: 200, offset: 0 });
+      setUsers(data.data);
+    } catch (error) {
+      console.warn("Failed to load users", error);
+    }
+  }
+
+  async function loadMembers(projectId: string) {
+    try {
+      const { data } = await projectsApi.listMembers(projectId);
+      setMembers(data);
+    } catch (error: any) {
+      toast({
+        title: "Failed to load members",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function fetchStreams(projectId: string) {
+    setStreamsLoading(true);
+    try {
+      const { data } = await streamsApi.listForProject(projectId, {
+        limit: 100,
+      });
+      setStreams(data.data);
+    } catch (error: any) {
+      toast({
+        title: "Failed to load streams",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setStreamsLoading(false);
+    }
+  }
+
+  async function fetchSubjects(projectId: string) {
+    setSubjectsLoading(true);
+    try {
+      const { data } = await subjectsApi.listForProject(projectId, {
+        limit: 100,
+      });
+      setSubjects(data.data);
+    } catch (error: any) {
+      toast({
+        title: "Failed to load subjects",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setSubjectsLoading(false);
+    }
+  }
+
+  async function handleAddMember() {
+    if (!selectedProject || !selectedUserId) return;
+    setSavingMember(true);
+    try {
+      await projectsApi.addMember(selectedProject.id, {
+        userId: selectedUserId,
+        role: memberRole,
+        canRaise,
+        canBeAssigned,
+      });
+      toast({ title: "Member added" });
+      setAddDialog(false);
+      setSelectedUserId("");
+      await loadMembers(selectedProject.id);
+    } catch (error: any) {
+      toast({
+        title: "Failed to add member",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingMember(false);
+    }
+  }
+
+  async function handleUpdateMember(
+    member: ProjectMember,
+    patch: Partial<ProjectMember>
+  ) {
+    if (!selectedProject) return;
+    try {
+      await projectsApi.updateMember(selectedProject.id, member.userId, {
+        role: patch.role ?? member.role,
+        canRaise: patch.canRaise ?? member.canRaise,
+        canBeAssigned: patch.canBeAssigned ?? member.canBeAssigned,
+      });
+      await loadMembers(selectedProject.id);
+    } catch (error: any) {
+      toast({
+        title: "Failed to update member",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleRemoveMember(member: ProjectMember) {
+    if (!selectedProject) return;
+    setRemovingMember(true);
+    try {
+      await projectsApi.removeMember(selectedProject.id, member.userId);
+      toast({ title: "Member removed" });
+      setMemberToRemove(null);
+      await loadMembers(selectedProject.id);
+    } catch (error: any) {
+      toast({
+        title: "Failed to remove member",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setRemovingMember(false);
+    }
+  }
+
+  async function handleCreateStream() {
+    if (!selectedProject || !streamForm.name.trim()) return;
+    setStreamForm((prev) => ({ ...prev, saving: true }));
+    try {
+      await streamsApi.createForProject(selectedProject.id, {
+        name: streamForm.name.trim(),
+        description: streamForm.description.trim() || undefined,
+        parentStreamId: streamForm.parentStreamId || undefined,
+      });
+      toast({ title: "Stream created" });
+      setStreamForm({
+        name: "",
+        description: "",
+        parentStreamId: "",
+        saving: false,
+      });
+      await fetchStreams(selectedProject.id);
+    } catch (error: any) {
+      toast({
+        title: "Failed to create stream",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+      setStreamForm((prev) => ({ ...prev, saving: false }));
+    }
+  }
+
+  async function handleCreateSubject() {
+    if (!selectedProject || !subjectForm.name.trim()) return;
+    setSubjectForm((prev) => ({ ...prev, saving: true }));
+    try {
+      await subjectsApi.createForProject(selectedProject.id, {
+        name: subjectForm.name.trim(),
+        description: subjectForm.description.trim() || undefined,
+      });
+      toast({ title: "Subject created" });
+      setSubjectForm({ name: "", description: "", saving: false });
+      await fetchSubjects(selectedProject.id);
+    } catch (error: any) {
+      toast({
+        title: "Failed to create subject",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+      setSubjectForm((prev) => ({ ...prev, saving: false }));
+    }
+  }
+
+  async function toggleStreamActive(stream: Stream, active: boolean) {
+    if (!selectedProject) return;
+    try {
+      await streamsApi.update(stream.id, { active: Boolean(active) });
+      toast({ title: "Stream updated" });
+      await fetchStreams(selectedProject.id);
+    } catch (error: any) {
+      toast({
+        title: "Failed to update stream",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function toggleSubjectActive(subject: Subject, active: boolean) {
+    if (!selectedProject) return;
+    try {
+      await subjectsApi.update(subject.id, { active: Boolean(active) });
+      toast({ title: "Subject updated" });
+      await fetchSubjects(selectedProject.id);
+    } catch (error: any) {
+      toast({
+        title: "Failed to update subject",
+        description: error?.response?.data?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function openMembershipDialog(project: Project) {
+    setSelectedProject(project);
+    setMembershipDialog(true);
+    await loadMembers(project.id);
+  }
+
+  async function openTaxonomyDialog(project: Project, tab: "streams" | "subjects") {
+    setSelectedProject(project);
+    setActiveTab(tab);
+    setTaxonomyDialog(true);
+    if (tab === "streams") {
+      await fetchStreams(project.id);
+    } else {
+      await fetchSubjects(project.id);
     }
   }
 
@@ -116,6 +417,7 @@ export function Projects() {
 
   useEffect(() => {
     loadClients();
+    loadUsers();
   }, []);
 
   useEffect(() => {
@@ -183,7 +485,7 @@ export function Projects() {
 
       <Card>
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <CardTitle className="flex items-center gap-2 text-muted-foreground">
+          <CardTitle className="flex items-center gap-2 text-muted-foreground whitespace-nowrap">
             <UsersRound className="h-4 w-4" />
             Active Projects
           </CardTitle>
@@ -300,10 +602,13 @@ export function Projects() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Building2 className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{clientName}</span>
-                        </div>
+                        {/* Hide Client info for CLIENT users */}
+                        {!isClient && (
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Building2 className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{clientName}</span>
+                          </div>
+                        )}
                         {(project.startDate || project.endDate) && (
                           <div className="flex items-center gap-1.5 min-w-0">
                             <CalendarRange className="h-3.5 w-3.5 shrink-0" />
@@ -311,6 +616,38 @@ export function Projects() {
                           </div>
                         )}
                       </div>
+                      {/* Hide action buttons for CLIENT users */}
+                      {!isClient && (
+                        <div className="flex flex-wrap gap-2 pt-2 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs flex-1 min-w-[100px]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openTaxonomyDialog(project, "streams");
+                            }}
+                          >
+                            <Layers className="mr-2 h-3.5 w-3.5" />
+                            Streams
+                          </Button>
+                          {/* Hide Members button for employees */}
+                          {!isEmployee && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs flex-1 min-w-[100px]"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openMembershipDialog(project);
+                              }}
+                            >
+                              <Users className="mr-2 h-3.5 w-3.5" />
+                              Members
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -324,7 +661,10 @@ export function Projects() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="min-w-[200px]">Name</TableHead>
-                  <TableHead className="min-w-[150px]">Client</TableHead>
+                  {/* Hide Client column for CLIENT users */}
+                  {!isClient && (
+                    <TableHead className="min-w-[150px]">Client</TableHead>
+                  )}
                   <TableHead className="min-w-[180px]">Timeline</TableHead>
                   <TableHead className="min-w-[100px]">Status</TableHead>
                   {/* Hide Actions column for CLIENT users */}
@@ -338,12 +678,12 @@ export function Projects() {
               <TableBody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, index) => (
-                    <TableRowSkeleton key={index} columns={isClient ? 4 : 5} />
+                    <TableRowSkeleton key={index} columns={isClient ? 3 : 5} />
                   ))
                 ) : filteredProjects.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={isClient ? 4 : 5}
+                      colSpan={isClient ? 3 : 5}
                       className="py-8 text-center text-muted-foreground"
                     >
                       No projects found.
@@ -376,9 +716,12 @@ export function Projects() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-4">
-                          {clientName}
-                        </TableCell>
+                        {/* Hide Client column for CLIENT users */}
+                        {!isClient && (
+                          <TableCell className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-4">
+                            {clientName}
+                          </TableCell>
+                        )}
                         <TableCell className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-4">
                           {project.startDate || project.endDate ? (
                             <span className="inline-flex items-center gap-2">
@@ -402,7 +745,7 @@ export function Projects() {
                         {/* Hide Actions for CLIENT users */}
                         {!isClient && (
                           <TableCell className="text-right p-3 sm:p-4">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-2 flex-wrap">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -415,6 +758,33 @@ export function Projects() {
                                 <Pencil className="mr-2 h-3.5 w-3.5" />
                                 Edit
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs sm:text-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openTaxonomyDialog(project, "streams");
+                                }}
+                              >
+                                <Layers className="mr-2 h-3.5 w-3.5" />
+                                Streams
+                              </Button>
+                              {/* Hide Members button for employees */}
+                              {!isEmployee && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs sm:text-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openMembershipDialog(project);
+                                  }}
+                                >
+                                  <Users className="mr-2 h-3.5 w-3.5" />
+                                  Members
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -479,6 +849,577 @@ export function Projects() {
               onCancel={() => setEditProject(null)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Membership Dialog */}
+      <Dialog open={membershipDialog} onOpenChange={setMembershipDialog}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Project team</DialogTitle>
+            <DialogDescription>
+              Control who can raise tickets and be assigned on this project.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setAddDialog(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Member
+            </Button>
+          </div>
+
+          <div className="mt-4 rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Can raise</TableHead>
+                  <TableHead>Assignable</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="py-6 text-center text-muted-foreground"
+                    >
+                      No members yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  members.map((member) => {
+                    const memberUser = memberUserMap.get(member.userId);
+                    return (
+                      <TableRow key={member.userId}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">
+                              {memberUser?.fullName ||
+                                memberUser?.email ||
+                                member.userId}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {memberUser?.email}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={member.role}
+                            onValueChange={(value) =>
+                              handleUpdateMember(member, {
+                                role: value as ProjectMemberRole,
+                              })
+                            }
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="MANAGER">Manager</SelectItem>
+                              <SelectItem value="MEMBER">Member</SelectItem>
+                              <SelectItem value="VIEWER">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={member.canRaise}
+                            onCheckedChange={(checked) =>
+                              handleUpdateMember(member, {
+                                canRaise: Boolean(checked),
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={member.canBeAssigned}
+                            onCheckedChange={(checked) =>
+                              handleUpdateMember(member, {
+                                canBeAssigned: Boolean(checked),
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setMemberToRemove(member)}
+                          >
+                            <UserMinus className="mr-2 h-4 w-4" />
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <Dialog open={addDialog} onOpenChange={setAddDialog}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Add project member</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="member-user">User</Label>
+                  <Select
+                    value={selectedUserId}
+                    onValueChange={setSelectedUserId}
+                  >
+                    <SelectTrigger id="member-user" className="w-full">
+                      <SelectValue placeholder="Select user" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {availableUsers.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">
+                          All users are already members.
+                        </div>
+                      ) : (
+                        availableUsers.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.fullName || user.email || user.id}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="member-role">Role</Label>
+                  <Select
+                    value={memberRole}
+                    onValueChange={(value) =>
+                      setMemberRole(value as ProjectMemberRole)
+                    }
+                  >
+                    <SelectTrigger id="member-role" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MANAGER">Manager</SelectItem>
+                      <SelectItem value="MEMBER">Member</SelectItem>
+                      <SelectItem value="VIEWER">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="member-raise"
+                    checked={canRaise}
+                    onCheckedChange={(checked) =>
+                      setCanRaise(Boolean(checked))
+                    }
+                  />
+                  <Label htmlFor="member-raise">Can raise tickets</Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="member-assign"
+                    checked={canBeAssigned}
+                    onCheckedChange={(checked) =>
+                      setCanBeAssigned(Boolean(checked))
+                    }
+                  />
+                  <Label htmlFor="member-assign">Can be assigned</Label>
+                </div>
+
+                <Button
+                  onClick={handleAddMember}
+                  disabled={!selectedUserId || savingMember}
+                  className="w-full"
+                >
+                  {savingMember ? "Adding…" : "Add member"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <AlertDialog
+            open={memberToRemove !== null}
+            onOpenChange={(open) => {
+              if (!open) setMemberToRemove(null);
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remove member?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {memberToRemove &&
+                    `Are you sure you want to remove ${
+                      memberUserMap.get(memberToRemove.userId)?.fullName ||
+                      memberUserMap.get(memberToRemove.userId)?.email ||
+                      "this member"
+                    } from the project? This action cannot be undone.`}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={removingMember}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (memberToRemove) {
+                      handleRemoveMember(memberToRemove);
+                    }
+                  }}
+                  disabled={removingMember}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {removingMember ? "Removing…" : "Remove"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Taxonomy Dialog */}
+      <Dialog
+        open={taxonomyDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTaxonomyDialog(false);
+            setStreams([]);
+            setSubjects([]);
+            setStreamForm({
+              name: "",
+              description: "",
+              parentStreamId: "",
+              saving: false,
+            });
+            setSubjectForm({ name: "", description: "", saving: false });
+            setSelectedProject(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl [&>div]:p-6">
+          <DialogHeader>
+            <DialogTitle>
+              Project Taxonomy · {selectedProject?.name || ""}
+            </DialogTitle>
+            <DialogDescription>
+              Streams and subjects help categorize tickets for this project.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) =>
+              setActiveTab(value as "streams" | "subjects")
+            }
+            className="mt-6"
+          >
+            <TabsList className="grid grid-cols-2">
+              <TabsTrigger
+                value="streams"
+                onClick={async () => {
+                  if (selectedProject) await fetchStreams(selectedProject.id);
+                }}
+              >
+                Streams
+              </TabsTrigger>
+              <TabsTrigger
+                value="subjects"
+                onClick={async () => {
+                  if (selectedProject) await fetchSubjects(selectedProject.id);
+                }}
+              >
+                Subjects
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="streams" className="mt-6">
+              <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layers className="h-4 w-4" /> Streams
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[320px] pr-4">
+                      {streamsLoading ? (
+                        <p className="text-sm text-muted-foreground">
+                          Loading streams…
+                        </p>
+                      ) : streams.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No streams yet. Create one using the form on the
+                          right.
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          {streams.map((stream) => {
+                            const isParent = !stream.parentStreamId;
+                            const parentStream = stream.parentStreamId
+                              ? streams.find(
+                                  (s) => s.id === stream.parentStreamId
+                                )
+                              : null;
+
+                            return (
+                              <div
+                                key={stream.id}
+                                className={`flex items-start justify-between rounded-lg border p-4 ${
+                                  isParent
+                                    ? ""
+                                    : "ml-6 border-l-4 border-l-primary/30"
+                                }`}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    {!isParent && parentStream && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {parentStream.name} →
+                                      </span>
+                                    )}
+                                    <p className="font-medium">
+                                      {stream.name}
+                                    </p>
+                                  </div>
+                                  {stream.description && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {stream.description}
+                                    </p>
+                                  )}
+                                  {isParent && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Parent Stream (Level 1)
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={
+                                      stream.active !== false
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                  >
+                                    {stream.active !== false
+                                      ? "Active"
+                                      : "Inactive"}
+                                  </Badge>
+                                  <Switch
+                                    checked={stream.active !== false}
+                                    onCheckedChange={(checked) =>
+                                      toggleStreamActive(stream, checked)
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Create Stream</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="stream-parent">
+                        Parent Stream (Optional)
+                      </Label>
+                      <Select
+                        value={streamForm.parentStreamId || "none"}
+                        onValueChange={(value) =>
+                          setStreamForm((prev) => ({
+                            ...prev,
+                            parentStreamId: value === "none" ? "" : value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger id="stream-parent">
+                          <SelectValue placeholder="None (Create Level 1 Stream)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            None (Create Level 1 Stream)
+                          </SelectItem>
+                          {streams
+                            .filter(
+                              (s) => !s.parentStreamId && s.active !== false
+                            )
+                            .map((stream) => (
+                              <SelectItem key={stream.id} value={stream.id}>
+                                {stream.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {streamForm.parentStreamId
+                          ? "This will create a Level 2 (child) stream under the selected parent"
+                          : "This will create a Level 1 (parent) stream"}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="stream-name">Name *</Label>
+                      <Input
+                        id="stream-name"
+                        value={streamForm.name}
+                        onChange={(event) =>
+                          setStreamForm((prev) => ({
+                            ...prev,
+                            name: event.target.value,
+                          }))
+                        }
+                        placeholder={
+                          streamForm.parentStreamId
+                            ? "UI Components, API Endpoints, etc."
+                            : "Frontend, Backend, Operations, etc."
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="stream-description">Description</Label>
+                      <Textarea
+                        id="stream-description"
+                        value={streamForm.description}
+                        onChange={(event) =>
+                          setStreamForm((prev) => ({
+                            ...prev,
+                            description: event.target.value,
+                          }))
+                        }
+                        placeholder="Optional details to help teams understand the stream"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleCreateStream}
+                      disabled={streamForm.saving || !streamForm.name.trim()}
+                      className="w-full"
+                    >
+                      {streamForm.saving ? "Creating…" : "Create Stream"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="subjects" className="mt-6">
+              <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ListPlus className="h-4 w-4" /> Subjects
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[320px] pr-4">
+                      {subjectsLoading ? (
+                        <p className="text-sm text-muted-foreground">
+                          Loading subjects…
+                        </p>
+                      ) : subjects.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No subjects yet. Create one using the form on the
+                          right.
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          {subjects.map((subject) => (
+                            <div
+                              key={subject.id}
+                              className="flex items-start justify-between rounded-lg border p-4"
+                            >
+                              <div>
+                                <p className="font-medium">{subject.name}</p>
+                                {subject.description && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {subject.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant={
+                                    subject.active !== false
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                >
+                                  {subject.active !== false
+                                    ? "Active"
+                                    : "Inactive"}
+                                </Badge>
+                                <Switch
+                                  checked={subject.active !== false}
+                                  onCheckedChange={(checked) =>
+                                    toggleSubjectActive(subject, checked)
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Create Subject</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="subject-name">Name</Label>
+                      <Input
+                        id="subject-name"
+                        value={subjectForm.name}
+                        onChange={(event) =>
+                          setSubjectForm((prev) => ({
+                            ...prev,
+                            name: event.target.value,
+                          }))
+                        }
+                        placeholder="Bug"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subject-description">Description</Label>
+                      <Textarea
+                        id="subject-description"
+                        value={subjectForm.description}
+                        onChange={(event) =>
+                          setSubjectForm((prev) => ({
+                            ...prev,
+                            description: event.target.value,
+                          }))
+                        }
+                        placeholder="Optional context for the subject"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleCreateSubject}
+                      disabled={subjectForm.saving || !subjectForm.name.trim()}
+                      className="w-full"
+                    >
+                      {subjectForm.saving ? "Creating…" : "Create Subject"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
