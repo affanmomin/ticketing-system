@@ -173,7 +173,7 @@ export interface Attachment {
   fileName: string;
   mimeType: string;
   fileSize: number;
-  storageUrl: string;
+  storageUrl: string | null; // Nullable for backward compatibility
   createdAt: string;
 }
 

@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from "react";
-import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +19,6 @@ import * as projectsApi from "@/api/projects";
 import * as subjectsApi from "@/api/subjects";
 import * as projectsMembersApi from "@/api/projects";
 import * as ticketsApi from "@/api/tickets";
-import * as attachmentsApi from "@/api/attachments";
 import { toast } from "@/hooks/use-toast";
 import type {
   AuthUser,
@@ -272,25 +270,21 @@ export function TicketCreateForm({
           form.assignedTo === UNASSIGNED_VALUE ? undefined : form.assignedTo,
       };
 
-      const { data } = await ticketsApi.create(payload);
+      // Create ticket with optional attachments
+      await ticketsApi.create(
+        payload,
+        attachments.length > 0 ? attachments : undefined
+      );
 
-      for (const file of attachments) {
-        const presign = await attachmentsApi.presignUpload(data.id, {
-          fileName: file.name,
-          mimeType: file.type,
+      if (attachments.length > 0) {
+        toast({
+          title: "Ticket created successfully",
+          description: `Ticket created with ${attachments.length} attachment(s)`,
         });
-        await axios.put(presign.data.uploadUrl, file, {
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-        });
-        await attachmentsApi.confirmUpload(data.id, {
-          storageUrl: presign.data.key,
-          fileName: file.name,
-          mimeType: file.type,
-          fileSize: file.size,
-        });
+      } else {
+        toast({ title: "Ticket created successfully" });
       }
 
-      toast({ title: "Ticket created" });
       setAttachments([]);
       onSuccess?.();
       setForm((prev) => ({
@@ -300,9 +294,13 @@ export function TicketCreateForm({
         assignedTo: UNASSIGNED_VALUE,
       }));
     } catch (error: any) {
+      console.error("Ticket creation error:", error);
       toast({
         title: "Failed to create ticket",
-        description: error?.response?.data?.message || "Unexpected error",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Unexpected error",
         variant: "destructive",
       });
     } finally {
@@ -537,20 +535,32 @@ export function TicketCreateForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="ticket-attachments">Attachments</Label>
+          <Label htmlFor="ticket-attachments">Attachments (optional)</Label>
           <Input
             id="ticket-attachments"
             type="file"
             multiple
             onChange={(event) => {
               const files = event.target.files;
-              if (files) setAttachments(Array.from(files));
+              if (files && files.length > 0) {
+                setAttachments(Array.from(files));
+              }
             }}
+            disabled={saving}
           />
           {attachments.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {attachments.length} file(s) ready to upload.
-            </p>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p className="font-medium">
+                {attachments.length} file(s) ready to upload:
+              </p>
+              <ul className="list-disc list-inside">
+                {attachments.map((file, index) => (
+                  <li key={index}>
+                    {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       </div>

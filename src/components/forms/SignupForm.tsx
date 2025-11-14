@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import * as authApi from "@/api/auth";
 import { useAuthStore } from "@/store/auth";
+import { getNameError } from "@/lib/validations";
 
 interface SignupFormState {
   organizationName: string;
@@ -41,8 +42,9 @@ export function SignupForm({
       newErrors.organizationName = "Organization name is required";
     }
 
-    if (!formState.fullName.trim()) {
-      newErrors.fullName = "Full name is required";
+    const fullNameError = getNameError(formState.fullName, "Full name");
+    if (fullNameError) {
+      newErrors.fullName = fullNameError;
     }
 
     if (!formState.email.trim()) {
@@ -112,10 +114,7 @@ export function SignupForm({
       <div className="space-y-5">
         {/* Organization Name */}
         <div className="space-y-2">
-          <Label
-            htmlFor="org-name"
-            className="text-sm font-medium"
-          >
+          <Label htmlFor="org-name" className="text-sm font-medium">
             Organization Name
             <span className="text-destructive ml-1">*</span>
           </Label>
@@ -134,16 +133,15 @@ export function SignupForm({
             aria-required="true"
           />
           {errors.organizationName && (
-            <p className="text-xs text-destructive">{errors.organizationName}</p>
+            <p className="text-xs text-destructive">
+              {errors.organizationName}
+            </p>
           )}
         </div>
 
         {/* Full Name */}
         <div className="space-y-2">
-          <Label
-            htmlFor="signup-name"
-            className="text-sm font-medium"
-          >
+          <Label htmlFor="signup-name" className="text-sm font-medium">
             Full Name
             <span className="text-destructive ml-1">*</span>
           </Label>
@@ -165,10 +163,7 @@ export function SignupForm({
 
         {/* Email */}
         <div className="space-y-2">
-          <Label
-            htmlFor="signup-email"
-            className="text-sm font-medium"
-          >
+          <Label htmlFor="signup-email" className="text-sm font-medium">
             Email Address
             <span className="text-destructive ml-1">*</span>
           </Label>
@@ -191,10 +186,7 @@ export function SignupForm({
 
         {/* Password */}
         <div className="space-y-2">
-          <Label
-            htmlFor="signup-password"
-            className="text-sm font-medium"
-          >
+          <Label htmlFor="signup-password" className="text-sm font-medium">
             Password
             <span className="text-destructive ml-1">*</span>
           </Label>

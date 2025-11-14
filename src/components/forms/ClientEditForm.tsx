@@ -6,6 +6,11 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import * as clientsApi from "@/api/clients";
+import {
+  getEmailError,
+  getPhoneError,
+  getNameError,
+} from "@/lib/validations";
 
 interface EditableClient {
   id: string;
@@ -36,6 +41,11 @@ export function ClientEditForm({
     active: true,
     saving: false,
   });
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+  }>({});
 
   useEffect(() => {
     setFormState({
@@ -49,10 +59,28 @@ export function ClientEditForm({
   }, [client]);
 
   async function handleUpdate() {
-    if (!formState.name.trim()) {
+    // Validate all fields
+    const newErrors: { name?: string; email?: string; phone?: string } = {};
+    
+    const nameError = getNameError(formState.name, "Client name");
+    if (nameError) newErrors.name = nameError;
+    
+    if (formState.email.trim()) {
+      const emailError = getEmailError(formState.email);
+      if (emailError) newErrors.email = emailError;
+    }
+    
+    if (formState.phone.trim()) {
+      const phoneError = getPhoneError(formState.phone);
+      if (phoneError) newErrors.phone = phoneError;
+    }
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
       toast({
         title: "Validation error",
-        description: "Client name is required",
+        description: Object.values(newErrors)[0] || "Please fix the errors",
         variant: "destructive",
       });
       return;
@@ -106,12 +134,18 @@ export function ClientEditForm({
             <Input
               id="edit-client-name"
               value={formState.name}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, name: event.target.value }))
-              }
+              onChange={(event) => {
+                setFormState((prev) => ({ ...prev, name: event.target.value }));
+                if (errors.name) {
+                  setErrors((prev) => ({ ...prev, name: undefined }));
+                }
+              }}
               className="h-10"
               required
             />
+            {errors.name && (
+              <p className="text-xs text-destructive">{errors.name}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -122,12 +156,18 @@ export function ClientEditForm({
               id="edit-client-email"
               type="email"
               value={formState.email}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, email: event.target.value }))
-              }
+              onChange={(event) => {
+                setFormState((prev) => ({ ...prev, email: event.target.value }));
+                if (errors.email) {
+                  setErrors((prev) => ({ ...prev, email: undefined }));
+                }
+              }}
               placeholder="ops@acme.com"
               className="h-10"
             />
+            {errors.email && (
+              <p className="text-xs text-destructive">{errors.email}</p>
+            )}
           </div>
         </div>
 
@@ -138,13 +178,26 @@ export function ClientEditForm({
             </Label>
             <Input
               id="edit-client-phone"
+              type="tel"
               value={formState.phone}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, phone: event.target.value }))
-              }
-              placeholder="+1 (555) 123-4567"
+              onChange={(event) => {
+                const value = event.target.value.replace(/\D/g, '').slice(0, 10);
+                setFormState((prev) => ({ ...prev, phone: value }));
+                if (errors.phone) {
+                  setErrors((prev) => ({ ...prev, phone: undefined }));
+                }
+              }}
+              placeholder=""
+              maxLength={10}
               className="h-10"
             />
+            {errors.phone ? (
+              <p className="text-xs text-destructive">{errors.phone}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Enter 10 digit phone number
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -201,7 +254,10 @@ export function ClientEditForm({
         <Button
           type="button"
           onClick={handleUpdate}
-          disabled={formState.saving}
+          disabled={
+            formState.saving ||
+            Object.keys(errors).length > 0
+          }
           className="min-w-[120px]"
         >
           {formState.saving ? (
