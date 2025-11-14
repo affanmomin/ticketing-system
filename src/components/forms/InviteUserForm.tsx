@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as usersApi from "@/api/users";
 import * as clientsApi from "@/api/clients";
@@ -41,6 +42,7 @@ export function InviteUserForm({
     clientId: "",
     saving: false,
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>(
     []
   );
@@ -208,17 +210,33 @@ export function InviteUserForm({
               Password
               <span className="text-destructive ml-1">*</span>
             </Label>
-            <Input
-              id="invite-password"
-              type="password"
-              placeholder="Minimum 8 characters"
-              value={formState.password}
-              onChange={(e) =>
-                setFormState((prev) => ({ ...prev, password: e.target.value }))
-              }
-              aria-required="true"
-              className="h-10"
-            />
+            <div className="relative">
+              <Input
+                id="invite-password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Minimum 8 characters"
+                value={formState.password}
+                onChange={(e) =>
+                  setFormState((prev) => ({ ...prev, password: e.target.value }))
+                }
+                aria-required="true"
+                className="h-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={formState.saving}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
               Must be at least 8 characters
             </p>

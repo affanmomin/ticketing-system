@@ -1220,6 +1220,7 @@ export function Projects() {
                                     onCheckedChange={(checked) =>
                                       toggleStreamActive(stream, checked)
                                     }
+                                    disabled={isEmployee}
                                   />
                                 </div>
                               </div>
@@ -1236,82 +1237,92 @@ export function Projects() {
                     <CardTitle>Create Stream</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="stream-parent">
-                        Parent Stream (Optional)
-                      </Label>
-                      <Select
-                        value={streamForm.parentStreamId || "none"}
-                        onValueChange={(value) =>
-                          setStreamForm((prev) => ({
-                            ...prev,
-                            parentStreamId: value === "none" ? "" : value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger id="stream-parent">
-                          <SelectValue placeholder="None (Create Level 1 Stream)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            None (Create Level 1 Stream)
-                          </SelectItem>
-                          {streams
-                            .filter(
-                              (s) => !s.parentStreamId && s.active !== false
-                            )
-                            .map((stream) => (
-                              <SelectItem key={stream.id} value={stream.id}>
-                                {stream.name}
+                    {isEmployee ? (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground">
+                          Only admins can create streams.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="stream-parent">
+                            Parent Stream (Optional)
+                          </Label>
+                          <Select
+                            value={streamForm.parentStreamId || "none"}
+                            onValueChange={(value) =>
+                              setStreamForm((prev) => ({
+                                ...prev,
+                                parentStreamId: value === "none" ? "" : value,
+                              }))
+                            }
+                          >
+                            <SelectTrigger id="stream-parent">
+                              <SelectValue placeholder="None (Create Level 1 Stream)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">
+                                None (Create Level 1 Stream)
                               </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        {streamForm.parentStreamId
-                          ? "This will create a Level 2 (child) stream under the selected parent"
-                          : "This will create a Level 1 (parent) stream"}
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="stream-name">Name *</Label>
-                      <Input
-                        id="stream-name"
-                        value={streamForm.name}
-                        onChange={(event) =>
-                          setStreamForm((prev) => ({
-                            ...prev,
-                            name: event.target.value,
-                          }))
-                        }
-                        placeholder={
-                          streamForm.parentStreamId
-                            ? "UI Components, API Endpoints, etc."
-                            : "Frontend, Backend, Operations, etc."
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="stream-description">Description</Label>
-                      <Textarea
-                        id="stream-description"
-                        value={streamForm.description}
-                        onChange={(event) =>
-                          setStreamForm((prev) => ({
-                            ...prev,
-                            description: event.target.value,
-                          }))
-                        }
-                        placeholder="Optional details to help teams understand the stream"
-                      />
-                    </div>
-                    <Button
-                      onClick={handleCreateStream}
-                      disabled={streamForm.saving || !streamForm.name.trim()}
-                      className="w-full"
-                    >
-                      {streamForm.saving ? "Creating…" : "Create Stream"}
-                    </Button>
+                              {streams
+                                .filter(
+                                  (s) => !s.parentStreamId && s.active !== false
+                                )
+                                .map((stream) => (
+                                  <SelectItem key={stream.id} value={stream.id}>
+                                    {stream.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            {streamForm.parentStreamId
+                              ? "This will create a Level 2 (child) stream under the selected parent"
+                              : "This will create a Level 1 (parent) stream"}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="stream-name">Name *</Label>
+                          <Input
+                            id="stream-name"
+                            value={streamForm.name}
+                            onChange={(event) =>
+                              setStreamForm((prev) => ({
+                                ...prev,
+                                name: event.target.value,
+                              }))
+                            }
+                            placeholder={
+                              streamForm.parentStreamId
+                                ? "UI Components, API Endpoints, etc."
+                                : "Frontend, Backend, Operations, etc."
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="stream-description">Description</Label>
+                          <Textarea
+                            id="stream-description"
+                            value={streamForm.description}
+                            onChange={(event) =>
+                              setStreamForm((prev) => ({
+                                ...prev,
+                                description: event.target.value,
+                              }))
+                            }
+                            placeholder="Optional details to help teams understand the stream"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleCreateStream}
+                          disabled={streamForm.saving || !streamForm.name.trim()}
+                          className="w-full"
+                        >
+                          {streamForm.saving ? "Creating…" : "Create Stream"}
+                        </Button>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1368,6 +1379,7 @@ export function Projects() {
                                   onCheckedChange={(checked) =>
                                     toggleSubjectActive(subject, checked)
                                   }
+                                  disabled={isEmployee}
                                 />
                               </div>
                             </div>
@@ -1383,41 +1395,51 @@ export function Projects() {
                     <CardTitle>Create Subject</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="subject-name">Name</Label>
-                      <Input
-                        id="subject-name"
-                        value={subjectForm.name}
-                        onChange={(event) =>
-                          setSubjectForm((prev) => ({
-                            ...prev,
-                            name: event.target.value,
-                          }))
-                        }
-                        placeholder="Bug"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="subject-description">Description</Label>
-                      <Textarea
-                        id="subject-description"
-                        value={subjectForm.description}
-                        onChange={(event) =>
-                          setSubjectForm((prev) => ({
-                            ...prev,
-                            description: event.target.value,
-                          }))
-                        }
-                        placeholder="Optional context for the subject"
-                      />
-                    </div>
-                    <Button
-                      onClick={handleCreateSubject}
-                      disabled={subjectForm.saving || !subjectForm.name.trim()}
-                      className="w-full"
-                    >
-                      {subjectForm.saving ? "Creating…" : "Create Subject"}
-                    </Button>
+                    {isEmployee ? (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground">
+                          Only admins can create subjects.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="subject-name">Name</Label>
+                          <Input
+                            id="subject-name"
+                            value={subjectForm.name}
+                            onChange={(event) =>
+                              setSubjectForm((prev) => ({
+                                ...prev,
+                                name: event.target.value,
+                              }))
+                            }
+                            placeholder="Bug"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subject-description">Description</Label>
+                          <Textarea
+                            id="subject-description"
+                            value={subjectForm.description}
+                            onChange={(event) =>
+                              setSubjectForm((prev) => ({
+                                ...prev,
+                                description: event.target.value,
+                              }))
+                            }
+                            placeholder="Optional context for the subject"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleCreateSubject}
+                          disabled={subjectForm.saving || !subjectForm.name.trim()}
+                          className="w-full"
+                        >
+                          {subjectForm.saving ? "Creating…" : "Create Subject"}
+                        </Button>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </div>

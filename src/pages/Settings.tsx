@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -8,10 +9,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 
 export function Settings() {
   const { user } = useAuthStore();
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   if (!user) return null;
 
@@ -67,17 +72,62 @@ export function Settings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="current">Current Password</Label>
-            <Input id="current" type="password" />
+            <div className="relative">
+              <Input id="current" type={showCurrentPassword ? "text" : "password"} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+              >
+                {showCurrentPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="new">New Password</Label>
-            <Input id="new" type="password" />
+            <div className="relative">
+              <Input id="new" type={showNewPassword ? "text" : "password"} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+              >
+                {showNewPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="confirm">Confirm Password</Label>
-            <Input id="confirm" type="password" />
+            <div className="relative">
+              <Input id="confirm" type={showConfirmPassword ? "text" : "password"} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <Button>Update Password</Button>

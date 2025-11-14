@@ -10,10 +10,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "@radix-ui/react-icons";
+import { format } from "date-fns";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
 import { toast } from "@/hooks/use-toast";
 import type { Project } from "@/types/api";
+import { cn } from "@/lib/utils";
 
 export function ProjectForm({
   project,
@@ -172,34 +181,78 @@ export function ProjectForm({
             <Label htmlFor="project-start" className="text-sm font-medium">
               Start date
             </Label>
-            <Input
-              id="project-start"
-              type="date"
-              value={formState.startDate}
-              onChange={(event) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  startDate: event.target.value,
-                }))
-              }
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="project-start"
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal h-10",
+                    !formState.startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formState.startDate ? (
+                    format(new Date(formState.startDate), "PPP")
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={formState.startDate ? new Date(formState.startDate) : undefined}
+                  onSelect={(date) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      startDate: date ? format(date, "yyyy-MM-dd") : "",
+                    }))
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-2">
             <Label htmlFor="project-end" className="text-sm font-medium">
               Target completion
             </Label>
-            <Input
-              id="project-end"
-              type="date"
-              value={formState.endDate}
-              onChange={(event) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  endDate: event.target.value,
-                }))
-              }
-              min={formState.startDate || undefined}
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="project-end"
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal h-10",
+                    !formState.endDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formState.endDate ? (
+                    format(new Date(formState.endDate), "PPP")
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={formState.endDate ? new Date(formState.endDate) : undefined}
+                  onSelect={(date) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      endDate: date ? format(date, "yyyy-MM-dd") : "",
+                    }))
+                  }
+                  disabled={(date) =>
+                    formState.startDate ? date < new Date(formState.startDate) : false
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>

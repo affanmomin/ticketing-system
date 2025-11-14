@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as usersApi from "@/api/users";
 import type { AuthUser } from "@/types/api";
@@ -20,6 +21,7 @@ export function UserEditForm({ user, onSuccess }: UserEditFormProps) {
   const [fullName, setFullName] = useState(user.fullName ?? "");
   const [email, setEmail] = useState(user.email ?? "");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isActive, setIsActive] = useState(user.isActive ?? true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{
@@ -136,13 +138,28 @@ export function UserEditForm({ user, onSuccess }: UserEditFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="user-password">Reset password</Label>
-          <Input
-            id="user-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Leave blank to keep existing password"
-          />
+          <div className="relative">
+            <Input
+              id="user-password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Leave blank to keep existing password"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground">
             Minimum 8 characters. Leave empty to keep the current password.
           </p>

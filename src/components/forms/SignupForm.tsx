@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as authApi from "@/api/auth";
 import { useAuthStore } from "@/store/auth";
@@ -33,6 +34,8 @@ export function SignupForm({
     saving: false,
   });
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Partial<SignupFormState>>({});
 
   function validateForm(): boolean {
@@ -190,18 +193,34 @@ export function SignupForm({
             Password
             <span className="text-destructive ml-1">*</span>
           </Label>
-          <Input
-            id="signup-password"
-            type="password"
-            placeholder="At least 8 characters"
-            value={formState.password}
-            onChange={(e) =>
-              setFormState((prev) => ({ ...prev, password: e.target.value }))
-            }
-            disabled={formState.saving}
-            className="h-10"
-            aria-required="true"
-          />
+          <div className="relative">
+            <Input
+              id="signup-password"
+              type={showPassword ? "text" : "password"}
+              placeholder="At least 8 characters"
+              value={formState.password}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, password: e.target.value }))
+              }
+              disabled={formState.saving}
+              className="h-10"
+              aria-required="true"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+              onClick={() => setShowPassword(!showPassword)}
+              disabled={formState.saving}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Button>
+          </div>
           {errors.password && (
             <p className="text-xs text-destructive">{errors.password}</p>
           )}
@@ -216,21 +235,37 @@ export function SignupForm({
             Confirm Password
             <span className="text-destructive ml-1">*</span>
           </Label>
-          <Input
-            id="signup-confirm-password"
-            type="password"
-            placeholder="Confirm your password"
-            value={formState.confirmPassword}
-            onChange={(e) =>
-              setFormState((prev) => ({
-                ...prev,
-                confirmPassword: e.target.value,
-              }))
-            }
-            disabled={formState.saving}
-            className="h-10"
-            aria-required="true"
-          />
+          <div className="relative">
+            <Input
+              id="signup-confirm-password"
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="Confirm your password"
+              value={formState.confirmPassword}
+              onChange={(e) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  confirmPassword: e.target.value,
+                }))
+              }
+              disabled={formState.saving}
+              className="h-10"
+              aria-required="true"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              disabled={formState.saving}
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Button>
+          </div>
           {errors.confirmPassword && (
             <p className="text-xs text-destructive">{errors.confirmPassword}</p>
           )}
