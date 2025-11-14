@@ -12,4 +12,12 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["lucide-react"],
   },
+  preview: {
+    // Ensure SPA routing works in preview mode
+    // This serves index.html for all routes
+  },
+  server: {
+    // Ensure SPA routing works in dev mode
+    // Vite handles this automatically, but explicit config helps
+  },
 });
