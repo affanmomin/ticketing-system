@@ -6,6 +6,10 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import * as usersApi from "@/api/users";
 import type { AuthUser } from "@/types/api";
+import {
+  getEmailError,
+  getNameError,
+} from "@/lib/validations";
 
 interface UserEditFormProps {
   user: AuthUser;
@@ -18,12 +22,29 @@ export function UserEditForm({ user, onSuccess }: UserEditFormProps) {
   const [password, setPassword] = useState("");
   const [isActive, setIsActive] = useState(user.isActive ?? true);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<{
+    fullName?: string;
+    email?: string;
+  }>({});
 
   async function handleUpdate() {
-    if (!email.trim()) {
+    // Validate all fields
+    const newErrors: { fullName?: string; email?: string } = {};
+    
+    if (fullName.trim()) {
+      const nameError = getNameError(fullName, "Full name");
+      if (nameError) newErrors.fullName = nameError;
+    }
+    
+    const emailError = getEmailError(email);
+    if (emailError) newErrors.email = emailError;
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
       toast({
         title: "Validation error",
-        description: "Email is required",
+        description: Object.values(newErrors)[0] || "Please fix the errors",
         variant: "destructive",
       });
       return;
@@ -80,9 +101,17 @@ export function UserEditForm({ user, onSuccess }: UserEditFormProps) {
           <Input
             id="user-full-name"
             value={fullName}
-            onChange={(event) => setFullName(event.target.value)}
+            onChange={(event) => {
+              setFullName(event.target.value);
+              if (errors.fullName) {
+                setErrors((prev) => ({ ...prev, fullName: undefined }));
+              }
+            }}
             placeholder="Full name (optional)"
           />
+          {errors.fullName && (
+            <p className="text-xs text-destructive">{errors.fullName}</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -92,9 +121,17 @@ export function UserEditForm({ user, onSuccess }: UserEditFormProps) {
             type="email"
             required
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              if (errors.email) {
+                setErrors((prev) => ({ ...prev, email: undefined }));
+              }
+            }}
             placeholder="user@example.com"
           />
+          {errors.email && (
+            <p className="text-xs text-destructive">{errors.email}</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -132,7 +169,14 @@ export function UserEditForm({ user, onSuccess }: UserEditFormProps) {
         <Button variant="outline" onClick={onSuccess} disabled={saving}>
           Close
         </Button>
-        <Button onClick={handleUpdate} disabled={!email.trim() || saving}>
+        <Button
+          onClick={handleUpdate}
+          disabled={
+            !email.trim() ||
+            saving ||
+            Object.keys(errors).length > 0
+          }
+        >
           {saving ? "Saving…" : "Save changes"}
         </Button>
       </div>

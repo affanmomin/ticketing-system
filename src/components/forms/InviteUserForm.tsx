@@ -12,6 +12,10 @@ import {
 import { toast } from "@/hooks/use-toast";
 import * as usersApi from "@/api/users";
 import * as clientsApi from "@/api/clients";
+import {
+  getEmailError,
+  getNameError,
+} from "@/lib/validations";
 
 type CreateUserFormState = {
   fullName: string;
@@ -55,14 +59,23 @@ export function InviteUserForm({
   }, []);
 
   async function handleInvite() {
-    if (
-      !formState.fullName.trim() ||
-      !formState.email.trim() ||
-      !formState.password.trim()
-    ) {
+    // Validate all fields
+    const nameError = getNameError(formState.fullName, "Full name");
+    const emailError = getEmailError(formState.email);
+    
+    if (nameError || emailError) {
       toast({
         title: "Validation Error",
-        description: "Full name, email, and password are required",
+        description: nameError || emailError || "Please fix the errors",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formState.password.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Password is required",
         variant: "destructive",
       });
       return;
@@ -157,6 +170,11 @@ export function InviteUserForm({
               aria-required="true"
               className="h-10"
             />
+            {getNameError(formState.fullName, "Full name") && formState.fullName.trim() && (
+              <p className="text-xs text-destructive">
+                {getNameError(formState.fullName, "Full name")}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -175,6 +193,11 @@ export function InviteUserForm({
               aria-required="true"
               className="h-10"
             />
+            {getEmailError(formState.email) && formState.email.trim() && (
+              <p className="text-xs text-destructive">
+                {getEmailError(formState.email)}
+              </p>
+            )}
           </div>
         </div>
 

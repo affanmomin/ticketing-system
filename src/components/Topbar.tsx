@@ -85,7 +85,7 @@ export function Topbar({ title = "", onOpenMobileMenu }: TopbarProps) {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
                   ref={searchInputRef}
-                  placeholder="Search or press Cmd + K"
+                  placeholder="Press Cmd + K for shortcuts"
                   className="pl-9 h-9 bg-background/60 focus-visible:ring-1 focus-visible:ring-primary/30 cursor-text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

@@ -520,6 +520,29 @@ export function Tickets() {
     async (ticketId: string, toStatusId: string) => {
       const current = tickets.find((t) => t.id === ticketId);
       if (!current || current.statusId === toStatusId) return;
+      
+      // Prevent moving closed tickets (but not resolved)
+      const currentStatus = statuses.find((s) => s.id === current.statusId);
+      const statusName = currentStatus?.name || current.statusName || "";
+      const statusNameLower = statusName.toLowerCase();
+      
+      // Never lock tickets with "resolved" in the name, regardless of isClosed flag
+      if (statusNameLower.includes("resolved")) {
+        // Allow moving resolved tickets
+      } else {
+        // Check if status is closed (either by flag or name)
+        const isClosed = currentStatus?.isClosed || statusNameLower.includes("closed");
+        
+        if (isClosed) {
+          toast({
+            title: "Cannot change status",
+            description: "Closed tickets cannot be modified.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       const toStatusName = statuses.find((s) => s.id === toStatusId)?.name;
 
       // Optimistic update
@@ -564,6 +587,29 @@ export function Tickets() {
     async (ticketId: string, priorityId: string) => {
       const current = tickets.find((t) => t.id === ticketId);
       if (!current || current.priorityId === priorityId) return;
+      
+      // Prevent updating priority for closed tickets (but not resolved)
+      const currentStatus = statuses.find((s) => s.id === current.statusId);
+      const statusName = currentStatus?.name || current.statusName || "";
+      const statusNameLower = statusName.toLowerCase();
+      
+      // Never lock tickets with "resolved" in the name, regardless of isClosed flag
+      if (statusNameLower.includes("resolved")) {
+        // Allow updating resolved tickets
+      } else {
+        // Check if status is closed (either by flag or name)
+        const isClosed = currentStatus?.isClosed || statusNameLower.includes("closed");
+        
+        if (isClosed) {
+          toast({
+            title: "Cannot change priority",
+            description: "Closed tickets cannot be modified.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
       const priorityName = priorities.find((p) => p.id === priorityId)?.name;
 
       // Optimistic update
@@ -599,13 +645,35 @@ export function Tickets() {
         });
       }
     },
-    [tickets, priorities, toast]
+    [tickets, priorities, statuses, toast]
   );
 
   const handleUpdateAssignee = useCallback(
     async (ticketId: string, assignedToUserId: string | null) => {
       const current = tickets.find((t) => t.id === ticketId);
       if (!current || current.assignedToUserId === assignedToUserId) return;
+      
+      // Prevent updating assignee for closed tickets (but not resolved)
+      const currentStatus = statuses.find((s) => s.id === current.statusId);
+      const statusName = currentStatus?.name || current.statusName || "";
+      const statusNameLower = statusName.toLowerCase();
+      
+      // Never lock tickets with "resolved" in the name, regardless of isClosed flag
+      if (statusNameLower.includes("resolved")) {
+        // Allow updating resolved tickets
+      } else {
+        // Check if status is closed (either by flag or name)
+        const isClosed = currentStatus?.isClosed || statusNameLower.includes("closed");
+        
+        if (isClosed) {
+          toast({
+            title: "Cannot change assignee",
+            description: "Closed tickets cannot be modified.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
 
       // Optimistic update
       setTickets((prev) =>
@@ -657,7 +725,7 @@ export function Tickets() {
         }
       }
     },
-    [tickets, users, toast]
+    [tickets, users, statuses, toast]
   );
 
   // Optimized filter update handlers
@@ -1179,6 +1247,19 @@ export function Tickets() {
                               onValueChange={(statusId) => {
                                 handleMoveTicket(ticket.id, statusId);
                               }}
+                              disabled={(() => {
+                                const currentStatus = statuses.find(
+                                  (s) => s.id === ticket.statusId
+                                );
+                                const statusName = currentStatus?.name || ticket.statusName || "";
+                                const statusNameLower = statusName.toLowerCase();
+                                
+                                // Never disable for resolved tickets
+                                if (statusNameLower.includes("resolved")) return false;
+                                
+                                // Check if closed (by flag or name)
+                                return currentStatus?.isClosed || statusNameLower.includes("closed");
+                              })()}
                             >
                               <SelectTrigger
                                 className="h-6 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80"
@@ -1331,6 +1412,19 @@ export function Tickets() {
                               onValueChange={(statusId) => {
                                 handleMoveTicket(ticket.id, statusId);
                               }}
+                              disabled={(() => {
+                                const currentStatus = statuses.find(
+                                  (s) => s.id === ticket.statusId
+                                );
+                                const statusName = currentStatus?.name || ticket.statusName || "";
+                                const statusNameLower = statusName.toLowerCase();
+                                
+                                // Never disable for resolved tickets
+                                if (statusNameLower.includes("resolved")) return false;
+                                
+                                // Check if closed (by flag or name)
+                                return currentStatus?.isClosed || statusNameLower.includes("closed");
+                              })()}
                             >
                               <SelectTrigger
                                 className="h-7 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80"
@@ -1357,6 +1451,19 @@ export function Tickets() {
                               onValueChange={(priorityId) => {
                                 handleUpdatePriority(ticket.id, priorityId);
                               }}
+                              disabled={(() => {
+                                const currentStatus = statuses.find(
+                                  (s) => s.id === ticket.statusId
+                                );
+                                const statusName = currentStatus?.name || ticket.statusName || "";
+                                const statusNameLower = statusName.toLowerCase();
+                                
+                                // Never disable for resolved tickets
+                                if (statusNameLower.includes("resolved")) return false;
+                                
+                                // Check if closed (by flag or name)
+                                return currentStatus?.isClosed || statusNameLower.includes("closed");
+                              })()}
                             >
                               <SelectTrigger
                                 className="h-7 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80"
@@ -1396,6 +1503,19 @@ export function Tickets() {
                                   );
                                 }
                               }}
+                              disabled={(() => {
+                                const currentStatus = statuses.find(
+                                  (s) => s.id === ticket.statusId
+                                );
+                                const statusName = currentStatus?.name || ticket.statusName || "";
+                                const statusNameLower = statusName.toLowerCase();
+                                
+                                // Never disable for resolved tickets
+                                if (statusNameLower.includes("resolved")) return false;
+                                
+                                // Check if closed (by flag or name)
+                                return currentStatus?.isClosed || statusNameLower.includes("closed");
+                              })()}
                             >
                               <SelectTrigger
                                 className="h-7 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80"

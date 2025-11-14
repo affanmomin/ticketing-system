@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from "react";
-import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +19,6 @@ import * as projectsApi from "@/api/projects";
 import * as subjectsApi from "@/api/subjects";
 import * as projectsMembersApi from "@/api/projects";
 import * as ticketsApi from "@/api/tickets";
-import * as attachmentsApi from "@/api/attachments";
 import { toast } from "@/hooks/use-toast";
 import type {
   AuthUser,
@@ -272,59 +270,17 @@ export function TicketCreateForm({
           form.assignedTo === UNASSIGNED_VALUE ? undefined : form.assignedTo,
       };
 
-      const { data } = await ticketsApi.create(payload);
+      // Create ticket with optional attachments
+      await ticketsApi.create(
+        payload,
+        attachments.length > 0 ? attachments : undefined
+      );
 
-      // Upload attachments if any
       if (attachments.length > 0) {
-        let uploadedCount = 0;
-        const failedFiles: string[] = [];
-        
-        for (const file of attachments) {
-          try {
-            console.log(`Uploading file: ${file.name}, size: ${file.size}, type: ${file.type}`);
-            
-            const presign = await attachmentsApi.presignUpload(data.id, {
-              fileName: file.name,
-              mimeType: file.type || "application/octet-stream",
-            });
-            
-            console.log("Presign response:", presign.data);
-            
-            await axios.put(presign.data.uploadUrl, file, {
-              headers: { 
-                "Content-Type": file.type || "application/octet-stream",
-              },
-            });
-            
-            console.log("File uploaded to storage, confirming...");
-            
-            await attachmentsApi.confirmUpload(data.id, {
-              storageUrl: presign.data.key,
-              fileName: file.name,
-              mimeType: file.type || "application/octet-stream",
-              fileSize: file.size,
-            });
-            
-            console.log(`Successfully uploaded: ${file.name}`);
-            uploadedCount++;
-          } catch (uploadError: any) {
-            console.error(`Failed to upload ${file.name}:`, uploadError);
-            failedFiles.push(file.name);
-          }
-        }
-        
-        if (failedFiles.length > 0) {
-          toast({
-            title: "Ticket created with partial uploads",
-            description: `${uploadedCount} file(s) uploaded, ${failedFiles.length} failed: ${failedFiles.join(", ")}`,
-            variant: "destructive",
-          });
-        } else {
-          toast({ 
-            title: "Ticket created successfully",
-            description: `All ${uploadedCount} file(s) uploaded successfully`
-          });
-        }
+        toast({
+          title: "Ticket created successfully",
+          description: `Ticket created with ${attachments.length} attachment(s)`,
+        });
       } else {
         toast({ title: "Ticket created successfully" });
       }
@@ -341,7 +297,10 @@ export function TicketCreateForm({
       console.error("Ticket creation error:", error);
       toast({
         title: "Failed to create ticket",
-        description: error?.response?.data?.message || error?.message || "Unexpected error",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Unexpected error",
         variant: "destructive",
       });
     } finally {
@@ -591,7 +550,9 @@ export function TicketCreateForm({
           />
           {attachments.length > 0 && (
             <div className="text-xs text-muted-foreground space-y-1">
-              <p className="font-medium">{attachments.length} file(s) ready to upload:</p>
+              <p className="font-medium">
+                {attachments.length} file(s) ready to upload:
+              </p>
               <ul className="list-disc list-inside">
                 {attachments.map((file, index) => (
                   <li key={index}>

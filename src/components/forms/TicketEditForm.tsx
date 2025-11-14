@@ -207,9 +207,33 @@ export function TicketEditForm({
 
   const canEditStatus = role !== "CLIENT";
 
+  // Prevent editing closed tickets (but not resolved)
+  const isTicketClosed = (() => {
+    const currentStatus = statuses.find((s) => s.id === form.statusId);
+    
+    // Use ticket's statusName as fallback if status not found in taxonomy
+    const statusName = currentStatus?.name || ticket?.statusName || "";
+    const statusNameLower = statusName.toLowerCase();
+    
+    // Never lock tickets with "resolved" in the name, regardless of isClosed flag
+    if (statusNameLower.includes("resolved")) return false;
+    
+    // If status not found, check ticket's statusName
+    if (!currentStatus) {
+      return statusNameLower.includes("closed");
+    }
+    
+    // Check if status is explicitly marked as closed
+    if (currentStatus.isClosed) return true;
+    
+    // Check if status name contains "closed"
+    return statusNameLower.includes("closed");
+  })();
+
   const disableSubmit =
     !ticketId ||
     saving ||
+    isTicketClosed || // Disable submit if ticket is closed
     !form.title.trim() ||
     !form.descriptionMd.trim() ||
     !form.priorityId ||
@@ -327,6 +351,11 @@ export function TicketEditForm({
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving…
               </>
+            ) : isTicketClosed ? (
+              <>
+                <X className="mr-2 h-4 w-4" />
+                Ticket Closed
+              </>
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
@@ -373,18 +402,19 @@ export function TicketEditForm({
                   >
                     Title
                   </Label>
-                  <Input
-                    id="edit-ticket-title"
-                    value={form.title}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        title: event.target.value,
-                      }))
-                    }
-                    className="text-base"
-                    placeholder="Enter ticket title"
-                  />
+                    <Input
+                      id="edit-ticket-title"
+                      value={form.title}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          title: event.target.value,
+                        }))
+                      }
+                      disabled={isTicketClosed}
+                      className="text-base"
+                      placeholder="Enter ticket title"
+                    />
                 </div>
 
                 {/* Description */}
@@ -395,18 +425,19 @@ export function TicketEditForm({
                   >
                     Description
                   </Label>
-                  <Textarea
-                    id="edit-ticket-description"
-                    value={form.descriptionMd}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        descriptionMd: event.target.value,
-                      }))
-                    }
-                    className="min-h-[180px] resize-none text-sm"
-                    placeholder="Describe the issue or request in detail. Markdown is supported."
-                  />
+                    <Textarea
+                      id="edit-ticket-description"
+                      value={form.descriptionMd}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          descriptionMd: event.target.value,
+                        }))
+                      }
+                      disabled={isTicketClosed}
+                      className="min-h-[180px] resize-none text-sm"
+                      placeholder="Describe the issue or request in detail. Markdown is supported."
+                    />
                 </div>
 
                 {/* Grid of Select Fields */}
@@ -425,7 +456,7 @@ export function TicketEditForm({
                       onValueChange={(value) =>
                         setForm((prev) => ({ ...prev, priorityId: value }))
                       }
-                      disabled={taxonomyLoading}
+                      disabled={taxonomyLoading || isTicketClosed}
                     >
                       <SelectTrigger
                         id="edit-ticket-priority"
@@ -457,7 +488,7 @@ export function TicketEditForm({
                       onValueChange={(value) =>
                         setForm((prev) => ({ ...prev, statusId: value }))
                       }
-                      disabled={!canEditStatus || taxonomyLoading}
+                      disabled={!canEditStatus || taxonomyLoading || isTicketClosed}
                     >
                       <SelectTrigger id="edit-ticket-status" className="w-full">
                         <SelectValue placeholder="Select status" />
@@ -470,7 +501,12 @@ export function TicketEditForm({
                         ))}
                       </SelectContent>
                     </Select>
-                    {role === "CLIENT" && (
+                    {isTicketClosed && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This ticket is closed and cannot be edited.
+                      </p>
+                    )}
+                    {role === "CLIENT" && !isTicketClosed && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Contact your project team to change ticket status.
                       </p>
@@ -485,6 +521,7 @@ export function TicketEditForm({
                       onValueChange={(value) =>
                         setForm((prev) => ({ ...prev, streamId: value }))
                       }
+                      disabled={isTicketClosed}
                       required
                     />
                   </div>
@@ -503,6 +540,7 @@ export function TicketEditForm({
                       onValueChange={(value) =>
                         setForm((prev) => ({ ...prev, subjectId: value }))
                       }
+                      disabled={isTicketClosed}
                     >
                       <SelectTrigger
                         id="edit-ticket-subject"
@@ -537,7 +575,7 @@ export function TicketEditForm({
                           assignedToUserId: value === "unassigned" ? "" : value,
                         }))
                       }
-                      disabled={assignableMembers.length === 0}
+                      disabled={assignableMembers.length === 0 || isTicketClosed}
                     >
                       <SelectTrigger
                         id="edit-ticket-assignee"

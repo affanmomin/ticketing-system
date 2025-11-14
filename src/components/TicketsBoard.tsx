@@ -77,11 +77,19 @@ export function TicketsBoard({
     
     // Find the current status
     const currentStatus = statuses.find((s) => s.id === ticket.statusId);
+    const statusName = currentStatus?.name || ticket.statusName || "";
+    const statusNameLower = statusName.toLowerCase();
     
-    // Only prevent moving tickets that are specifically in "Closed" status
-    // Check if the status name contains "closed" (case insensitive)
-    if (currentStatus?.name.toLowerCase().includes("closed")) {
-      return;
+    // Never lock tickets with "resolved" in the name, regardless of isClosed flag
+    if (statusNameLower.includes("resolved")) {
+      // Allow moving resolved tickets
+    } else {
+      // Check if status is closed (either by flag or name)
+      const isClosed = currentStatus?.isClosed || statusNameLower.includes("closed");
+      
+      if (isClosed) {
+        return;
+      }
     }
     
     onMoveTicket?.(ticketId, toStatusId);
@@ -125,8 +133,14 @@ export function TicketsBoard({
             <div className="space-y-2">
               {ticketsByStatus.get(status.id)?.map((t) => {
                 const currentStatus = statuses.find((s) => s.id === t.statusId);
-                // Only lock tickets that are specifically in "Closed" status
-                const isClosedTicket = currentStatus?.name.toLowerCase().includes("closed") || false;
+                // Only lock tickets that are specifically in "Closed" status (but not resolved)
+                const statusName = currentStatus?.name || t.statusName || "";
+                const statusNameLower = statusName.toLowerCase();
+                
+                // Never lock tickets with "resolved" in the name, regardless of isClosed flag
+                const isClosedTicket = statusNameLower.includes("resolved") 
+                  ? false 
+                  : (currentStatus?.isClosed || statusNameLower.includes("closed"));
                 
                 return (
                   <DraggableCard
