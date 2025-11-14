@@ -457,8 +457,8 @@ export function Projects() {
         title="Projects"
         description="Organize client work and manage delivery timelines"
         actions={
-          // Hide "New Project" button for CLIENT users
-          !isClient ? (
+          // Hide "New Project" button for CLIENT and EMPLOYEE users
+          !isClient && !isEmployee ? (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -585,8 +585,8 @@ export function Projects() {
                           >
                             {project.active ? "Active" : "Inactive"}
                           </Badge>
-                          {/* Hide Edit button for CLIENT users */}
-                          {!isClient && (
+                          {/* Hide Edit button for CLIENT and EMPLOYEE users */}
+                          {!isClient && !isEmployee && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -746,18 +746,21 @@ export function Projects() {
                         {!isClient && (
                           <TableCell className="text-right p-3 sm:p-4">
                             <div className="flex justify-end gap-2 flex-wrap">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs sm:text-sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditProject(project);
-                                }}
-                              >
-                                <Pencil className="mr-2 h-3.5 w-3.5" />
-                                Edit
-                              </Button>
+                              {/* Hide Edit button for EMPLOYEE users */}
+                              {!isEmployee && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs sm:text-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditProject(project);
+                                  }}
+                                >
+                                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                                  Edit
+                                </Button>
+                              )}
                               <Button
                                 variant="outline"
                                 size="sm"
