@@ -492,9 +492,24 @@ export function Tickets() {
     [total, pageSize]
   );
 
+  // Filter statuses: Employees and Clients should not see "Closed" status (only Admin can close tickets)
+  const isAdmin = useMemo(() => user?.role === "ADMIN", [user?.role]);
+  
+  const filteredStatuses = useMemo(() => {
+    if (isAdmin) {
+      return statuses; // Admin sees all statuses
+    }
+    // Employees and Clients: exclude "Closed" status
+    return statuses.filter((status) => {
+      const statusNameLower = status.name.toLowerCase();
+      // Exclude if status name contains "closed" or if isClosed flag is true
+      return !statusNameLower.includes("closed") && !status.isClosed;
+    });
+  }, [statuses, isAdmin]);
+
   const sortedStatuses = useMemo(() => {
-    return [...statuses].sort((a, b) => a.sequence - b.sequence);
-  }, [statuses]);
+    return [...filteredStatuses].sort((a, b) => a.sequence - b.sequence);
+  }, [filteredStatuses]);
 
   const visibleStatuses = useMemo(() => {
     return filters.statusId !== "all"
@@ -892,7 +907,7 @@ export function Tickets() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
-                  {statuses.map((status) => (
+                  {filteredStatuses.map((status) => (
                     <SelectItem key={status.id} value={status.id}>
                       {status.name}
                     </SelectItem>
@@ -1654,6 +1669,7 @@ export function Tickets() {
             <div className="py-4">
               <TicketEditForm
                 ticketId={selectedTicketId}
+                role={user?.role || "CLIENT"}
                 onSaved={() => {
                   setOpenEdit(false);
                   setSelectedTicketId(undefined);

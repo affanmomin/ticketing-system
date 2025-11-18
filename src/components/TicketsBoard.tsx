@@ -74,24 +74,25 @@ export function TicketsBoard({
     const toStatusId = String(over.id);
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket || ticket.statusId === toStatusId) return;
-    
+
     // Find the current status
     const currentStatus = statuses.find((s) => s.id === ticket.statusId);
     const statusName = currentStatus?.name || ticket.statusName || "";
     const statusNameLower = statusName.toLowerCase();
-    
+
     // Never lock tickets with "resolved" in the name, regardless of isClosed flag
     if (statusNameLower.includes("resolved")) {
       // Allow moving resolved tickets
     } else {
       // Check if status is closed (either by flag or name)
-      const isClosed = currentStatus?.isClosed || statusNameLower.includes("closed");
-      
+      const isClosed =
+        currentStatus?.isClosed || statusNameLower.includes("closed");
+
       if (isClosed) {
         return;
       }
     }
-    
+
     onMoveTicket?.(ticketId, toStatusId);
   }
 
@@ -136,12 +137,13 @@ export function TicketsBoard({
                 // Only lock tickets that are specifically in "Closed" status (but not resolved)
                 const statusName = currentStatus?.name || t.statusName || "";
                 const statusNameLower = statusName.toLowerCase();
-                
+
                 // Never lock tickets with "resolved" in the name, regardless of isClosed flag
-                const isClosedTicket = statusNameLower.includes("resolved") 
-                  ? false 
-                  : (currentStatus?.isClosed || statusNameLower.includes("closed"));
-                
+                const isClosedTicket = statusNameLower.includes("resolved")
+                  ? false
+                  : currentStatus?.isClosed ||
+                    statusNameLower.includes("closed");
+
                 return (
                   <DraggableCard
                     key={t.id}
@@ -157,7 +159,10 @@ export function TicketsBoard({
                       </span>
                       <div className="flex items-center gap-1">
                         {t.priorityName && (
-                          <Badge variant="secondary" className="h-5 px-2 text-xs">
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-2 text-xs"
+                          >
                             {t.priorityName}
                           </Badge>
                         )}
@@ -178,7 +183,9 @@ export function TicketsBoard({
                             >
                               Edit Ticket
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onCardClick?.(t.id)}>
+                            <DropdownMenuItem
+                              onClick={() => onCardClick?.(t.id)}
+                            >
                               View Details
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -214,6 +221,49 @@ export function TicketsBoard({
 
 function statusColor(status: Status) {
   const key = status.name.toLowerCase();
+
+  // Primary status colors - check these first
+  if (key.includes("new"))
+    return {
+      ring: "ring-blue-300/50 dark:ring-blue-600/50",
+      header: "text-blue-700 dark:text-blue-300",
+      tint: "bg-gradient-to-b from-blue-50/80 to-blue-100/40 dark:from-blue-950/30 dark:to-blue-900/40 border-blue-200/60 dark:border-blue-800/60",
+      dot: "bg-blue-500 dark:bg-blue-400",
+    };
+
+  if (key.includes("progress") || key.includes("in progress"))
+    return {
+      ring: "ring-cyan-300/50 dark:ring-cyan-600/50",
+      header: "text-cyan-700 dark:text-cyan-300",
+      tint: "bg-gradient-to-b from-cyan-50/80 to-cyan-100/40 dark:from-cyan-950/30 dark:to-cyan-900/40 border-cyan-200/60 dark:border-cyan-800/60",
+      dot: "bg-cyan-500 dark:bg-cyan-400",
+    };
+
+  if (key.includes("hold") || key.includes("on hold"))
+    return {
+      ring: "ring-amber-300/50 dark:ring-amber-600/50",
+      header: "text-amber-700 dark:text-amber-300",
+      tint: "bg-gradient-to-b from-amber-50/80 to-amber-100/40 dark:from-amber-950/30 dark:to-amber-900/40 border-amber-200/60 dark:border-amber-800/60",
+      dot: "bg-amber-500 dark:bg-amber-400",
+    };
+
+  if (key.includes("resolved"))
+    return {
+      ring: "ring-green-300/50 dark:ring-green-600/50",
+      header: "text-green-700 dark:text-green-300",
+      tint: "bg-gradient-to-b from-green-50/80 to-green-100/40 dark:from-green-950/30 dark:to-green-900/40 border-green-200/60 dark:border-green-800/60",
+      dot: "bg-green-500 dark:bg-green-400",
+    };
+
+  if (key.includes("closed") || status.isClosed)
+    return {
+      ring: "ring-teal-300/50 dark:ring-teal-600/50",
+      header: "text-teal-700 dark:text-teal-300",
+      tint: "bg-gradient-to-b from-teal-50/80 to-teal-100/40 dark:from-teal-950/30 dark:to-teal-900/40 border-teal-200/60 dark:border-teal-800/60",
+      dot: "bg-teal-500 dark:bg-teal-400",
+    };
+
+  // Legacy status support
   if (key.includes("backlog"))
     return {
       ring: "ring-gray-300/50 dark:ring-gray-600/50",
@@ -228,13 +278,6 @@ function statusColor(status: Status) {
       tint: "bg-gradient-to-b from-indigo-50/80 to-indigo-100/40 dark:from-indigo-950/30 dark:to-indigo-900/40 border-indigo-200/60 dark:border-indigo-800/60",
       dot: "bg-indigo-500 dark:bg-indigo-400",
     };
-  if (key.includes("progress"))
-    return {
-      ring: "ring-sky-300/50 dark:ring-sky-600/50",
-      header: "text-sky-700 dark:text-sky-300",
-      tint: "bg-gradient-to-b from-sky-50/80 to-sky-100/40 dark:from-sky-950/30 dark:to-sky-900/40 border-sky-200/60 dark:border-sky-800/60",
-      dot: "bg-sky-500 dark:bg-sky-400",
-    };
   if (key.includes("review") || key.includes("qa"))
     return {
       ring: "ring-purple-300/50 dark:ring-purple-600/50",
@@ -242,7 +285,7 @@ function statusColor(status: Status) {
       tint: "bg-gradient-to-b from-purple-50/80 to-purple-100/40 dark:from-purple-950/30 dark:to-purple-900/40 border-purple-200/60 dark:border-purple-800/60",
       dot: "bg-purple-500 dark:bg-purple-400",
     };
-  if (key.includes("done") || status.isClosed)
+  if (key.includes("done"))
     return {
       ring: "ring-emerald-300/50 dark:ring-emerald-600/50",
       header: "text-emerald-700 dark:text-emerald-300",
@@ -256,6 +299,8 @@ function statusColor(status: Status) {
       tint: "bg-gradient-to-b from-red-50/80 to-red-100/40 dark:from-red-950/30 dark:to-red-900/40 border-red-200/60 dark:border-red-800/60",
       dot: "bg-red-500 dark:bg-red-400",
     };
+
+  // Default fallback
   return {
     ring: "ring-slate-300/50 dark:ring-slate-600/50",
     header: "text-slate-700 dark:text-slate-300",
@@ -342,7 +387,7 @@ function DraggableCard({
   children: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ 
+    useDraggable({
       id,
       disabled: isLocked, // Disable dragging for locked (closed) tickets
     });
@@ -365,8 +410,8 @@ function DraggableCard({
           style={style}
           className={cn(
             "select-none p-2 sm:p-3 transition-all duration-200 will-change-transform bg-card/80 backdrop-blur-sm border-border/60",
-            isLocked 
-              ? "cursor-default opacity-75" 
+            isLocked
+              ? "cursor-default opacity-75"
               : "cursor-grab active:cursor-grabbing",
             isDragging
               ? "z-50 shadow-2xl scale-[1.02] ring-2 ring-primary/20"

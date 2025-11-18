@@ -199,9 +199,18 @@ export function TicketEditForm({
     });
   }, [members, users]);
 
-  const statusOptions = statuses.filter(
-    (status) => role !== "CLIENT" || !status.isClosed
-  );
+  // Filter statuses: Employees and Clients should not see "Closed" status (only Admin can close tickets)
+  const statusOptions = useMemo(() => {
+    if (role === "ADMIN") {
+      return statuses; // Admin sees all statuses
+    }
+    // Employees and Clients: exclude "Closed" status
+    return statuses.filter((status) => {
+      const statusNameLower = status.name.toLowerCase();
+      // Exclude if status name contains "closed" or if isClosed flag is true
+      return !statusNameLower.includes("closed") && !status.isClosed;
+    });
+  }, [statuses, role]);
 
   const priorityOptions = priorities;
 

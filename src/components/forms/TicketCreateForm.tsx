@@ -69,6 +69,20 @@ export function TicketCreateForm({
   // For client users, use their own clientId
   const effectiveClientId = isClient ? userClientId : clientId;
 
+  // Filter statuses: Employees and Clients should not see "Closed" status (only Admin can close tickets)
+  const isAdmin = user?.role === "ADMIN";
+  const availableStatuses = useMemo(() => {
+    if (isAdmin) {
+      return statuses; // Admin sees all statuses
+    }
+    // Employees and Clients: exclude "Closed" status
+    return statuses.filter((status) => {
+      const statusNameLower = status.name.toLowerCase();
+      // Exclude if status name contains "closed" or if isClosed flag is true
+      return !statusNameLower.includes("closed") && !status.isClosed;
+    });
+  }, [statuses, isAdmin]);
+
   const [form, setForm] = useState({
     clientId: effectiveClientId ?? "",
     projectId: projectId ?? "",
@@ -187,8 +201,8 @@ export function TicketCreateForm({
       const firstPriority = priorities.find(
         (priority) => priority.active !== false
       );
-      const firstStatus = statuses.find(
-        (status) => status.active !== false && !status.isClosed
+      const firstStatus = availableStatuses.find(
+        (status) => status.active !== false
       );
       setForm((prev) => ({
         ...prev,
@@ -196,7 +210,7 @@ export function TicketCreateForm({
         statusId: prev.statusId || firstStatus?.id || "",
       }));
     }
-  }, [taxonomyLoading, priorities, statuses]);
+  }, [taxonomyLoading, priorities, availableStatuses]);
 
   const memberOptions = members
     .filter((member) => member.canBeAssigned)
@@ -496,7 +510,7 @@ export function TicketCreateForm({
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
             <SelectContent>
-              {statuses.map((status: Status) => (
+              {availableStatuses.map((status: Status) => (
                 <SelectItem key={status.id} value={status.id}>
                   {status.name}
                 </SelectItem>
