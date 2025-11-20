@@ -13,6 +13,11 @@ export type SearchResult = {
   icon?: React.ReactNode;
 };
 
+const getTicketNumber = (ticket: Ticket) => {
+  const number = ticket.clientTicketNumber?.trim();
+  return number && number.length > 0 ? number : ticket.id.substring(0, 8);
+};
+
 export function useSearch(query: string) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -39,11 +44,14 @@ export function useSearch(query: string) {
         const searchLower = query.toLowerCase();
 
         // Filter tickets
-        const filteredTickets = ticketsRes.data.data.filter(
-          (ticket) =>
+        const filteredTickets = ticketsRes.data.data.filter((ticket) => {
+          const ticketNumber = getTicketNumber(ticket).toLowerCase();
+          return (
             ticket.title.toLowerCase().includes(searchLower) ||
-            ticket.id.toLowerCase().includes(searchLower)
-        );
+            ticket.id.toLowerCase().includes(searchLower) ||
+            ticketNumber.includes(searchLower)
+          );
+        });
 
         // Filter projects
         const filteredProjects = projectsRes.data.data.filter(
@@ -81,7 +89,7 @@ export function useSearch(query: string) {
         type: "ticket",
         id: ticket.id,
         title: ticket.title,
-        subtitle: `Ticket #${ticket.id.substring(0, 8)}`,
+        subtitle: `Ticket ${getTicketNumber(ticket)}`,
         url: `/tickets?ticketId=${ticket.id}`,
       });
     });

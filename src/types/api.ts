@@ -129,6 +129,7 @@ export interface Status {
 
 export interface Ticket {
   id: string;
+  clientTicketNumber?: string;
   projectId: string;
   projectName?: string;
   clientId?: string;

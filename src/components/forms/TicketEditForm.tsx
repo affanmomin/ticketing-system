@@ -635,10 +635,12 @@ export function TicketEditForm({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <p className="text-xs font-medium text-muted-foreground">
-                          Ticket ID
+                          Ticket Number
                         </p>
                         <p className="text-sm font-mono text-foreground break-all">
-                          {ticket.id}
+                          {ticket.clientTicketNumber?.trim()?.length
+                            ? ticket.clientTicketNumber
+                            : ticket.id}
                         </p>
                       </div>
                       <div className="space-y-1">

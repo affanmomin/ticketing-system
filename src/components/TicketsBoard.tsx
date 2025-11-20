@@ -44,6 +44,11 @@ interface TicketsBoardProps {
   onEditTicket?: (ticketId: string) => void;
 }
 
+const getTicketNumber = (ticket: Ticket) => {
+  const number = ticket.clientTicketNumber?.trim();
+  return number && number.length > 0 ? number : ticket.id.substring(0, 8);
+};
+
 export function TicketsBoard({
   tickets,
   statuses,
@@ -155,7 +160,7 @@ export function TicketsBoard({
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <span className="text-xs text-muted-foreground font-mono">
-                        {t.id.substring(0, 8)}
+                        {getTicketNumber(t)}
                       </span>
                       <div className="flex items-center gap-1">
                         {t.priorityName && (

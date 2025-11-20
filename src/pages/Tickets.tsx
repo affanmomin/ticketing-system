@@ -517,6 +517,13 @@ export function Tickets() {
       : sortedStatuses;
   }, [sortedStatuses, filters.statusId]);
 
+  const getTicketNumber = useCallback((ticket: Ticket) => {
+    const clientNumber = ticket.clientTicketNumber?.trim();
+    return clientNumber && clientNumber.length > 0
+      ? clientNumber
+      : ticket.id.substring(0, 8);
+  }, []);
+
   // Helper function to get assignable users for a ticket's project
   const getAssignableUsersForTicket = useCallback(
     (ticket: Ticket): AuthUser[] => {
@@ -1248,9 +1255,9 @@ export function Tickets() {
                     >
                       <CardContent className="p-4">
                         <div className="space-y-3">
-                          {/* Ticket ID */}
+                          {/* Ticket Number */}
                           <div className="font-mono text-xs text-muted-foreground">
-                            #{ticket.id.substring(0, 8)}
+                            {getTicketNumber(ticket)}
                           </div>
 
                           {/* Title */}
@@ -1472,7 +1479,7 @@ export function Tickets() {
                           }}
                         >
                           <TableCell className="font-mono text-xs text-muted-foreground p-3 sm:p-4">
-                            {ticket.id.substring(0, 8)}
+                            {getTicketNumber(ticket)}
                           </TableCell>
                           <TableCell className="max-w-[320px] truncate text-xs sm:text-sm text-foreground p-3 sm:p-4">
                             {ticket.title}
