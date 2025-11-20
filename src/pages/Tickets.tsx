@@ -43,12 +43,14 @@ import { TicketsBoard } from "@/components/TicketsBoard";
 import * as ticketsApi from "@/api/tickets";
 import * as projectsApi from "@/api/projects";
 import * as clientsApi from "@/api/clients";
+import * as streamsApi from "@/api/streams";
 import type {
   Ticket,
   Project,
   Client,
   TicketsListQuery,
   ProjectMember,
+  Stream,
 } from "@/types/api";
 import { format } from "date-fns";
 import { Plus, X, Bookmark, BookmarkPlus } from "lucide-react";
@@ -71,6 +73,7 @@ export function Tickets() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
+  const [streams, setStreams] = useState<Map<string, Stream[]>>(new Map()); // projectId -> streams
   const [projectMembers, setProjectMembers] = useState<
     Map<string, ProjectMember[]>
   >(new Map());
@@ -98,6 +101,10 @@ export function Tickets() {
         projectId: "all",
         statusId: "all",
         priorityId: "all",
+        streamId: "all",
+        substreamId: "all",
+        raisedByUserId: "all",
+        assignedToUserId: "all",
       }
     );
   });
@@ -124,7 +131,7 @@ export function Tickets() {
     }
   }, [location]);
 
-  // Load reference data (projects, clients, users) - Only once on mount
+  // Load reference data (projects, clients, users, streams) - Only once on mount
   useEffect(() => {
     let isMounted = true;
 
@@ -139,6 +146,29 @@ export function Tickets() {
             setProjects(projectsRes.data);
             setClients([]);
             setUsers([]);
+            // Load streams for all projects
+            const streamsMap = new Map();
+            for (const project of projectsRes.data) {
+              try {
+                const { data: streamsResponse } =
+                  await streamsApi.listForProject(project.id, {
+                    limit: 200,
+                    offset: 0,
+                  });
+                // Extract the data array from PaginatedResponse
+                const streamsArray = Array.isArray(streamsResponse)
+                  ? streamsResponse
+                  : streamsResponse?.data || [];
+                streamsMap.set(project.id, streamsArray);
+              } catch (err) {
+                console.warn(
+                  `Failed to load streams for project ${project.id}`,
+                  err
+                );
+                streamsMap.set(project.id, []); // Set empty array on error
+              }
+            }
+            setStreams(streamsMap);
           }
         } else {
           const [
@@ -154,6 +184,29 @@ export function Tickets() {
             setProjects(projectsRes.data);
             setClients(clientsRes.data);
             setUsers(usersRes.data);
+            // Load streams for all projects
+            const streamsMap = new Map();
+            for (const project of projectsRes.data) {
+              try {
+                const { data: streamsResponse } =
+                  await streamsApi.listForProject(project.id, {
+                    limit: 200,
+                    offset: 0,
+                  });
+                // Extract the data array from PaginatedResponse
+                const streamsArray = Array.isArray(streamsResponse)
+                  ? streamsResponse
+                  : streamsResponse?.data || [];
+                streamsMap.set(project.id, streamsArray);
+              } catch (err) {
+                console.warn(
+                  `Failed to load streams for project ${project.id}`,
+                  err
+                );
+                streamsMap.set(project.id, []); // Set empty array on error
+              }
+            }
+            setStreams(streamsMap);
           }
         }
       } catch (error) {
@@ -245,7 +298,11 @@ export function Tickets() {
       prev.clientId !== currentFilters.clientId ||
       prev.projectId !== currentFilters.projectId ||
       prev.statusId !== currentFilters.statusId ||
-      prev.priorityId !== currentFilters.priorityId;
+      prev.priorityId !== currentFilters.priorityId ||
+      prev.streamId !== currentFilters.streamId ||
+      prev.substreamId !== currentFilters.substreamId ||
+      prev.raisedByUserId !== currentFilters.raisedByUserId ||
+      prev.assignedToUserId !== currentFilters.assignedToUserId;
 
     // Update ref
     prevFiltersRef.current = currentFilters;
@@ -292,18 +349,58 @@ export function Tickets() {
 
               setTotal(data.total);
 
-              // Client-side filtering for search and client
+              // Client-side filtering
               const filtered = data.data.filter((ticket) => {
                 const matchesSearch = currentFilters.search
-                  ? ticket.title
-                      .toLowerCase()
-                      .includes(currentFilters.search.toLowerCase())
+                  ? (() => {
+                      const searchTerm = currentFilters.search.toLowerCase();
+                      const titleMatch = ticket.title
+                        .toLowerCase()
+                        .includes(searchTerm);
+                      const streamMatch =
+                        ticket.streamName?.toLowerCase().includes(searchTerm) ||
+                        false;
+                      const parentStreamMatch =
+                        ticket.parentStreamName
+                          ?.toLowerCase()
+                          .includes(searchTerm) || false;
+                      return titleMatch || streamMatch || parentStreamMatch;
+                    })()
                   : true;
                 const matchesClient =
                   currentFilters.clientId === "all"
                     ? true
                     : ticket.clientId === currentFilters.clientId;
-                return matchesSearch && matchesClient;
+                const matchesStream =
+                  currentFilters.streamId === "all"
+                    ? true
+                    : ticket.parentStreamId === currentFilters.streamId ||
+                      (ticket.parentStreamId === null &&
+                        ticket.streamId === currentFilters.streamId);
+                const matchesSubstream =
+                  currentFilters.substreamId === "all"
+                    ? true
+                    : ticket.streamId === currentFilters.substreamId &&
+                      ticket.parentStreamId !== null;
+                const matchesRaisedBy =
+                  currentFilters.raisedByUserId === "all"
+                    ? true
+                    : ticket.raisedByUserId === currentFilters.raisedByUserId;
+                const matchesAssignedTo =
+                  currentFilters.assignedToUserId === "all"
+                    ? true
+                    : currentFilters.assignedToUserId === "unassigned"
+                      ? !ticket.assignedToUserId
+                      : ticket.assignedToUserId ===
+                        currentFilters.assignedToUserId;
+                return (
+                  matchesSearch &&
+                  matchesClient &&
+                  matchesStream &&
+                  matchesSubstream &&
+                  matchesRaisedBy &&
+                  matchesAssignedTo
+                );
               });
 
               setTickets(filtered);
@@ -371,18 +468,56 @@ export function Tickets() {
 
         setTotal(data.total);
 
-        // Client-side filtering for search and client
+        // Client-side filtering
         const filtered = data.data.filter((ticket) => {
           const matchesSearch = currentFilters.search
-            ? ticket.title
-                .toLowerCase()
-                .includes(currentFilters.search.toLowerCase())
+            ? (() => {
+                const searchTerm = currentFilters.search.toLowerCase();
+                const titleMatch = ticket.title
+                  .toLowerCase()
+                  .includes(searchTerm);
+                const streamMatch =
+                  ticket.streamName?.toLowerCase().includes(searchTerm) ||
+                  false;
+                const parentStreamMatch =
+                  ticket.parentStreamName?.toLowerCase().includes(searchTerm) ||
+                  false;
+                return titleMatch || streamMatch || parentStreamMatch;
+              })()
             : true;
           const matchesClient =
             currentFilters.clientId === "all"
               ? true
               : ticket.clientId === currentFilters.clientId;
-          return matchesSearch && matchesClient;
+          const matchesStream =
+            currentFilters.streamId === "all"
+              ? true
+              : ticket.parentStreamId === currentFilters.streamId ||
+                (ticket.parentStreamId === null &&
+                  ticket.streamId === currentFilters.streamId);
+          const matchesSubstream =
+            currentFilters.substreamId === "all"
+              ? true
+              : ticket.streamId === currentFilters.substreamId &&
+                ticket.parentStreamId !== null;
+          const matchesRaisedBy =
+            currentFilters.raisedByUserId === "all"
+              ? true
+              : ticket.raisedByUserId === currentFilters.raisedByUserId;
+          const matchesAssignedTo =
+            currentFilters.assignedToUserId === "all"
+              ? true
+              : currentFilters.assignedToUserId === "unassigned"
+                ? !ticket.assignedToUserId
+                : ticket.assignedToUserId === currentFilters.assignedToUserId;
+          return (
+            matchesSearch &&
+            matchesClient &&
+            matchesStream &&
+            matchesSubstream &&
+            matchesRaisedBy &&
+            matchesAssignedTo
+          );
         });
 
         setTickets(filtered);
@@ -458,16 +593,55 @@ export function Tickets() {
 
       setTotal(data.total);
 
-      // Client-side filtering for search and client
+      // Client-side filtering
       const filtered = data.data.filter((ticket) => {
         const matchesSearch = filters.search
-          ? ticket.title.toLowerCase().includes(filters.search.toLowerCase())
+          ? (() => {
+              const searchTerm = filters.search.toLowerCase();
+              const titleMatch = ticket.title
+                .toLowerCase()
+                .includes(searchTerm);
+              const streamMatch =
+                ticket.streamName?.toLowerCase().includes(searchTerm) || false;
+              const parentStreamMatch =
+                ticket.parentStreamName?.toLowerCase().includes(searchTerm) ||
+                false;
+              return titleMatch || streamMatch || parentStreamMatch;
+            })()
           : true;
         const matchesClient =
           filters.clientId === "all"
             ? true
             : ticket.clientId === filters.clientId;
-        return matchesSearch && matchesClient;
+        const matchesStream =
+          filters.streamId === "all"
+            ? true
+            : ticket.parentStreamId === filters.streamId ||
+              (ticket.parentStreamId === null &&
+                ticket.streamId === filters.streamId);
+        const matchesSubstream =
+          filters.substreamId === "all"
+            ? true
+            : ticket.streamId === filters.substreamId &&
+              ticket.parentStreamId !== null;
+        const matchesRaisedBy =
+          filters.raisedByUserId === "all"
+            ? true
+            : ticket.raisedByUserId === filters.raisedByUserId;
+        const matchesAssignedTo =
+          filters.assignedToUserId === "all"
+            ? true
+            : filters.assignedToUserId === "unassigned"
+              ? !ticket.assignedToUserId
+              : ticket.assignedToUserId === filters.assignedToUserId;
+        return (
+          matchesSearch &&
+          matchesClient &&
+          matchesStream &&
+          matchesSubstream &&
+          matchesRaisedBy &&
+          matchesAssignedTo
+        );
       });
 
       setTickets(filtered);
@@ -536,6 +710,65 @@ export function Tickets() {
     },
     [projectMembers, users]
   );
+
+  // Get parent streams - from selected project or all projects
+  const parentStreams = useMemo(() => {
+    if (filters.projectId === "all") {
+      // Get all parent streams from all projects
+      const allParentStreams: Stream[] = [];
+      const seenIds = new Set<string>();
+      streams.forEach((projectStreams) => {
+        // Safety check: ensure projectStreams is an array
+        if (Array.isArray(projectStreams)) {
+          projectStreams.forEach((s) => {
+            if (!s.parentStreamId && !seenIds.has(s.id)) {
+              allParentStreams.push(s);
+              seenIds.add(s.id);
+            }
+          });
+        }
+      });
+      return allParentStreams;
+    }
+    const projectStreams = streams.get(filters.projectId);
+    if (!Array.isArray(projectStreams)) return [];
+    return projectStreams.filter((s) => !s.parentStreamId);
+  }, [streams, filters.projectId]);
+
+  // Get child streams for selected parent stream
+  const childStreams = useMemo(() => {
+    if (filters.streamId === "all") return [];
+    if (filters.projectId === "all") {
+      // Get child streams from all projects for the selected parent
+      const allChildStreams: Stream[] = [];
+      const seenIds = new Set<string>();
+      streams.forEach((projectStreams) => {
+        // Safety check: ensure projectStreams is an array
+        if (Array.isArray(projectStreams)) {
+          projectStreams.forEach((s) => {
+            if (s.parentStreamId === filters.streamId && !seenIds.has(s.id)) {
+              allChildStreams.push(s);
+              seenIds.add(s.id);
+            }
+          });
+        }
+      });
+      return allChildStreams;
+    }
+    const projectStreams = streams.get(filters.projectId);
+    if (!Array.isArray(projectStreams)) return [];
+    return projectStreams.filter((s) => s.parentStreamId === filters.streamId);
+  }, [streams, filters.projectId, filters.streamId]);
+
+  // Get unique users (remove duplicates)
+  const uniqueUsers = useMemo(() => {
+    const seen = new Set<string>();
+    return users.filter((user) => {
+      if (seen.has(user.id)) return false;
+      seen.add(user.id);
+      return true;
+    });
+  }, [users]);
 
   // Optimized handlers with useCallback
   const handleMoveTicket = useCallback(
@@ -766,6 +999,10 @@ export function Tickets() {
       projectId: "all",
       statusId: "all",
       priorityId: "all",
+      streamId: "all",
+      substreamId: "all",
+      raisedByUserId: "all",
+      assignedToUserId: "all",
     });
     setPage(0);
   }, []);
@@ -852,14 +1089,14 @@ export function Tickets() {
             <span className="text-muted-foreground text-sm sm:text-base">
               Filters
             </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row gap-2 sm:gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <Input
-                placeholder="Search title…"
+                placeholder="Search title, stream, substream…"
                 value={filters.search}
                 onChange={(event) => {
                   updateFilters({ search: event.target.value });
                 }}
-                className="w-full sm:col-span-2 lg:w-60"
+                className="w-full sm:w-60 min-w-[200px]"
               />
               {/* Hide client filter for CLIENT users - they only see their own tickets */}
               {user?.role !== "CLIENT" && (
@@ -869,7 +1106,7 @@ export function Tickets() {
                     updateFilters({ clientId: value, projectId: "all" });
                   }}
                 >
-                  <SelectTrigger className="w-full lg:w-44">
+                  <SelectTrigger className="w-full sm:w-44 min-w-[140px]">
                     <SelectValue placeholder="Client" />
                   </SelectTrigger>
                   <SelectContent>
@@ -888,7 +1125,7 @@ export function Tickets() {
                   updateFilters({ projectId: value });
                 }}
               >
-                <SelectTrigger className="w-full lg:w-44">
+                <SelectTrigger className="w-full sm:w-44 min-w-[140px]">
                   <SelectValue placeholder="Project" />
                 </SelectTrigger>
                 <SelectContent>
@@ -912,7 +1149,7 @@ export function Tickets() {
                   updateFilters({ statusId: value });
                 }}
               >
-                <SelectTrigger className="w-full lg:w-40">
+                <SelectTrigger className="w-full sm:w-40 min-w-[120px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -930,7 +1167,7 @@ export function Tickets() {
                   updateFilters({ priorityId: value });
                 }}
               >
-                <SelectTrigger className="w-full lg:w-40">
+                <SelectTrigger className="w-full sm:w-40 min-w-[120px]">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -938,6 +1175,80 @@ export function Tickets() {
                   {priorities.map((priority) => (
                     <SelectItem key={priority.id} value={priority.id}>
                       {priority.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.streamId}
+                onValueChange={(value) => {
+                  updateFilters({ streamId: value, substreamId: "all" });
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-44 min-w-[140px]">
+                  <SelectValue placeholder="Stream" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All streams</SelectItem>
+                  {parentStreams.map((stream) => (
+                    <SelectItem key={stream.id} value={stream.id}>
+                      {stream.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.substreamId}
+                onValueChange={(value) => {
+                  updateFilters({ substreamId: value });
+                }}
+                disabled={filters.streamId === "all"}
+              >
+                <SelectTrigger className="w-full sm:w-44 min-w-[140px]">
+                  <SelectValue placeholder="Substream" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All substreams</SelectItem>
+                  {childStreams.map((stream) => (
+                    <SelectItem key={stream.id} value={stream.id}>
+                      {stream.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.raisedByUserId}
+                onValueChange={(value) => {
+                  updateFilters({ raisedByUserId: value });
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-44 min-w-[140px]">
+                  <SelectValue placeholder="Raised By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All users</SelectItem>
+                  {uniqueUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.fullName || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.assignedToUserId}
+                onValueChange={(value) => {
+                  updateFilters({ assignedToUserId: value });
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-44 min-w-[140px]">
+                  <SelectValue placeholder="Assigned To" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All users</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {uniqueUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.fullName || user.email}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1091,7 +1402,10 @@ export function Tickets() {
             filters.projectId !== "all" ||
             filters.statusId !== "all" ||
             filters.priorityId !== "all" ||
-            (filters as any).assignedToUserId) && (
+            filters.streamId !== "all" ||
+            filters.substreamId !== "all" ||
+            filters.raisedByUserId !== "all" ||
+            filters.assignedToUserId !== "all") && (
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
               <span className="text-xs text-muted-foreground">
                 Active filters:
@@ -1157,36 +1471,70 @@ export function Tickets() {
                   </button>
                 </Badge>
               )}
-              {(filters as any).assignedToUserId &&
-                (filters as any).assignedToUserId !== "all" &&
-                (filters as any).assignedToUserId !== "unassigned" && (
+              {filters.streamId !== "all" && (
+                <Badge variant="secondary" className="text-xs">
+                  Stream:{" "}
+                  {parentStreams.find((s) => s.id === filters.streamId)?.name ||
+                    "—"}
+                  <button
+                    onClick={() =>
+                      updateFilters({ streamId: "all", substreamId: "all" })
+                    }
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.substreamId !== "all" && (
+                <Badge variant="secondary" className="text-xs">
+                  Substream:{" "}
+                  {childStreams.find((s) => s.id === filters.substreamId)
+                    ?.name || "—"}
+                  <button
+                    onClick={() => updateFilters({ substreamId: "all" })}
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.raisedByUserId !== "all" && (
+                <Badge variant="secondary" className="text-xs">
+                  Raised By:{" "}
+                  {uniqueUsers.find((u) => u.id === filters.raisedByUserId)
+                    ?.fullName ||
+                    uniqueUsers.find((u) => u.id === filters.raisedByUserId)
+                      ?.email}
+                  <button
+                    onClick={() => updateFilters({ raisedByUserId: "all" })}
+                    className="ml-1 hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.assignedToUserId !== "all" &&
+                filters.assignedToUserId !== "unassigned" && (
                   <Badge variant="secondary" className="text-xs">
                     Assigned:{" "}
-                    {users.find(
-                      (u) => u.id === (filters as any).assignedToUserId
-                    )?.fullName ||
-                      users.find(
-                        (u) => u.id === (filters as any).assignedToUserId
-                      )?.email}
+                    {uniqueUsers.find((u) => u.id === filters.assignedToUserId)
+                      ?.fullName ||
+                      uniqueUsers.find((u) => u.id === filters.assignedToUserId)
+                        ?.email}
                     <button
-                      onClick={() => {
-                        const { assignedToUserId, ...rest } = filters as any;
-                        setFilters(rest);
-                      }}
+                      onClick={() => updateFilters({ assignedToUserId: "all" })}
                       className="ml-1 hover:text-foreground"
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>
                 )}
-              {(filters as any).assignedToUserId === "unassigned" && (
+              {filters.assignedToUserId === "unassigned" && (
                 <Badge variant="secondary" className="text-xs">
                   Unassigned
                   <button
-                    onClick={() => {
-                      const { assignedToUserId, ...rest } = filters as any;
-                      setFilters(rest);
-                    }}
+                    onClick={() => updateFilters({ assignedToUserId: "all" })}
                     className="ml-1 hover:text-foreground"
                   >
                     <X className="h-3 w-3" />
@@ -1295,10 +1643,10 @@ export function Tickets() {
                               })()}
                             >
                               <SelectTrigger
-                                className="h-6 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80"
+                                className="h-6 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80 text-foreground"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <SelectValue>
+                                <SelectValue className="text-foreground">
                                   {ticket.statusName || ticket.statusId}
                                 </SelectValue>
                               </SelectTrigger>
@@ -1523,10 +1871,10 @@ export function Tickets() {
                               })()}
                             >
                               <SelectTrigger
-                                className="h-7 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80"
+                                className="h-7 w-auto text-xs border-0 bg-secondary hover:bg-secondary/80 text-foreground"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <SelectValue>
+                                <SelectValue className="text-foreground">
                                   {ticket.statusName || ticket.statusId}
                                 </SelectValue>
                               </SelectTrigger>
