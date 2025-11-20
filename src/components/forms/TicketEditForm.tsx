@@ -678,6 +678,19 @@ export function TicketEditForm({
                           </div>
                         </div>
                       )}
+                      {(ticket.raisedByName || ticket.raisedByEmail) && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Raised By
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-foreground">
+                            <User className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>
+                              {ticket.raisedByName || ticket.raisedByEmail}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </CollapsibleContent>

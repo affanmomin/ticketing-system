@@ -494,7 +494,7 @@ export function Tickets() {
 
   // Filter statuses: Employees and Clients should not see "Closed" status (only Admin can close tickets)
   const isAdmin = useMemo(() => user?.role === "ADMIN", [user?.role]);
-  
+
   const filteredStatuses = useMemo(() => {
     if (isAdmin) {
       return statuses; // Admin sees all statuses
@@ -535,19 +535,20 @@ export function Tickets() {
     async (ticketId: string, toStatusId: string) => {
       const current = tickets.find((t) => t.id === ticketId);
       if (!current || current.statusId === toStatusId) return;
-      
+
       // Prevent moving closed tickets (but not resolved)
       const currentStatus = statuses.find((s) => s.id === current.statusId);
       const statusName = currentStatus?.name || current.statusName || "";
       const statusNameLower = statusName.toLowerCase();
-      
+
       // Never lock tickets with "resolved" in the name, regardless of isClosed flag
       if (statusNameLower.includes("resolved")) {
         // Allow moving resolved tickets
       } else {
         // Check if status is closed (either by flag or name)
-        const isClosed = currentStatus?.isClosed || statusNameLower.includes("closed");
-        
+        const isClosed =
+          currentStatus?.isClosed || statusNameLower.includes("closed");
+
         if (isClosed) {
           toast({
             title: "Cannot change status",
@@ -557,7 +558,7 @@ export function Tickets() {
           return;
         }
       }
-      
+
       const toStatusName = statuses.find((s) => s.id === toStatusId)?.name;
 
       // Optimistic update
@@ -602,19 +603,20 @@ export function Tickets() {
     async (ticketId: string, priorityId: string) => {
       const current = tickets.find((t) => t.id === ticketId);
       if (!current || current.priorityId === priorityId) return;
-      
+
       // Prevent updating priority for closed tickets (but not resolved)
       const currentStatus = statuses.find((s) => s.id === current.statusId);
       const statusName = currentStatus?.name || current.statusName || "";
       const statusNameLower = statusName.toLowerCase();
-      
+
       // Never lock tickets with "resolved" in the name, regardless of isClosed flag
       if (statusNameLower.includes("resolved")) {
         // Allow updating resolved tickets
       } else {
         // Check if status is closed (either by flag or name)
-        const isClosed = currentStatus?.isClosed || statusNameLower.includes("closed");
-        
+        const isClosed =
+          currentStatus?.isClosed || statusNameLower.includes("closed");
+
         if (isClosed) {
           toast({
             title: "Cannot change priority",
@@ -624,7 +626,7 @@ export function Tickets() {
           return;
         }
       }
-      
+
       const priorityName = priorities.find((p) => p.id === priorityId)?.name;
 
       // Optimistic update
@@ -667,19 +669,20 @@ export function Tickets() {
     async (ticketId: string, assignedToUserId: string | null) => {
       const current = tickets.find((t) => t.id === ticketId);
       if (!current || current.assignedToUserId === assignedToUserId) return;
-      
+
       // Prevent updating assignee for closed tickets (but not resolved)
       const currentStatus = statuses.find((s) => s.id === current.statusId);
       const statusName = currentStatus?.name || current.statusName || "";
       const statusNameLower = statusName.toLowerCase();
-      
+
       // Never lock tickets with "resolved" in the name, regardless of isClosed flag
       if (statusNameLower.includes("resolved")) {
         // Allow updating resolved tickets
       } else {
         // Check if status is closed (either by flag or name)
-        const isClosed = currentStatus?.isClosed || statusNameLower.includes("closed");
-        
+        const isClosed =
+          currentStatus?.isClosed || statusNameLower.includes("closed");
+
         if (isClosed) {
           toast({
             title: "Cannot change assignee",
@@ -1266,14 +1269,22 @@ export function Tickets() {
                                 const currentStatus = statuses.find(
                                   (s) => s.id === ticket.statusId
                                 );
-                                const statusName = currentStatus?.name || ticket.statusName || "";
-                                const statusNameLower = statusName.toLowerCase();
-                                
+                                const statusName =
+                                  currentStatus?.name ||
+                                  ticket.statusName ||
+                                  "";
+                                const statusNameLower =
+                                  statusName.toLowerCase();
+
                                 // Never disable for resolved tickets
-                                if (statusNameLower.includes("resolved")) return false;
-                                
+                                if (statusNameLower.includes("resolved"))
+                                  return false;
+
                                 // Check if closed (by flag or name)
-                                return currentStatus?.isClosed || statusNameLower.includes("closed");
+                                return (
+                                  currentStatus?.isClosed ||
+                                  statusNameLower.includes("closed")
+                                );
                               })()}
                             >
                               <SelectTrigger
@@ -1297,7 +1308,7 @@ export function Tickets() {
                             </Badge>
                           </div>
 
-                          {/* Project, Client, and Date */}
+                          {/* Project, Client, Stream, Substream, Raised By, and Date */}
                           <div className="space-y-1.5 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1.5 min-w-0">
                               <span className="font-medium shrink-0">
@@ -1314,6 +1325,36 @@ export function Tickets() {
                                 </span>
                                 <span className="truncate">
                                   {ticket.clientName}
+                                </span>
+                              </div>
+                            )}
+                            {(ticket.raisedByName || ticket.raisedByEmail) && (
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-medium shrink-0">
+                                  Raised By:
+                                </span>
+                                <span className="truncate">
+                                  {ticket.raisedByName || ticket.raisedByEmail}
+                                </span>
+                              </div>
+                            )}
+                            {(ticket.parentStreamName || ticket.streamName) && (
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-medium shrink-0">
+                                  Stream:
+                                </span>
+                                <span className="truncate">
+                                  {ticket.parentStreamName || ticket.streamName}
+                                </span>
+                              </div>
+                            )}
+                            {ticket.parentStreamName && ticket.streamName && (
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-medium shrink-0">
+                                  Substream:
+                                </span>
+                                <span className="truncate">
+                                  {ticket.streamName}
                                 </span>
                               </div>
                             )}
@@ -1345,9 +1386,12 @@ export function Tickets() {
                     <TableRow>
                       <TableHead className="min-w-[100px]">Ticket</TableHead>
                       <TableHead className="min-w-[200px]">Title</TableHead>
+                      <TableHead className="min-w-[120px]">Stream</TableHead>
+                      <TableHead className="min-w-[120px]">Substream</TableHead>
                       <TableHead className="min-w-[100px]">Status</TableHead>
                       <TableHead className="min-w-[100px]">Priority</TableHead>
                       <TableHead className="min-w-[120px]">Assignee</TableHead>
+                      <TableHead className="min-w-[120px]">Raised By</TableHead>
                       <TableHead className="min-w-[150px]">Project</TableHead>
                       <TableHead className="min-w-[120px]">Client</TableHead>
                       <TableHead className="text-right min-w-[100px]">
@@ -1370,6 +1414,14 @@ export function Tickets() {
                               <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
                             </div>
                           </TableCell>
+                          {/* Stream */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-4 bg-muted rounded w-28 animate-pulse" />
+                          </TableCell>
+                          {/* Substream */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-4 bg-muted rounded w-28 animate-pulse" />
+                          </TableCell>
                           {/* Status */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-7 bg-muted rounded w-20 animate-pulse" />
@@ -1381,6 +1433,10 @@ export function Tickets() {
                           {/* Assignee */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-7 bg-muted rounded w-24 animate-pulse" />
+                          </TableCell>
+                          {/* Raised By */}
+                          <TableCell className="p-3 sm:p-4">
+                            <div className="h-4 bg-muted rounded w-28 animate-pulse" />
                           </TableCell>
                           {/* Project */}
                           <TableCell className="p-3 sm:p-4">
@@ -1399,7 +1455,7 @@ export function Tickets() {
                     ) : tickets.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={8}
+                          colSpan={11}
                           className="py-8 text-center text-sm text-muted-foreground"
                         >
                           No tickets found.
@@ -1421,6 +1477,16 @@ export function Tickets() {
                           <TableCell className="max-w-[320px] truncate text-xs sm:text-sm text-foreground p-3 sm:p-4">
                             {ticket.title}
                           </TableCell>
+                          <TableCell className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-4">
+                            {ticket.parentStreamName ||
+                              ticket.streamName ||
+                              "—"}
+                          </TableCell>
+                          <TableCell className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-4">
+                            {ticket.parentStreamName
+                              ? ticket.streamName || "—"
+                              : "—"}
+                          </TableCell>
                           <TableCell className="p-3 sm:p-4">
                             <Select
                               value={ticket.statusId}
@@ -1431,14 +1497,22 @@ export function Tickets() {
                                 const currentStatus = statuses.find(
                                   (s) => s.id === ticket.statusId
                                 );
-                                const statusName = currentStatus?.name || ticket.statusName || "";
-                                const statusNameLower = statusName.toLowerCase();
-                                
+                                const statusName =
+                                  currentStatus?.name ||
+                                  ticket.statusName ||
+                                  "";
+                                const statusNameLower =
+                                  statusName.toLowerCase();
+
                                 // Never disable for resolved tickets
-                                if (statusNameLower.includes("resolved")) return false;
-                                
+                                if (statusNameLower.includes("resolved"))
+                                  return false;
+
                                 // Check if closed (by flag or name)
-                                return currentStatus?.isClosed || statusNameLower.includes("closed");
+                                return (
+                                  currentStatus?.isClosed ||
+                                  statusNameLower.includes("closed")
+                                );
                               })()}
                             >
                               <SelectTrigger
@@ -1470,14 +1544,22 @@ export function Tickets() {
                                 const currentStatus = statuses.find(
                                   (s) => s.id === ticket.statusId
                                 );
-                                const statusName = currentStatus?.name || ticket.statusName || "";
-                                const statusNameLower = statusName.toLowerCase();
-                                
+                                const statusName =
+                                  currentStatus?.name ||
+                                  ticket.statusName ||
+                                  "";
+                                const statusNameLower =
+                                  statusName.toLowerCase();
+
                                 // Never disable for resolved tickets
-                                if (statusNameLower.includes("resolved")) return false;
-                                
+                                if (statusNameLower.includes("resolved"))
+                                  return false;
+
                                 // Check if closed (by flag or name)
-                                return currentStatus?.isClosed || statusNameLower.includes("closed");
+                                return (
+                                  currentStatus?.isClosed ||
+                                  statusNameLower.includes("closed")
+                                );
                               })()}
                             >
                               <SelectTrigger
@@ -1522,14 +1604,22 @@ export function Tickets() {
                                 const currentStatus = statuses.find(
                                   (s) => s.id === ticket.statusId
                                 );
-                                const statusName = currentStatus?.name || ticket.statusName || "";
-                                const statusNameLower = statusName.toLowerCase();
-                                
+                                const statusName =
+                                  currentStatus?.name ||
+                                  ticket.statusName ||
+                                  "";
+                                const statusNameLower =
+                                  statusName.toLowerCase();
+
                                 // Never disable for resolved tickets
-                                if (statusNameLower.includes("resolved")) return false;
-                                
+                                if (statusNameLower.includes("resolved"))
+                                  return false;
+
                                 // Check if closed (by flag or name)
-                                return currentStatus?.isClosed || statusNameLower.includes("closed");
+                                return (
+                                  currentStatus?.isClosed ||
+                                  statusNameLower.includes("closed")
+                                );
                               })()}
                             >
                               <SelectTrigger
@@ -1578,6 +1668,9 @@ export function Tickets() {
                                 )}
                               </SelectContent>
                             </Select>
+                          </TableCell>
+                          <TableCell className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-4">
+                            {ticket.raisedByName || ticket.raisedByEmail || "—"}
                           </TableCell>
                           <TableCell className="text-xs sm:text-sm text-muted-foreground p-3 sm:p-4">
                             {ticket.projectName || ticket.projectId}

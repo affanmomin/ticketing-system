@@ -141,6 +141,8 @@ export interface Ticket {
   assignedToEmail?: string;
   streamId: string;
   streamName?: string;
+  parentStreamId?: string | null;
+  parentStreamName?: string;
   subjectId: string;
   subjectName?: string;
   priorityId: string;
