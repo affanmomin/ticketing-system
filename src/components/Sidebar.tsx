@@ -7,9 +7,12 @@ import {
   FileText,
   Users,
   Building2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { UserAvatar } from "./UserAvatar";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -70,9 +73,11 @@ const navItems: NavItem[] = [
 export function Sidebar({
   collapsed = false,
   isMobile = false,
+  onToggle,
 }: {
   collapsed?: boolean;
   isMobile?: boolean;
+  onToggle?: () => void;
 }) {
   const location = useLocation();
   const { user } = useAuthStore();
@@ -92,25 +97,26 @@ export function Sidebar({
   const asideWidth = renderCollapsed ? "w-16" : "w-64";
 
   return (
-    <aside
-      className={cn(
-        asideWidth,
-        "relative bg-card flex flex-col h-full shrink-0 overflow-hidden",
-        isMobile
-          ? "border-none"
-          : "border-r border-border transition-[width] duration-300 ease-in-out"
-      )}
-      aria-label="Sidebar"
-      onMouseEnter={() => {
-        if (collapsed && !isMobile) setHoverOpen(true);
-      }}
-      onMouseLeave={() => {
-        if (collapsed && !isMobile) setHoverOpen(false);
-      }}
-    >
+    <>
+      <aside
+        className={cn(
+          asideWidth,
+          "relative bg-card flex flex-col h-full shrink-0 overflow-hidden",
+          isMobile
+            ? "border-none"
+            : "border-r border-border transition-[width] duration-300 ease-in-out"
+        )}
+        aria-label="Sidebar"
+        onMouseEnter={() => {
+          if (collapsed && !isMobile) setHoverOpen(true);
+        }}
+        onMouseLeave={() => {
+          if (collapsed && !isMobile) setHoverOpen(false);
+        }}
+      >
       <div
         className={cn(
-          "border-b border-border shrink-0",
+          "border-b border-border shrink-0 overflow-hidden",
           renderCollapsed ? "p-3" : "p-4"
         )}
       >
@@ -245,6 +251,31 @@ export function Sidebar({
           </div>
         </div>
       )}
-    </aside>
+      </aside>
+      {/* Toggle Button - Circular button on the right edge */}
+      {!isMobile && onToggle && (
+        <Button
+          variant="outline"
+          size="icon"
+          className={cn(
+            "absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-50",
+            "h-8 w-8 rounded-full shadow-md border-2 bg-card hover:bg-accent",
+            "transition-all duration-300"
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {/* Show opposite chevron when hovering over collapsed sidebar */}
+          {renderCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
+      )}
+    </>
   );
 }

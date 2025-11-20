@@ -21,14 +21,30 @@ export function Layout({ title }: LayoutProps) {
     }
   }, []);
 
+  // Save to localStorage whenever sidebar state changes
+  useEffect(() => {
+    localStorage.setItem("sidebarCollapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => !prev);
+  };
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex">
-        <Sidebar collapsed={sidebarCollapsed} isMobile={false} />
+      <div className="hidden md:flex relative">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          isMobile={false}
+          onToggle={toggleSidebar}
+        />
       </div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar title={title} onOpenMobileMenu={() => setMobileOpen(true)} />
+        <Topbar
+          title={title}
+          onOpenMobileMenu={() => setMobileOpen(true)}
+        />
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
           <div className="mx-auto w-full max-w-7xl">
             <Outlet />
