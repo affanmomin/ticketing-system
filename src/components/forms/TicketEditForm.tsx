@@ -115,15 +115,14 @@ export function TicketEditForm({
         const { data: projectData } = await projectsApi.get(
           ticketData.projectId
         );
-        const [subjectsRes, membersRes, usersRes] =
-          await Promise.all([
-            subjectsApi.listForProject(ticketData.projectId, {
-              limit: 200,
-              offset: 0,
-            }),
-            projectsApi.listMembers(ticketData.projectId),
-            usersApi.list({ limit: 200, offset: 0 }),
-          ]);
+        const [subjectsRes, membersRes, usersRes] = await Promise.all([
+          subjectsApi.listForProject(ticketData.projectId, {
+            limit: 200,
+            offset: 0,
+          }),
+          projectsApi.listMembers(ticketData.projectId),
+          usersApi.list({ limit: 200, offset: 0 }),
+        ]);
 
         setTicket(ticketData);
         setProject(projectData);
@@ -219,22 +218,22 @@ export function TicketEditForm({
   // Prevent editing closed tickets (but not resolved)
   const isTicketClosed = (() => {
     const currentStatus = statuses.find((s) => s.id === form.statusId);
-    
+
     // Use ticket's statusName as fallback if status not found in taxonomy
     const statusName = currentStatus?.name || ticket?.statusName || "";
     const statusNameLower = statusName.toLowerCase();
-    
+
     // Never lock tickets with "resolved" in the name, regardless of isClosed flag
     if (statusNameLower.includes("resolved")) return false;
-    
+
     // If status not found, check ticket's statusName
     if (!currentStatus) {
       return statusNameLower.includes("closed");
     }
-    
+
     // Check if status is explicitly marked as closed
     if (currentStatus.isClosed) return true;
-    
+
     // Check if status name contains "closed"
     return statusNameLower.includes("closed");
   })();
@@ -411,19 +410,19 @@ export function TicketEditForm({
                   >
                     Title
                   </Label>
-                    <Input
-                      id="edit-ticket-title"
-                      value={form.title}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          title: event.target.value,
-                        }))
-                      }
-                      disabled={isTicketClosed}
-                      className="text-base"
-                      placeholder="Enter ticket title"
-                    />
+                  <Input
+                    id="edit-ticket-title"
+                    value={form.title}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        title: event.target.value,
+                      }))
+                    }
+                    disabled={isTicketClosed}
+                    className="text-base"
+                    placeholder="Enter ticket title"
+                  />
                 </div>
 
                 {/* Description */}
@@ -434,24 +433,110 @@ export function TicketEditForm({
                   >
                     Description
                   </Label>
-                    <Textarea
-                      id="edit-ticket-description"
-                      value={form.descriptionMd}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          descriptionMd: event.target.value,
-                        }))
-                      }
-                      disabled={isTicketClosed}
-                      className="min-h-[180px] resize-none text-sm"
-                      placeholder="Describe the issue or request in detail. Markdown is supported."
-                    />
+                  <Textarea
+                    id="edit-ticket-description"
+                    value={form.descriptionMd}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        descriptionMd: event.target.value,
+                      }))
+                    }
+                    disabled={isTicketClosed}
+                    className="min-h-[180px] resize-none text-sm"
+                    placeholder="Describe the issue or request in detail. Markdown is supported."
+                  />
                 </div>
 
-                {/* Grid of Select Fields */}
+                {/* Grid of Fields - Following the specified sequence */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Priority */}
+                  {/* 1. Ticket No */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Ticket No</Label>
+                    <div className="text-sm font-mono text-foreground py-2 px-3 bg-muted rounded-md">
+                      {ticket.clientTicketNumber?.trim()?.length
+                        ? ticket.clientTicketNumber
+                        : ticket.id.substring(0, 8)}
+                    </div>
+                  </div>
+
+                  {/* 2. Project */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      Project
+                    </Label>
+                    <div className="text-sm text-foreground py-2 px-3 bg-muted rounded-md">
+                      {project.name}
+                    </div>
+                  </div>
+
+                  {/* 3. Stream */}
+                  <div className="space-y-2">
+                    <StreamSelector
+                      projectId={ticket?.projectId || ""}
+                      value={form.streamId}
+                      onValueChange={(value) =>
+                        setForm((prev) => ({ ...prev, streamId: value }))
+                      }
+                      disabled={isTicketClosed}
+                      required
+                    />
+                  </div>
+
+                  {/* 4. Date Logged */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      Date Logged
+                    </Label>
+                    <div className="text-sm text-foreground py-2 px-3 bg-muted rounded-md">
+                      {new Date(ticket.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+
+                  {/* 5. Status */}
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="edit-ticket-status"
+                      className="text-sm font-medium flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                      Status
+                    </Label>
+                    <Select
+                      value={form.statusId}
+                      onValueChange={(value) =>
+                        setForm((prev) => ({ ...prev, statusId: value }))
+                      }
+                      disabled={
+                        !canEditStatus || taxonomyLoading || isTicketClosed
+                      }
+                    >
+                      <SelectTrigger id="edit-ticket-status" className="w-full">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.map((status) => (
+                          <SelectItem key={status.id} value={status.id}>
+                            {status.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isTicketClosed && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This ticket is closed and cannot be edited.
+                      </p>
+                    )}
+                    {role === "CLIENT" && !isTicketClosed && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Contact your project team to change ticket status.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 6. Priority */}
                   <div className="space-y-2">
                     <Label
                       htmlFor="edit-ticket-priority"
@@ -483,60 +568,76 @@ export function TicketEditForm({
                     </Select>
                   </div>
 
-                  {/* Status */}
+                  {/* 7. Assigned To */}
                   <div className="space-y-2">
                     <Label
-                      htmlFor="edit-ticket-status"
+                      htmlFor="edit-ticket-assignee"
                       className="text-sm font-medium flex items-center gap-2"
                     >
-                      <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                      Status
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      Assigned To
                     </Label>
                     <Select
-                      value={form.statusId}
+                      value={form.assignedToUserId || "unassigned"}
                       onValueChange={(value) =>
-                        setForm((prev) => ({ ...prev, statusId: value }))
+                        setForm((prev) => ({
+                          ...prev,
+                          assignedToUserId: value === "unassigned" ? "" : value,
+                        }))
                       }
-                      disabled={!canEditStatus || taxonomyLoading || isTicketClosed}
+                      disabled={
+                        assignableMembers.length === 0 || isTicketClosed
+                      }
                     >
-                      <SelectTrigger id="edit-ticket-status" className="w-full">
-                        <SelectValue placeholder="Select status" />
+                      <SelectTrigger
+                        id="edit-ticket-assignee"
+                        className="w-full"
+                      >
+                        <SelectValue placeholder="Unassigned" />
                       </SelectTrigger>
                       <SelectContent>
-                        {statusOptions.map((status) => (
-                          <SelectItem key={status.id} value={status.id}>
-                            {status.name}
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {assignableMembers.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {isTicketClosed && (
+                    {assignableMembers.length === 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        This ticket is closed and cannot be edited.
-                      </p>
-                    )}
-                    {role === "CLIENT" && !isTicketClosed && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Contact your project team to change ticket status.
+                        Enable "Can be assigned" for project members to populate
+                        this list.
                       </p>
                     )}
                   </div>
 
-                  {/* Stream */}
+                  {/* 8. Raised By */}
                   <div className="space-y-2">
-                    <StreamSelector
-                      projectId={ticket?.projectId || ""}
-                      value={form.streamId}
-                      onValueChange={(value) =>
-                        setForm((prev) => ({ ...prev, streamId: value }))
-                      }
-                      disabled={isTicketClosed}
-                      required
-                    />
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      Raised By
+                    </Label>
+                    <div className="text-sm text-foreground py-2 px-3 bg-muted rounded-md">
+                      {ticket.raisedByName || ticket.raisedByEmail || "—"}
+                    </div>
                   </div>
 
-                  {/* Subject */}
+                  {/* 9. Closed Date */}
                   <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                      Closed Date
+                    </Label>
+                    <div className="text-sm text-foreground py-2 px-3 bg-muted rounded-md">
+                      {ticket.closedAt
+                        ? new Date(ticket.closedAt).toLocaleString()
+                        : "—"}
+                    </div>
+                  </div>
+
+                  {/* 10. Subject */}
+                  <div className="space-y-2 sm:col-span-2">
                     <Label
                       htmlFor="edit-ticket-subject"
                       className="text-sm font-medium flex items-center gap-2"
@@ -566,53 +667,11 @@ export function TicketEditForm({
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Assignee */}
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label
-                      htmlFor="edit-ticket-assignee"
-                      className="text-sm font-medium flex items-center gap-2"
-                    >
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      Assignee
-                    </Label>
-                    <Select
-                      value={form.assignedToUserId || "unassigned"}
-                      onValueChange={(value) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          assignedToUserId: value === "unassigned" ? "" : value,
-                        }))
-                      }
-                      disabled={assignableMembers.length === 0 || isTicketClosed}
-                    >
-                      <SelectTrigger
-                        id="edit-ticket-assignee"
-                        className="w-full"
-                      >
-                        <SelectValue placeholder="Unassigned" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {assignableMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {assignableMembers.length === 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Enable "Can be assigned" for project members to populate
-                        this list.
-                      </p>
-                    )}
-                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Metadata Card - Collapsible */}
+            {/* Additional Metadata Card - Collapsible */}
             <Collapsible open={metadataOpen} onOpenChange={setMetadataOpen}>
               <Card>
                 <CollapsibleTrigger asChild>
@@ -620,7 +679,7 @@ export function TicketEditForm({
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Tag className="h-5 w-5" />
-                        Ticket Information
+                        Additional Information
                       </CardTitle>
                       {metadataOpen ? (
                         <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -635,24 +694,11 @@ export function TicketEditForm({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <p className="text-xs font-medium text-muted-foreground">
-                          Ticket Number
+                          Ticket ID
                         </p>
                         <p className="text-sm font-mono text-foreground break-all">
-                          {ticket.clientTicketNumber?.trim()?.length
-                            ? ticket.clientTicketNumber
-                            : ticket.id}
+                          {ticket.id}
                         </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Created
-                        </p>
-                        <div className="flex items-center gap-2 text-sm text-foreground">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>
-                            {new Date(ticket.createdAt).toLocaleString()}
-                          </span>
-                        </div>
                       </div>
                       {ticket.updatedAt && (
                         <div className="space-y-1">
@@ -663,32 +709,6 @@ export function TicketEditForm({
                             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                             <span>
                               {new Date(ticket.updatedAt).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {ticket.closedAt && (
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Closed
-                          </p>
-                          <div className="flex items-center gap-2 text-sm text-foreground">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>
-                              {new Date(ticket.closedAt).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {(ticket.raisedByName || ticket.raisedByEmail) && (
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Raised By
-                          </p>
-                          <div className="flex items-center gap-2 text-sm text-foreground">
-                            <User className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>
-                              {ticket.raisedByName || ticket.raisedByEmail}
                             </span>
                           </div>
                         </div>

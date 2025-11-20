@@ -368,7 +368,7 @@ export interface UserActivityMetrics {
     eventType: ActivityType;
     count: number;
   }>;
-  lastActivityAt: string;
+  lastActivityAt: string | null;
 }
 
 export interface UserPerformanceMetrics {
