@@ -33,7 +33,6 @@ import {
   CheckCircle2,
   Clock,
   Building2,
-  FolderOpen,
   Loader2,
   MessageSquare,
   Paperclip,
@@ -44,13 +43,11 @@ import {
 } from "lucide-react";
 import * as ticketsApi from "@/api/tickets";
 import * as projectsApi from "@/api/projects";
-import * as subjectsApi from "@/api/subjects";
 import * as usersApi from "@/api/users";
 import type {
   AuthUser,
   Project,
   ProjectMember,
-  Subject,
   Ticket,
   TicketUpdateRequest,
   UserRole,
@@ -69,7 +66,6 @@ type FormState = {
   priorityId: string;
   statusId: string;
   streamId: string;
-  subjectId: string;
   assignedToUserId: string;
 };
 
@@ -90,14 +86,12 @@ export function TicketEditForm({
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [form, setForm] = useState<FormState>({
     title: "",
     descriptionMd: "",
     priorityId: "",
     statusId: "",
     streamId: "",
-    subjectId: "",
     assignedToUserId: "",
   });
   const [loading, setLoading] = useState(false);
@@ -115,39 +109,13 @@ export function TicketEditForm({
         const { data: projectData } = await projectsApi.get(
           ticketData.projectId
         );
-        const [subjectsRes, membersRes, usersRes] = await Promise.all([
-          subjectsApi.listForProject(ticketData.projectId, {
-            limit: 200,
-            offset: 0,
-          }),
+        const [membersRes, usersRes] = await Promise.all([
           projectsApi.listMembers(ticketData.projectId),
           usersApi.list({ limit: 200, offset: 0 }),
         ]);
 
         setTicket(ticketData);
         setProject(projectData);
-        const subjectList =
-          (subjectsRes as any).data?.data &&
-          (subjectsRes as any).data.data.length
-            ? (subjectsRes as any).data.data
-            : [];
-        if (
-          ticketData.subjectId &&
-          !subjectList.find(
-            (subject: Subject) => subject.id === ticketData.subjectId
-          )
-        ) {
-          subjectList.push({
-            id: ticketData.subjectId,
-            projectId: ticketData.projectId,
-            name: "Current subject",
-            description: null,
-            active: true,
-            createdAt: ticketData.createdAt,
-            updatedAt: ticketData.updatedAt,
-          } as Subject);
-        }
-        setSubjects(subjectList);
         // membersRes is already an array of ProjectMember[]
         setMembers(
           Array.isArray(membersRes) ? membersRes : (membersRes.data ?? [])
@@ -161,7 +129,6 @@ export function TicketEditForm({
           priorityId: ticketData.priorityId,
           statusId: ticketData.statusId,
           streamId: ticketData.streamId,
-          subjectId: ticketData.subjectId,
           assignedToUserId: ticketData.assignedToUserId ?? "",
         });
       } catch (error: any) {
@@ -246,8 +213,7 @@ export function TicketEditForm({
     !form.descriptionMd.trim() ||
     !form.priorityId ||
     !form.statusId ||
-    !form.streamId ||
-    !form.subjectId;
+    !form.streamId;
 
   async function handleSubmit() {
     if (!ticketId || disableSubmit) return;
@@ -636,37 +602,6 @@ export function TicketEditForm({
                     </div>
                   </div>
 
-                  {/* 10. Subject */}
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label
-                      htmlFor="edit-ticket-subject"
-                      className="text-sm font-medium flex items-center gap-2"
-                    >
-                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                      Subject
-                    </Label>
-                    <Select
-                      value={form.subjectId}
-                      onValueChange={(value) =>
-                        setForm((prev) => ({ ...prev, subjectId: value }))
-                      }
-                      disabled={isTicketClosed}
-                    >
-                      <SelectTrigger
-                        id="edit-ticket-subject"
-                        className="w-full"
-                      >
-                        <SelectValue placeholder="Select subject" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {subjects.map((subject) => (
-                          <SelectItem key={subject.id} value={subject.id}>
-                            {subject.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
               </CardContent>
             </Card>

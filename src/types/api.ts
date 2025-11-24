@@ -217,7 +217,6 @@ export interface TicketsListQuery {
 export interface TicketCreateRequest {
   projectId: string;
   streamId: string;
-  subjectId: string;
   priorityId: string;
   statusId: string;
   title: string;

@@ -16,7 +16,6 @@ import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { useAuthStore } from "@/store/auth";
 import * as clientsApi from "@/api/clients";
 import * as projectsApi from "@/api/projects";
-import * as subjectsApi from "@/api/subjects";
 import * as projectsMembersApi from "@/api/projects";
 import * as ticketsApi from "@/api/tickets";
 import { toast } from "@/hooks/use-toast";
@@ -26,7 +25,6 @@ import type {
   Project,
   ProjectMember,
   Status,
-  Subject,
 } from "@/types/api";
 import * as usersApi from "@/api/users";
 
@@ -59,7 +57,6 @@ export function TicketCreateForm({
   } = useTaxonomy();
   const [clients, setClients] = useState<Option[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -87,7 +84,6 @@ export function TicketCreateForm({
     clientId: effectiveClientId ?? "",
     projectId: projectId ?? "",
     streamId: "",
-    subjectId: "",
     priorityId: "",
     statusId: "",
     title: "",
@@ -161,32 +157,6 @@ export function TicketCreateForm({
     if (!form.projectId) return;
     (async () => {
       try {
-        const subjectsRes = await subjectsApi.listForProject(form.projectId, {
-          limit: 200,
-          offset: 0,
-        });
-
-        const subjectItems = subjectsRes.data.data;
-        setSubjects(subjectItems);
-
-        if (subjectItems.length) {
-          setForm((prev) => ({ ...prev, subjectId: subjectItems[0].id }));
-        } else {
-          setForm((prev) => ({ ...prev, subjectId: "" }));
-        }
-      } catch (error) {
-        toast({
-          title: "Failed to load subjects",
-          variant: "destructive",
-        });
-      }
-    })();
-  }, [form.projectId, toast]);
-
-  useEffect(() => {
-    if (!form.projectId) return;
-    (async () => {
-      try {
         const { data } = await projectsMembersApi.listMembers(form.projectId);
         setMembers(data);
       } catch (error) {
@@ -228,17 +198,11 @@ export function TicketCreateForm({
     form.clientId &&
     form.projectId &&
     form.streamId &&
-    form.subjectId &&
     form.priorityId &&
     form.statusId;
 
   // Step validation
-  const canProceedStep1 = !!(
-    form.clientId &&
-    form.projectId &&
-    form.streamId &&
-    form.subjectId
-  );
+  const canProceedStep1 = !!(form.clientId && form.projectId && form.streamId);
   const canProceedStep2 = !!(form.title.trim() && form.descriptionMd.trim());
   const canProceedStep3 = !!(form.priorityId && form.statusId);
 
@@ -260,22 +224,11 @@ export function TicketCreateForm({
       });
       return;
     }
-    if (!form.subjectId) {
-      toast({
-        title: "Missing subject",
-        description:
-          "Create at least one subject for this client before raising tickets.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setSaving(true);
     try {
       const payload = {
         projectId: form.projectId,
         streamId: form.streamId,
-        subjectId: form.subjectId,
         priorityId: form.priorityId,
         statusId: form.statusId,
         title: form.title.trim(),
@@ -338,7 +291,6 @@ export function TicketCreateForm({
                   clientId: value,
                   projectId: "",
                   streamId: "",
-                  subjectId: "",
                 }))
               }
               disabled={!!clientId}
@@ -366,7 +318,6 @@ export function TicketCreateForm({
                 ...prev,
                 projectId: value,
                 streamId: "",
-                subjectId: "",
               }))
             }
             disabled={!!projectId || !form.clientId}
@@ -401,35 +352,6 @@ export function TicketCreateForm({
           disabled={!form.projectId}
           required
         />
-
-        <div className="space-y-2">
-          <Label htmlFor="ticket-subject">Subject</Label>
-          <Select
-            value={form.subjectId}
-            onValueChange={(value) =>
-              setForm((prev) => ({ ...prev, subjectId: value }))
-            }
-            disabled={!form.projectId}
-          >
-            <SelectTrigger id="ticket-subject">
-              <SelectValue placeholder="Select subject" />
-            </SelectTrigger>
-            <SelectContent>
-              {subjects.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">
-                  No subjects found. Create subjects in the project workspace
-                  first.
-                </div>
-              ) : (
-                subjects.map((subject) => (
-                  <SelectItem key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
       </div>
     </div>
   );
@@ -594,7 +516,7 @@ export function TicketCreateForm({
     {
       id: "basic-info",
       title: "Basic Information",
-      description: "Select client, project, stream category/type, and subject",
+      description: "Select client, project, and stream category/type",
       component: step1Content,
     },
     {
@@ -615,7 +537,7 @@ export function TicketCreateForm({
     <div className="space-y-4">
       <div className="space-y-1">
         <p className="text-s mt-3 text-muted-foreground">
-          Tickets require a client stream and subject to keep work organized.
+          Tickets require a client stream to keep work organized.
         </p>
       </div>
 

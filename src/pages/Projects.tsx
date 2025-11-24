@@ -12,7 +12,6 @@ import {
   UserPlus,
   UserMinus,
   Layers,
-  ListPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,7 +53,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
@@ -65,7 +63,6 @@ import * as projectsApi from "@/api/projects";
 import * as clientsApi from "@/api/clients";
 import * as usersApi from "@/api/users";
 import * as streamsApi from "@/api/streams";
-import * as subjectsApi from "@/api/subjects";
 import type {
   Project,
   Client,
@@ -73,7 +70,6 @@ import type {
   ProjectMember,
   ProjectMemberRole,
   Stream,
-  Subject,
 } from "@/types/api";
 import { format } from "date-fns";
 
@@ -109,20 +105,12 @@ export function Projects() {
     null
   );
   const [removingMember, setRemovingMember] = useState(false);
-  const [activeTab, setActiveTab] = useState<"streams" | "subjects">("streams");
   const [streams, setStreams] = useState<Stream[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [streamsLoading, setStreamsLoading] = useState(false);
-  const [subjectsLoading, setSubjectsLoading] = useState(false);
   const [streamForm, setStreamForm] = useState({
     name: "",
     description: "",
     parentStreamId: "",
-    saving: false,
-  });
-  const [subjectForm, setSubjectForm] = useState({
-    name: "",
-    description: "",
     saving: false,
   });
 
@@ -214,23 +202,6 @@ export function Projects() {
     }
   }
 
-  async function fetchSubjects(projectId: string) {
-    setSubjectsLoading(true);
-    try {
-      const { data } = await subjectsApi.listForProject(projectId, {
-        limit: 100,
-      });
-      setSubjects(data.data);
-    } catch (error: any) {
-      toast({
-        title: "Failed to load subjects",
-        description: error?.response?.data?.message || "Unexpected error",
-        variant: "destructive",
-      });
-    } finally {
-      setSubjectsLoading(false);
-    }
-  }
 
   async function handleAddMember() {
     if (!selectedProject || !selectedUserId) return;
@@ -324,26 +295,6 @@ export function Projects() {
     }
   }
 
-  async function handleCreateSubject() {
-    if (!selectedProject || !subjectForm.name.trim()) return;
-    setSubjectForm((prev) => ({ ...prev, saving: true }));
-    try {
-      await subjectsApi.createForProject(selectedProject.id, {
-        name: subjectForm.name.trim(),
-        description: subjectForm.description.trim() || undefined,
-      });
-      toast({ title: "Subject created" });
-      setSubjectForm({ name: "", description: "", saving: false });
-      await fetchSubjects(selectedProject.id);
-    } catch (error: any) {
-      toast({
-        title: "Failed to create subject",
-        description: error?.response?.data?.message || "Unexpected error",
-        variant: "destructive",
-      });
-      setSubjectForm((prev) => ({ ...prev, saving: false }));
-    }
-  }
 
   async function toggleStreamActive(stream: Stream, active: boolean) {
     if (!selectedProject) return;
@@ -360,20 +311,6 @@ export function Projects() {
     }
   }
 
-  async function toggleSubjectActive(subject: Subject, active: boolean) {
-    if (!selectedProject) return;
-    try {
-      await subjectsApi.update(subject.id, { active: Boolean(active) });
-      toast({ title: "Subject updated" });
-      await fetchSubjects(selectedProject.id);
-    } catch (error: any) {
-      toast({
-        title: "Failed to update subject",
-        description: error?.response?.data?.message || "Unexpected error",
-        variant: "destructive",
-      });
-    }
-  }
 
   async function openMembershipDialog(project: Project) {
     setSelectedProject(project);
@@ -381,15 +318,10 @@ export function Projects() {
     await loadMembers(project.id);
   }
 
-  async function openTaxonomyDialog(project: Project, tab: "streams" | "subjects") {
+  async function openTaxonomyDialog(project: Project) {
     setSelectedProject(project);
-    setActiveTab(tab);
     setTaxonomyDialog(true);
-    if (tab === "streams") {
-      await fetchStreams(project.id);
-    } else {
-      await fetchSubjects(project.id);
-    }
+    await fetchStreams(project.id);
   }
 
   async function loadProjects() {
@@ -625,7 +557,7 @@ export function Projects() {
                             className="h-8 text-xs flex-1 min-w-[100px]"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openTaxonomyDialog(project, "streams");
+                              openTaxonomyDialog(project);
                             }}
                           >
                             <Layers className="mr-2 h-3.5 w-3.5" />
@@ -767,7 +699,7 @@ export function Projects() {
                                 className="h-8 text-xs sm:text-sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openTaxonomyDialog(project, "streams");
+                                  openTaxonomyDialog(project);
                                 }}
                               >
                                 <Layers className="mr-2 h-3.5 w-3.5" />
@@ -1102,7 +1034,6 @@ export function Projects() {
               parentStreamId: "",
               saving: false,
             });
-            setSubjectForm({ name: "", description: "", saving: false });
             setSelectedProject(null);
           }
         }}
@@ -1113,37 +1044,11 @@ export function Projects() {
               Project Taxonomy · {selectedProject?.name || ""}
             </DialogTitle>
             <DialogDescription>
-              Streams and subjects help categorize tickets for this project.
+              Streams help categorize tickets for this project.
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) =>
-              setActiveTab(value as "streams" | "subjects")
-            }
-            className="mt-6"
-          >
-            <TabsList className="grid grid-cols-2">
-              <TabsTrigger
-                value="streams"
-                onClick={async () => {
-                  if (selectedProject) await fetchStreams(selectedProject.id);
-                }}
-              >
-                Streams
-              </TabsTrigger>
-              <TabsTrigger
-                value="subjects"
-                onClick={async () => {
-                  if (selectedProject) await fetchSubjects(selectedProject.id);
-                }}
-              >
-                Subjects
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="streams" className="mt-6">
+          <div className="mt-6">
               <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
                 <Card className="h-full">
                   <CardHeader>
@@ -1326,125 +1231,7 @@ export function Projects() {
                   </CardContent>
                 </Card>
               </div>
-            </TabsContent>
-
-            <TabsContent value="subjects" className="mt-6">
-              <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
-                <Card className="h-full">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <ListPlus className="h-4 w-4" /> Subjects
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-[320px] pr-4">
-                      {subjectsLoading ? (
-                        <p className="text-sm text-muted-foreground">
-                          Loading subjects…
-                        </p>
-                      ) : subjects.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No subjects yet. Create one using the form on the
-                          right.
-                        </p>
-                      ) : (
-                        <div className="space-y-4">
-                          {subjects.map((subject) => (
-                            <div
-                              key={subject.id}
-                              className="flex items-start justify-between rounded-lg border p-4"
-                            >
-                              <div>
-                                <p className="font-medium">{subject.name}</p>
-                                {subject.description && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {subject.description}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant={
-                                    subject.active !== false
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                >
-                                  {subject.active !== false
-                                    ? "Active"
-                                    : "Inactive"}
-                                </Badge>
-                                <Switch
-                                  checked={subject.active !== false}
-                                  onCheckedChange={(checked) =>
-                                    toggleSubjectActive(subject, checked)
-                                  }
-                                  disabled={isEmployee}
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Create Subject</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {isEmployee ? (
-                      <div className="text-center py-8">
-                        <p className="text-sm text-muted-foreground">
-                          Only admins can create subjects.
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="subject-name">Name</Label>
-                          <Input
-                            id="subject-name"
-                            value={subjectForm.name}
-                            onChange={(event) =>
-                              setSubjectForm((prev) => ({
-                                ...prev,
-                                name: event.target.value,
-                              }))
-                            }
-                            placeholder="Bug"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="subject-description">Description</Label>
-                          <Textarea
-                            id="subject-description"
-                            value={subjectForm.description}
-                            onChange={(event) =>
-                              setSubjectForm((prev) => ({
-                                ...prev,
-                                description: event.target.value,
-                              }))
-                            }
-                            placeholder="Optional context for the subject"
-                          />
-                        </div>
-                        <Button
-                          onClick={handleCreateSubject}
-                          disabled={subjectForm.saving || !subjectForm.name.trim()}
-                          className="w-full"
-                        >
-                          {subjectForm.saving ? "Creating…" : "Create Subject"}
-                        </Button>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
