@@ -36,13 +36,11 @@ export function StreamForm({
   useEffect(() => {
     (async () => {
       const { data } = await projectsApi.list();
-      // data is PaginatedResponse<Project>, extract .data array
       const items = (data.data || []).map((p: any) => ({
         id: p.id,
         name: p.name,
       }));
       setProjects(items);
-      // Only set default project if not provided via props
       if (items.length && !projectId)
         setFormState((prev) => ({ ...prev, project: items[0].id }));
     })();
@@ -74,7 +72,6 @@ export function StreamForm({
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
       <div className="space-y-1.5">
         <h2 className="text-xl font-semibold tracking-tight">Create Stream</h2>
         <p className="text-sm text-muted-foreground">
@@ -82,12 +79,9 @@ export function StreamForm({
         </p>
       </div>
 
-      {/* Divider */}
       <div className="h-px bg-border" />
 
-      {/* Form Fields */}
       <div className="space-y-6">
-        {/* Stream Name & Project Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="stream-name" className="text-sm font-medium">
@@ -138,7 +132,6 @@ export function StreamForm({
         </div>
       </div>
 
-      {/* Footer Actions */}
       <div className="flex gap-3 justify-end pt-4">
         <Button
           type="button"

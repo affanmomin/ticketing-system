@@ -115,7 +115,6 @@ export function SignupForm({
       <div className="h-px bg-border" />
 
       <div className="space-y-5">
-        {/* Organization Name */}
         <div className="space-y-2">
           <Label htmlFor="org-name" className="text-sm font-medium">
             Organization Name
@@ -142,7 +141,6 @@ export function SignupForm({
           )}
         </div>
 
-        {/* Full Name */}
         <div className="space-y-2">
           <Label htmlFor="signup-name" className="text-sm font-medium">
             Full Name
@@ -164,7 +162,6 @@ export function SignupForm({
           )}
         </div>
 
-        {/* Email */}
         <div className="space-y-2">
           <Label htmlFor="signup-email" className="text-sm font-medium">
             Email Address
@@ -187,7 +184,6 @@ export function SignupForm({
           )}
         </div>
 
-        {/* Password */}
         <div className="space-y-2">
           <Label htmlFor="signup-password" className="text-sm font-medium">
             Password
@@ -226,7 +222,6 @@ export function SignupForm({
           )}
         </div>
 
-        {/* Confirm Password */}
         <div className="space-y-2">
           <Label
             htmlFor="signup-confirm-password"

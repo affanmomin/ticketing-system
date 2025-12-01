@@ -29,8 +29,6 @@ export function TagForm() {
     if (!formState.name.trim()) return;
     setFormState((prev) => ({ ...prev, saving: true }));
     try {
-      // Add API call here when available
-      // await tagsApi.create({ ... });
       console.log("Saving tag:", formState);
     } finally {
       setFormState((prev) => ({ ...prev, saving: false }));
@@ -39,7 +37,6 @@ export function TagForm() {
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
       <div className="space-y-1.5">
         <h2 className="text-xl font-semibold tracking-tight">Create Tag</h2>
         <p className="text-sm text-muted-foreground">
@@ -47,12 +44,9 @@ export function TagForm() {
         </p>
       </div>
 
-      {/* Divider */}
       <div className="h-px bg-border" />
 
-      {/* Form Fields */}
       <div className="space-y-6">
-        {/* Name & Color Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="tag-name" className="text-sm font-medium">
@@ -100,7 +94,6 @@ export function TagForm() {
           </div>
         </div>
 
-        {/* Scope Selection */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="space-y-0.5">
             <Label htmlFor="tag-global" className="text-sm font-medium">
@@ -119,7 +112,6 @@ export function TagForm() {
           />
         </div>
 
-        {/* Client Selection (conditional) */}
         {!formState.global && (
           <div className="space-y-2">
             <Label htmlFor="tag-client" className="text-sm font-medium">
@@ -149,7 +141,6 @@ export function TagForm() {
         )}
       </div>
 
-      {/* Footer Actions */}
       <div className="flex gap-3 justify-end pt-4">
         <Button
           type="button"

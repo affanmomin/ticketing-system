@@ -116,11 +116,9 @@ export function TicketEditForm({
 
         setTicket(ticketData);
         setProject(projectData);
-        // membersRes is already an array of ProjectMember[]
         setMembers(
           Array.isArray(membersRes) ? membersRes : (membersRes.data ?? [])
         );
-        // usersRes is AxiosResponse<PaginatedResponse<AuthUser>>, extract .data.data
         setUsers((usersRes as any).data?.data || []);
 
         setForm({
@@ -165,15 +163,12 @@ export function TicketEditForm({
     });
   }, [members, users]);
 
-  // Filter statuses: Employees and Clients should not see "Closed" status (only Admin can close tickets)
   const statusOptions = useMemo(() => {
     if (role === "ADMIN") {
-      return statuses; // Admin sees all statuses
+      return statuses;
     }
-    // Employees and Clients: exclude "Closed" status
     return statuses.filter((status) => {
       const statusNameLower = status.name.toLowerCase();
-      // Exclude if status name contains "closed" or if isClosed flag is true
       return !statusNameLower.includes("closed") && !status.isClosed;
     });
   }, [statuses, role]);
@@ -182,33 +177,27 @@ export function TicketEditForm({
 
   const canEditStatus = role !== "CLIENT";
 
-  // Prevent editing closed tickets (but not resolved)
   const isTicketClosed = (() => {
     const currentStatus = statuses.find((s) => s.id === form.statusId);
 
-    // Use ticket's statusName as fallback if status not found in taxonomy
     const statusName = currentStatus?.name || ticket?.statusName || "";
     const statusNameLower = statusName.toLowerCase();
 
-    // Never lock tickets with "resolved" in the name, regardless of isClosed flag
     if (statusNameLower.includes("resolved")) return false;
 
-    // If status not found, check ticket's statusName
     if (!currentStatus) {
       return statusNameLower.includes("closed");
     }
 
-    // Check if status is explicitly marked as closed
     if (currentStatus.isClosed) return true;
 
-    // Check if status name contains "closed"
     return statusNameLower.includes("closed");
   })();
 
   const disableSubmit =
     !ticketId ||
     saving ||
-    isTicketClosed || // Disable submit if ticket is closed
+    isTicketClosed ||
     !form.title.trim() ||
     !form.descriptionMd.trim() ||
     !form.priorityId ||
@@ -265,7 +254,6 @@ export function TicketEditForm({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sticky Header with Action Bar */}
       <div className="sticky top-0 z-10 bg-background border-b pb-4 mb-4">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="space-y-1 flex-1 min-w-0">
@@ -304,7 +292,6 @@ export function TicketEditForm({
           </div>
         </div>
 
-        {/* Action Buttons - Always Visible */}
         <div className="flex flex-col sm:flex-row justify-end gap-3">
           <Button
             variant="outline"
@@ -340,7 +327,6 @@ export function TicketEditForm({
         </div>
       </div>
 
-      {/* Tabbed Content */}
       <div className="flex-1 overflow-y-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-4">
@@ -361,14 +347,12 @@ export function TicketEditForm({
             </TabsTrigger>
           </TabsList>
 
-          {/* Details Tab */}
           <TabsContent value="details" className="space-y-4 mt-0">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Ticket Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Title */}
                 <div className="space-y-2">
                   <Label
                     htmlFor="edit-ticket-title"
@@ -391,7 +375,6 @@ export function TicketEditForm({
                   />
                 </div>
 
-                {/* Description */}
                 <div className="space-y-2">
                   <Label
                     htmlFor="edit-ticket-description"
@@ -414,19 +397,16 @@ export function TicketEditForm({
                   />
                 </div>
 
-                {/* Grid of Fields - Following the specified sequence */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* 1. Ticket No */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Ticket No</Label>
                     <div className="text-sm font-mono text-foreground py-2 px-3 bg-muted rounded-md">
                       {ticket.clientTicketNumber?.trim()?.length
                         ? ticket.clientTicketNumber
-                        : ticket.id.substring(0, 8)}
+                        : ticket.id.substring(0, 8                      )}
                     </div>
                   </div>
 
-                  {/* 2. Project */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -437,7 +417,6 @@ export function TicketEditForm({
                     </div>
                   </div>
 
-                  {/* 3. Stream */}
                   <div className="space-y-2">
                     <StreamSelector
                       projectId={ticket?.projectId || ""}
@@ -450,7 +429,6 @@ export function TicketEditForm({
                     />
                   </div>
 
-                  {/* 4. Date Logged */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -461,7 +439,6 @@ export function TicketEditForm({
                     </div>
                   </div>
 
-                  {/* 5. Status */}
                   <div className="space-y-2">
                     <Label
                       htmlFor="edit-ticket-status"
@@ -502,7 +479,6 @@ export function TicketEditForm({
                     )}
                   </div>
 
-                  {/* 6. Priority */}
                   <div className="space-y-2">
                     <Label
                       htmlFor="edit-ticket-priority"
@@ -534,7 +510,6 @@ export function TicketEditForm({
                     </Select>
                   </div>
 
-                  {/* 7. Assigned To */}
                   <div className="space-y-2">
                     <Label
                       htmlFor="edit-ticket-assignee"
@@ -578,7 +553,6 @@ export function TicketEditForm({
                     )}
                   </div>
 
-                  {/* 8. Raised By */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
@@ -589,7 +563,6 @@ export function TicketEditForm({
                     </div>
                   </div>
 
-                  {/* 9. Closed Date */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
@@ -606,7 +579,6 @@ export function TicketEditForm({
               </CardContent>
             </Card>
 
-            {/* Additional Metadata Card - Collapsible */}
             <Collapsible open={metadataOpen} onOpenChange={setMetadataOpen}>
               <Card>
                 <CollapsibleTrigger asChild>
@@ -655,7 +627,6 @@ export function TicketEditForm({
             </Collapsible>
           </TabsContent>
 
-          {/* Comments Tab */}
           <TabsContent value="comments" className="space-y-4 mt-0">
             <Card>
               <CardHeader>
@@ -687,7 +658,6 @@ export function TicketEditForm({
             </Card>
           </TabsContent>
 
-          {/* Attachments Tab */}
           <TabsContent value="attachments" className="space-y-4 mt-0">
             <Card>
               <CardHeader>

@@ -80,16 +80,12 @@ export function TicketsBoard({
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket || ticket.statusId === toStatusId) return;
 
-    // Find the current status
     const currentStatus = statuses.find((s) => s.id === ticket.statusId);
     const statusName = currentStatus?.name || ticket.statusName || "";
     const statusNameLower = statusName.toLowerCase();
 
-    // Never lock tickets with "resolved" in the name, regardless of isClosed flag
     if (statusNameLower.includes("resolved")) {
-      // Allow moving resolved tickets
     } else {
-      // Check if status is closed (either by flag or name)
       const isClosed =
         currentStatus?.isClosed || statusNameLower.includes("closed");
 
@@ -103,9 +99,6 @@ export function TicketsBoard({
 
   const getGridColumns = () => {
     const count = statuses.length;
-    // On mobile, show 1 column if more than 3 statuses, otherwise show all
-    // On tablet, show 2-3 columns max
-    // On desktop, show all columns
     if (count <= 2) return `repeat(${count}, minmax(0, 1fr))`;
     if (count === 3) return "repeat(auto-fit, minmax(200px, 1fr))";
     return "repeat(auto-fit, minmax(180px, 1fr))";
@@ -139,11 +132,9 @@ export function TicketsBoard({
             <div className="space-y-2">
               {ticketsByStatus.get(status.id)?.map((t) => {
                 const currentStatus = statuses.find((s) => s.id === t.statusId);
-                // Only lock tickets that are specifically in "Closed" status (but not resolved)
                 const statusName = currentStatus?.name || t.statusName || "";
                 const statusNameLower = statusName.toLowerCase();
 
-                // Never lock tickets with "resolved" in the name, regardless of isClosed flag
                 const isClosedTicket = statusNameLower.includes("resolved")
                   ? false
                   : currentStatus?.isClosed ||
@@ -227,7 +218,6 @@ export function TicketsBoard({
 function statusColor(status: Status) {
   const key = status.name.toLowerCase();
 
-  // Primary status colors - check these first
   if (key.includes("new"))
     return {
       ring: "ring-blue-300/50 dark:ring-blue-600/50",
@@ -268,7 +258,6 @@ function statusColor(status: Status) {
       dot: "bg-teal-500 dark:bg-teal-400",
     };
 
-  // Legacy status support
   if (key.includes("backlog"))
     return {
       ring: "ring-gray-300/50 dark:ring-gray-600/50",
@@ -305,7 +294,6 @@ function statusColor(status: Status) {
       dot: "bg-red-500 dark:bg-red-400",
     };
 
-  // Default fallback
   return {
     ring: "ring-slate-300/50 dark:ring-slate-600/50",
     header: "text-slate-700 dark:text-slate-300",
@@ -394,7 +382,7 @@ function DraggableCard({
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id,
-      disabled: isLocked, // Disable dragging for locked (closed) tickets
+      disabled: isLocked,
     });
   const style: React.CSSProperties = transform
     ? {
@@ -403,7 +391,6 @@ function DraggableCard({
     : {};
 
   const handleClick = () => {
-    // Clicks should work - dnd-kit PointerSensor with distance constraint allows it
     onClick?.();
   };
 

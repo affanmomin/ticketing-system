@@ -17,7 +17,6 @@ export function Topbar({ title = "", onOpenMobileMenu }: TopbarProps) {
     <header className="h-14 sm:h-16 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75 sticky top-0 z-10 shrink-0">
       <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-          {/* Mobile menu trigger */}
           <Button
             variant="ghost"
             size="icon"
@@ -33,7 +32,6 @@ export function Topbar({ title = "", onOpenMobileMenu }: TopbarProps) {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 md:gap-3 shrink-0">
-          {/* Command Palette Shortcut */}
           <Button
             variant="outline"
             size="sm"
@@ -54,13 +52,11 @@ export function Topbar({ title = "", onOpenMobileMenu }: TopbarProps) {
             </kbd>
           </Button>
 
-          {/* Mobile Search Button */}
           <Button
             variant="ghost"
             size="icon"
             className="md:hidden shrink-0 h-9 w-9"
             onClick={() => {
-              // Open command palette on mobile
               const event = new KeyboardEvent("keydown", {
                 key: "k",
                 metaKey: true,

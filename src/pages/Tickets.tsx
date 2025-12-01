@@ -111,27 +111,22 @@ export function Tickets() {
   const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [saveViewName, setSaveViewName] = useState("");
 
-  // Refs for optimization
   const abortControllerRef = useRef<AbortController | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevFiltersRef = useRef(filters);
   const loadedProjectIdsRef = useRef<Set<string>>(new Set());
 
-  // Memoized values
   const pageSize = useMemo(() => (view === "board" ? 200 : 20), [view]);
   const isClient = useMemo(() => user?.role === "CLIENT", [user?.role]);
 
-  // Check if we should open the create dialog from navigation state
   useEffect(() => {
     const state = location.state as { openCreate?: boolean } | null;
     if (state?.openCreate) {
       setOpenCreate(true);
-      // Clear the state to prevent reopening on refresh
       window.history.replaceState({}, document.title);
     }
   }, [location]);
 
-  // Load reference data (projects, clients, users, streams) - Only once on mount
   useEffect(() => {
     let isMounted = true;
 
@@ -146,7 +141,6 @@ export function Tickets() {
             setProjects(projectsRes.data);
             setClients([]);
             setUsers([]);
-            // Load streams for all projects
             const streamsMap = new Map();
             for (const project of projectsRes.data) {
               try {
@@ -184,7 +178,6 @@ export function Tickets() {
             setProjects(projectsRes.data);
             setClients(clientsRes.data);
             setUsers(usersRes.data);
-            // Load streams for all projects
             const streamsMap = new Map();
             for (const project of projectsRes.data) {
               try {
@@ -220,34 +213,28 @@ export function Tickets() {
     };
   }, [isClient]);
 
-  // Load project members for tickets in current view
   useEffect(() => {
     if (tickets.length === 0) return;
 
     const loadProjectMembers = async () => {
-      // Get unique project IDs from tickets
       const uniqueProjectIds = Array.from(
         new Set(tickets.map((t) => t.projectId))
       );
 
-      // Filter out projects we already have members for
       const projectsToLoad = uniqueProjectIds.filter(
         (projectId) => !loadedProjectIdsRef.current.has(projectId)
       );
 
       if (projectsToLoad.length === 0) return;
 
-      // Mark projects as loading to prevent duplicate requests
       projectsToLoad.forEach((projectId) => {
         loadedProjectIdsRef.current.add(projectId);
       });
 
       try {
-        // Load members for all projects in parallel
         const memberPromises = projectsToLoad.map(async (projectId) => {
           try {
             const membersRes = await projectsApi.listMembers(projectId);
-            // Handle both direct array response and AxiosResponse wrapper
             const members = Array.isArray(membersRes)
               ? membersRes
               : Array.isArray(membersRes.data)
@@ -265,7 +252,6 @@ export function Tickets() {
 
         const results = await Promise.all(memberPromises);
 
-        // Update the map with new members
         setProjectMembers((prev) => {
           const newMap = new Map(prev);
           results.forEach(({ projectId, members }) => {
@@ -275,7 +261,6 @@ export function Tickets() {
         });
       } catch (error) {
         console.warn("Failed to load project members", error);
-        // Remove failed projects from loaded set so they can be retried
         projectsToLoad.forEach((projectId) => {
           loadedProjectIdsRef.current.delete(projectId);
         });
@@ -285,14 +270,12 @@ export function Tickets() {
     loadProjectMembers();
   }, [tickets]);
 
-  // Single unified effect for all ticket loading triggers
   useEffect(() => {
-    let isCurrent = true; // Flag to track if this effect instance is still current
+    let isCurrent = true;
 
     const prev = prevFiltersRef.current;
     const currentFilters = filters;
 
-    // Check what changed
     const searchChanged = prev.search !== currentFilters.search;
     const nonSearchFiltersChanged =
       prev.clientId !== currentFilters.clientId ||
@@ -304,10 +287,8 @@ export function Tickets() {
       prev.raisedByUserId !== currentFilters.raisedByUserId ||
       prev.assignedToUserId !== currentFilters.assignedToUserId;
 
-    // Update ref
     prevFiltersRef.current = currentFilters;
 
-    // If only search changed, debounce it
     if (searchChanged && !nonSearchFiltersChanged) {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
@@ -317,9 +298,8 @@ export function Tickets() {
         if (page !== 0) {
           setPage(0);
         } else {
-          if (!isCurrent) return; // Effect was cleaned up
+          if (!isCurrent) return;
 
-          // Cancel previous request
           if (abortControllerRef.current) {
             abortControllerRef.current.abort();
           }
@@ -344,12 +324,10 @@ export function Tickets() {
 
               const { data } = await ticketsApi.list(query);
 
-              // Check if this effect is still current and request wasn't aborted
               if (!isCurrent || controller.signal.aborted) return;
 
               setTotal(data.total);
 
-              // Client-side filtering
               const filtered = data.data.filter((ticket) => {
                 const matchesSearch = currentFilters.search
                   ? (() => {
@@ -410,7 +388,7 @@ export function Tickets() {
                 error.name === "AbortError" ||
                 controller.signal.aborted
               ) {
-                return; // Request was cancelled, ignore error
+                return;
               }
               toast({
                 title: "Failed to load tickets",
@@ -435,10 +413,8 @@ export function Tickets() {
       };
     }
 
-    // For all other changes (filters, page, view), load immediately
-    if (!isCurrent) return; // Effect was cleaned up
+    if (!isCurrent) return;
 
-    // Cancel previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -463,12 +439,10 @@ export function Tickets() {
 
         const { data } = await ticketsApi.list(query);
 
-        // Check if this effect is still current and request wasn't aborted
         if (!isCurrent || controller.signal.aborted) return;
 
         setTotal(data.total);
 
-        // Client-side filtering
         const filtered = data.data.filter((ticket) => {
           const matchesSearch = currentFilters.search
             ? (() => {
@@ -549,7 +523,6 @@ export function Tickets() {
     };
   }, [filters, page, view, pageSize, toast]);
 
-  // Persist filters to localStorage (debounced)
   useEffect(() => {
     const timeout = setTimeout(() => {
       saveFilters(filters);
@@ -557,7 +530,6 @@ export function Tickets() {
     return () => clearTimeout(timeout);
   }, [filters, saveFilters]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -566,9 +538,7 @@ export function Tickets() {
     };
   }, []);
 
-  // Stable loadTickets function for manual calls (form success handlers, etc.)
   const loadTickets = useCallback(async () => {
-    // Cancel previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -588,12 +558,10 @@ export function Tickets() {
 
       const { data } = await ticketsApi.list(query);
 
-      // Check if request was aborted
       if (controller.signal.aborted) return;
 
       setTotal(data.total);
 
-      // Client-side filtering
       const filtered = data.data.filter((ticket) => {
         const matchesSearch = filters.search
           ? (() => {
@@ -666,17 +634,14 @@ export function Tickets() {
     [total, pageSize]
   );
 
-  // Filter statuses: Employees and Clients should not see "Closed" status (only Admin can close tickets)
   const isAdmin = useMemo(() => user?.role === "ADMIN", [user?.role]);
 
   const filteredStatuses = useMemo(() => {
     if (isAdmin) {
-      return statuses; // Admin sees all statuses
+      return statuses;
     }
-    // Employees and Clients: exclude "Closed" status
     return statuses.filter((status) => {
       const statusNameLower = status.name.toLowerCase();
-      // Exclude if status name contains "closed" or if isClosed flag is true
       return !statusNameLower.includes("closed") && !status.isClosed;
     });
   }, [statuses, isAdmin]);
@@ -698,7 +663,6 @@ export function Tickets() {
       : ticket.id.substring(0, 8);
   }, []);
 
-  // Helper function to get assignable users for a ticket's project
   const getAssignableUsersForTicket = useCallback(
     (ticket: Ticket): AuthUser[] => {
       const members = projectMembers.get(ticket.projectId) || [];
@@ -711,14 +675,11 @@ export function Tickets() {
     [projectMembers, users]
   );
 
-  // Get parent streams - from selected project or all projects
   const parentStreams = useMemo(() => {
     if (filters.projectId === "all") {
-      // Get all parent streams from all projects
       const allParentStreams: Stream[] = [];
       const seenIds = new Set<string>();
       streams.forEach((projectStreams) => {
-        // Safety check: ensure projectStreams is an array
         if (Array.isArray(projectStreams)) {
           projectStreams.forEach((s) => {
             if (!s.parentStreamId && !seenIds.has(s.id)) {
@@ -735,15 +696,12 @@ export function Tickets() {
     return projectStreams.filter((s) => !s.parentStreamId);
   }, [streams, filters.projectId]);
 
-  // Get child streams for selected parent stream
   const childStreams = useMemo(() => {
     if (filters.streamId === "all") return [];
     if (filters.projectId === "all") {
-      // Get child streams from all projects for the selected parent
       const allChildStreams: Stream[] = [];
       const seenIds = new Set<string>();
       streams.forEach((projectStreams) => {
-        // Safety check: ensure projectStreams is an array
         if (Array.isArray(projectStreams)) {
           projectStreams.forEach((s) => {
             if (s.parentStreamId === filters.streamId && !seenIds.has(s.id)) {
@@ -760,7 +718,6 @@ export function Tickets() {
     return projectStreams.filter((s) => s.parentStreamId === filters.streamId);
   }, [streams, filters.projectId, filters.streamId]);
 
-  // Get unique users (remove duplicates)
   const uniqueUsers = useMemo(() => {
     const seen = new Set<string>();
     return users.filter((user) => {
@@ -770,7 +727,6 @@ export function Tickets() {
     });
   }, [users]);
 
-  // Optimized handlers with useCallback
   const handleMoveTicket = useCallback(
     async (ticketId: string, toStatusId: string) => {
       const current = tickets.find((t) => t.id === ticketId);
@@ -957,7 +913,6 @@ export function Tickets() {
         });
       } catch (error: any) {
         console.error("Failed to update assignee:", error);
-        // Revert on failure
         setTickets((prev) =>
           prev.map((t) =>
             t.id === ticketId
@@ -966,7 +921,6 @@ export function Tickets() {
           )
         );
 
-        // Check if it's an auth error
         const status = error?.response?.status;
         if (status === 401 || status === 403) {
           toast({
@@ -986,7 +940,6 @@ export function Tickets() {
     [tickets, users, statuses, toast]
   );
 
-  // Optimized filter update handlers
   const updateFilters = useCallback((updates: Partial<typeof filters>) => {
     setFilters((prev) => ({ ...prev, ...updates }));
     setPage(0);
@@ -1015,7 +968,6 @@ export function Tickets() {
     setPage(0);
   }, []);
 
-  // Keyboard shortcuts
   useKeyboardShortcuts([
     {
       key: "n",
@@ -1098,7 +1050,6 @@ export function Tickets() {
                 }}
                 className="w-full sm:w-60 min-w-[200px]"
               />
-              {/* Hide client filter for CLIENT users - they only see their own tickets */}
               {user?.role !== "CLIENT" && (
                 <Select
                   value={filters.clientId}
@@ -1255,7 +1206,6 @@ export function Tickets() {
               </Select>
             </div>
           </CardTitle>
-          {/* Quick Filters */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">
               Quick filters:
@@ -1396,7 +1346,6 @@ export function Tickets() {
               </Select>
             )}
           </div>
-          {/* Active Filter Chips */}
           {(filters.search ||
             (user?.role !== "CLIENT" && filters.clientId !== "all") ||
             filters.projectId !== "all" ||
@@ -1421,7 +1370,6 @@ export function Tickets() {
                   </button>
                 </Badge>
               )}
-              {/* Hide client filter badge for CLIENT users */}
               {user?.role !== "CLIENT" && filters.clientId !== "all" && (
                 <Badge variant="secondary" className="text-xs">
                   Client: {clients.find((c) => c.id === filters.clientId)?.name}
@@ -1555,29 +1503,24 @@ export function Tickets() {
         <CardContent className="p-0 sm:p-6">
           {view === "table" ? (
             <>
-              {/* Mobile Card View */}
               <div className="md:hidden space-y-3 p-3">
                 {listLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <Card key={index} className="overflow-hidden">
                       <CardContent className="p-4">
                         <div className="space-y-3">
-                          {/* Ticket ID skeleton */}
                           <div className="h-3 bg-muted rounded w-20 animate-pulse" />
 
-                          {/* Title skeleton */}
                           <div className="space-y-1.5">
                             <div className="h-4 bg-muted rounded w-full animate-pulse" />
                             <div className="h-4 bg-muted rounded w-4/5 animate-pulse" />
                           </div>
 
-                          {/* Status and Priority badges skeleton */}
                           <div className="flex gap-2">
                             <div className="h-6 bg-muted rounded w-20 animate-pulse" />
                             <div className="h-6 bg-muted rounded w-16 animate-pulse" />
                           </div>
 
-                          {/* Project, Client, Date info skeleton */}
                           <div className="space-y-1.5">
                             <div className="h-3 bg-muted rounded w-3/4 animate-pulse" />
                             <div className="h-3 bg-muted rounded w-2/3 animate-pulse" />
@@ -1734,7 +1677,6 @@ export function Tickets() {
                 )}
               </div>
 
-              {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader>
@@ -1758,50 +1700,39 @@ export function Tickets() {
                     {listLoading ? (
                       Array.from({ length: 8 }).map((_, index) => (
                         <TableRow key={index}>
-                          {/* Ticket ID */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-3 bg-muted rounded w-16 animate-pulse" />
                           </TableCell>
-                          {/* Title */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="space-y-1.5">
                               <div className="h-4 bg-muted rounded w-full animate-pulse" />
                               <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
                             </div>
                           </TableCell>
-                          {/* Stream */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-4 bg-muted rounded w-28 animate-pulse" />
                           </TableCell>
-                          {/* Substream */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-4 bg-muted rounded w-28 animate-pulse" />
                           </TableCell>
-                          {/* Status */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-7 bg-muted rounded w-20 animate-pulse" />
                           </TableCell>
-                          {/* Priority */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-7 bg-muted rounded w-20 animate-pulse" />
                           </TableCell>
-                          {/* Assignee */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-7 bg-muted rounded w-24 animate-pulse" />
                           </TableCell>
-                          {/* Raised By */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-4 bg-muted rounded w-28 animate-pulse" />
                           </TableCell>
-                          {/* Project */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-4 bg-muted rounded w-32 animate-pulse" />
                           </TableCell>
-                          {/* Client */}
                           <TableCell className="p-3 sm:p-4">
                             <div className="h-4 bg-muted rounded w-28 animate-pulse" />
                           </TableCell>
-                          {/* Updated */}
                           <TableCell className="p-3 sm:p-4 text-right">
                             <div className="h-3 bg-muted rounded w-20 ml-auto animate-pulse" />
                           </TableCell>

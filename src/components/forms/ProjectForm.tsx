@@ -68,14 +68,12 @@ export function ProjectForm({
       };
 
       if (project) {
-        // Update existing project
         await projectsApi.update(project.id, payload);
         toast({
           title: "Success",
           description: "Project updated successfully",
         });
       } else {
-        // Create new project
         await projectsApi.create(payload);
         toast({
           title: "Success",

@@ -28,9 +28,6 @@ import {
 } from "@/components/ui/chart";
 import { Pie, PieChart, Cell } from "recharts";
 
-// Professional modern color palette for charts
-// Inspired by modern design systems (shadcn/ui, Tailwind, Material Design)
-// Optimized for accessibility and visual appeal in both light and dark themes
 const CHART_COLORS = [
   "hsl(217 91% 60%)", // Modern Blue - professional, trustworthy
   "hsl(142 71% 45%)", // Emerald - success, growth
@@ -58,7 +55,6 @@ export function UserActivity() {
   const [loading, setLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(true);
 
-  // Load users list
   useEffect(() => {
     async function loadUsers() {
       setUsersLoading(true);
@@ -79,7 +75,6 @@ export function UserActivity() {
     loadUsers();
   }, []);
 
-  // Load user activity when user is selected
   useEffect(() => {
     if (!selectedUserId) return;
 
@@ -160,12 +155,6 @@ export function UserActivity() {
                 <SelectItem key={user.id} value={user.id}>
                   <div className="flex items-center gap-2">
                     <span>{user.fullName || user.email}</span>
-                    {/* <Badge
-                      variant="outline"
-                      className={`text-xs ${roleColors[user.role]}`}
-                    >
-                      {user.role}
-                    </Badge> */}
                   </div>
                 </SelectItem>
               ))}
